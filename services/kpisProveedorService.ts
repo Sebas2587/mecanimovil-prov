@@ -1,4 +1,5 @@
 import api from './api';
+import logger from '@/utils/logger';
 
 /** Promedios 1–5 de aspectos estructurados de reseñas del cliente. */
 export interface AspectosResena {
@@ -157,7 +158,7 @@ class KpisProveedorService {
       return { success: true, data: response.data as ProveedorKpisResumen };
     } catch (error: any) {
       if (__DEV__) {
-        console.warn('KpisProveedorService.obtenerResumen:', error?.response?.data || error?.message);
+        logger.warn('KpisProveedorService.obtenerResumen:', error?.response?.data || error?.message);
       }
       if (error.response) {
         return {
@@ -180,7 +181,7 @@ class KpisProveedorService {
       return { success: true, data: response.data as GananciasTallerResumen };
     } catch (error: any) {
       if (__DEV__) {
-        console.warn(
+        logger.warn(
           'KpisProveedorService.obtenerGananciasResumen:',
           error?.response?.data || error?.message,
         );
@@ -225,7 +226,7 @@ class KpisProveedorService {
       return { success: true, data: response.data as GananciasTallerSerie };
     } catch (error: any) {
       if (__DEV__) {
-        console.warn(
+        logger.warn(
           'KpisProveedorService.obtenerGananciasSerie:',
           error?.response?.data || error?.message,
         );

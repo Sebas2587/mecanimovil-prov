@@ -24,7 +24,7 @@ if (typeof RNLogBox !== 'undefined') {
   } catch (e) {
     // Si LogBox no está disponible, continuar sin configuración
     if (__DEV__) {
-      console.warn('[LogBox] No se pudo configurar LogBox:', e);
+      logger.warn('[LogBox] No se pudo configurar LogBox:', e);
     }
   }
 }
@@ -55,6 +55,7 @@ import { AlertsProvider } from '@/context/AlertsContext';
 import { PlatformAlertHost } from '@/components/ui/PlatformAlertHost';
 import { PushNotificationSetup } from '@/components/push/PushNotificationSetup';
 import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
+import logger from '@/utils/logger';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,7 +83,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontError && __DEV__) {
-      console.warn('[RootLayout] No se pudo cargar Poppins.', fontError.message);
+      logger.warn('[RootLayout] No se pudo cargar Poppins.', fontError.message);
     }
   }, [fontError]);
 

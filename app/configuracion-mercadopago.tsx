@@ -33,6 +33,7 @@ import mercadoPagoProveedorService, {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useMercadoPagoCuentaQuery } from '@/hooks/useMercadoPagoCuentaQuery';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const CANVAS = COLORS.background.default;
@@ -63,7 +64,7 @@ export default function ConfiguracionMercadoPagoScreen() {
   // Listener para detectar cuando la app vuelve del background después de OAuth
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      console.log(`📱 AppState cambió: ${appState.current} → ${nextAppState}`);
+      logger.log(`📱 AppState cambió: ${appState.current} → ${nextAppState}`);
 
       // Si la app estaba en background/inactive y ahora está activa
       if (
@@ -72,7 +73,7 @@ export default function ConfiguracionMercadoPagoScreen() {
       ) {
         // Si estábamos en proceso de OAuth, recargar datos
         if (oauthInProgress.current) {
-          console.log('🔄 App volvió de OAuth, recargando datos de Mercado Pago...');
+          logger.log('🔄 App volvió de OAuth, recargando datos de Mercado Pago...');
           oauthInProgress.current = false;
           setTimeout(() => {
             invalidate();
@@ -94,10 +95,10 @@ export default function ConfiguracionMercadoPagoScreen() {
   // Listener para el deep link callback
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {
-      console.log('🔗 Deep link recibido:', event.url);
+      logger.log('🔗 Deep link recibido:', event.url);
 
       if (event.url.includes('mercadopago/callback')) {
-        console.log('✅ Callback de Mercado Pago recibido, recargando datos...');
+        logger.log('✅ Callback de Mercado Pago recibido, recargando datos...');
         oauthInProgress.current = false;
         setTimeout(() => {
           invalidate();
@@ -112,7 +113,7 @@ export default function ConfiguracionMercadoPagoScreen() {
     // Verificar si la app se abrió con un deep link
     Linking.getInitialURL().then((url) => {
       if (url && url.includes('mercadopago/callback')) {
-        console.log('🔗 App iniciada con deep link de callback:', url);
+        logger.log('🔗 App iniciada con deep link de callback:', url);
         invalidate();
         void refresh();
       }
@@ -138,8 +139,8 @@ export default function ConfiguracionMercadoPagoScreen() {
         // Marcar que estamos en proceso de OAuth para detectar cuando volvamos
         oauthInProgress.current = true;
 
-        console.log('🔗 Abriendo navegador para OAuth...');
-        console.log('🔗 Auth URL:', result.data.auth_url);
+        logger.log('🔗 Abriendo navegador para OAuth...');
+        logger.log('🔗 Auth URL:', result.data.auth_url);
 
         // Usar Linking.openURL simple - es más predecible
         // Cuando el usuario complete el proceso y cierre el navegador,
@@ -182,7 +183,7 @@ export default function ConfiguracionMercadoPagoScreen() {
         await refresh();
       }
     } catch (err: any) {
-      console.error('Error conectando cuenta MP:', err);
+      logger.error('Error conectando cuenta MP:', err);
       oauthInProgress.current = false;
       Alert.alert('Error', 'Ocurrió un error al conectar la cuenta. Por favor intenta de nuevo.');
     } finally {
@@ -214,7 +215,7 @@ export default function ConfiguracionMercadoPagoScreen() {
                 Alert.alert('Error', result.error || 'No se pudo cancelar el proceso');
               }
             } catch (err: any) {
-              console.error('Error cancelando conexión MP:', err);
+              logger.error('Error cancelando conexión MP:', err);
               Alert.alert('Error', 'Ocurrió un error al cancelar el proceso');
             } finally {
               setDesconectando(false);
@@ -249,7 +250,7 @@ export default function ConfiguracionMercadoPagoScreen() {
                 Alert.alert('Error', result.error || 'No se pudo desconectar la cuenta');
               }
             } catch (err: any) {
-              console.error('Error desconectando cuenta MP:', err);
+              logger.error('Error desconectando cuenta MP:', err);
               Alert.alert('Error', 'Ocurrió un error al desconectar la cuenta');
             } finally {
               setDesconectando(false);

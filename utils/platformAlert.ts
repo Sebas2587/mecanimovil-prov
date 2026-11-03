@@ -1,4 +1,5 @@
 import { Platform, Alert } from 'react-native';
+import logger from '@/utils/logger';
 
 export type PlatformAlertButton = {
   text: string;
@@ -116,7 +117,7 @@ export function showConfirm(
       style: 'destructive',
       onPress: () =>
         Promise.resolve(onConfirm?.()).catch((e) => {
-          if (__DEV__) console.error(e);
+          if (__DEV__) logger.error(e);
         }),
     },
   ]);

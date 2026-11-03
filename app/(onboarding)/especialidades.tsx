@@ -21,6 +21,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -46,16 +47,16 @@ export default function EspecialidadesScreen() {
       
       // Validar que sea un array antes de usar
       if (Array.isArray(especialidadesData)) {
-        console.log('Especialidades cargadas:', especialidadesData.length, 'categorías');
+        logger.log('Especialidades cargadas:', especialidadesData.length, 'categorías');
         setEspecialidades(especialidadesData);
       } else {
-        console.warn('⚠️ especialidadesData no es un array:', typeof especialidadesData);
+        logger.warn('⚠️ especialidadesData no es un array:', typeof especialidadesData);
         setEspecialidades([]);
       }
       
     } catch (error) {
-      console.error('Error cargando especialidades:', error);
-      console.log('Usando especialidades de ejemplo como fallback');
+      logger.error('Error cargando especialidades:', error);
+      logger.log('Usando especialidades de ejemplo como fallback');
       
       // Especialidades de ejemplo en caso de error
       const especialidadesEjemplo = [
@@ -181,7 +182,7 @@ export default function EspecialidadesScreen() {
       
       return true;
     } catch (error) {
-      console.error('Error en validarSeleccion:', error);
+      logger.error('Error en validarSeleccion:', error);
       return false;
     }
   };
@@ -200,7 +201,7 @@ export default function EspecialidadesScreen() {
       if (tipoStr) params.append('tipo', String(tipoStr));
       return `/(onboarding)/informacion-basica?${params.toString()}`;
     } catch (error) {
-      console.error('Error construyendo backPath:', error);
+      logger.error('Error construyendo backPath:', error);
       return `/(onboarding)/informacion-basica?tipo=${tipo || ''}`;
     }
   };
@@ -240,7 +241,7 @@ export default function EspecialidadesScreen() {
       // Ir a selección de marcas
       router.push(`/(onboarding)/cobertura-marcas?${params.toString()}`);
     } catch (error: any) {
-      console.error('Error en handleContinuar (especialidades):', error);
+      logger.error('Error en handleContinuar (especialidades):', error);
       showAlert(
         'Error',
         'Ocurrió un error al continuar. Por favor, intenta nuevamente.'

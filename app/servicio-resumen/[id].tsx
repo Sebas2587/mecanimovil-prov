@@ -25,6 +25,7 @@ import { etiquetaMarcaOferta } from '@/utils/tarifasPorMarca';
 import { parseOfertasGrupoParam, ofertaToGrupoItem } from '@/utils/agruparOfertasServicio';
 import { navigateBack } from '@/utils/navigateBack';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -241,7 +242,7 @@ export default function ServicioResumenScreen() {
           setLoadError(false);
         }
       } catch (e) {
-        console.error('❌ Error cargando servicio por id:', e);
+        logger.error('❌ Error cargando servicio por id:', e);
         if (!cancelled) {
           setServicio(null);
           setLoadError(true);
@@ -279,7 +280,7 @@ export default function ServicioResumenScreen() {
 
         setServicio((prev) => (prev ? { ...prev, fotos_urls: fotosUrls } : prev));
       } catch (error) {
-        console.error('❌ Error cargando fotos del servicio:', error);
+        logger.error('❌ Error cargando fotos del servicio:', error);
       } finally {
         setLoadingFotos(false);
       }
@@ -311,7 +312,7 @@ export default function ServicioResumenScreen() {
           : `Oferta pausada para ${marcaLabel}. Las demás marcas no se modifican.`,
       );
     } catch (error) {
-      console.error('❌ Error cambiando disponibilidad:', error);
+      logger.error('❌ Error cambiando disponibilidad:', error);
       showAlert('Error', 'No se pudo cambiar la disponibilidad de esta marca');
     } finally {
       setTogglingOfertaId(null);
@@ -341,7 +342,7 @@ export default function ServicioResumenScreen() {
             }
             showAlert('Éxito', `Todas las marcas fueron ${activar ? 'activadas' : 'pausadas'}.`);
           } catch (error) {
-            console.error('❌ Error cambiando disponibilidad masiva:', error);
+            logger.error('❌ Error cambiando disponibilidad masiva:', error);
             showAlert(
               'Error',
               `No se pudo ${accion} todas las marcas. Revisa el detalle de cada una.`,
@@ -389,7 +390,7 @@ export default function ServicioResumenScreen() {
               { text: 'OK', onPress: () => navigateBack('/mis-servicios') },
             ]);
           } catch (error) {
-            console.error('❌ Error eliminando servicio:', error);
+            logger.error('❌ Error eliminando servicio:', error);
             showAlert('Error', 'No se pudo eliminar el servicio. Intenta nuevamente.');
           }
         },

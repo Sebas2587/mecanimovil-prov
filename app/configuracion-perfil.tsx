@@ -43,6 +43,7 @@ import {
   perfilTiposDocumentoInfo,
   type DocumentoLocalRow,
 } from '@/hooks/usePerfilDocumentosQuery';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -204,7 +205,7 @@ export default function ConfiguracionPerfilScreen() {
     try {
       setUploadingPhoto(true);
 
-      console.log('📷 Resultado de ImagePicker:', result);
+      logger.log('📷 Resultado de ImagePicker:', result);
 
       // Validar que result tenga assets y que no esté vacío
       if (!result || !result.assets || result.assets.length === 0) {
@@ -228,7 +229,7 @@ export default function ConfiguracionPerfilScreen() {
       // para que el usuario vea el cambio sin esperar al backend.
       setFotoPerfilUri(`${archivo.uri}${archivo.uri.includes('?') ? '&' : '?'}local=1&v=${Date.now()}`);
 
-      console.log('📷 Subiendo foto de perfil (datos completos):', {
+      logger.log('📷 Subiendo foto de perfil (datos completos):', {
         uri: archivo.uri,
         type: archivo.type,
         name: archivo.name,
@@ -258,7 +259,7 @@ export default function ConfiguracionPerfilScreen() {
     } catch (error: any) {
       // Log detallado solo en desarrollo
       if (__DEV__) {
-        console.error('❌ Error subiendo foto (detalles - solo en desarrollo):', {
+        logger.error('❌ Error subiendo foto (detalles - solo en desarrollo):', {
           message: error instanceof Error ? error.message : 'Error desconocido',
           code: error.code,
           name: error.name,
@@ -327,7 +328,7 @@ export default function ConfiguracionPerfilScreen() {
       }
 
     } catch (error) {
-      console.error('❌ Error con documento (detalles):', {
+      logger.error('❌ Error con documento (detalles):', {
         error: error,
         message: error instanceof Error ? error.message : 'Error desconocido',
         tipo: tipoDocumento.key,
@@ -367,7 +368,7 @@ export default function ConfiguracionPerfilScreen() {
         await manejarSubidaDocumento({ key: tipoDocumento.key, label: tipoDocumento.label }, archivo);
       }
     } catch (error) {
-      console.error('Error al abrir galería:', error);
+      logger.error('Error al abrir galería:', error);
       Alert.alert('Error', 'No se pudo abrir la galería de fotos.');
     }
   };
@@ -395,7 +396,7 @@ export default function ConfiguracionPerfilScreen() {
         await manejarSubidaFoto(result);
       }
     } catch (error) {
-      console.error('Error al abrir galería:', error);
+      logger.error('Error al abrir galería:', error);
       Alert.alert('Error', 'No se pudo abrir la galería de fotos.');
     }
   };
@@ -449,7 +450,7 @@ export default function ConfiguracionPerfilScreen() {
       await refrescarEstadoProveedor();
 
     } catch (error: any) {
-      console.error('Error actualizando datos:', error);
+      logger.error('Error actualizando datos:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudieron actualizar los datos.'
@@ -523,17 +524,17 @@ export default function ConfiguracionPerfilScreen() {
       const tieneInfo = !!tipoInfo;
 
       if (__DEV__) {
-        console.log(`📄 Tipo: ${tipo}, Existe: ${!noExiste}, TieneInfo: ${tieneInfo}, Permitido: ${documentosPermitidos.includes(tipo)}`);
+        logger.log(`📄 Tipo: ${tipo}, Existe: ${!noExiste}, TieneInfo: ${tieneInfo}, Permitido: ${documentosPermitidos.includes(tipo)}`);
       }
 
       return noExiste && tieneInfo;
     });
 
     if (__DEV__) {
-      console.log('📊 Documentos permitidos:', documentosPermitidos);
-      console.log('📊 Tipos existentes:', tiposExistentes);
-      console.log('📊 Documentos faltantes:', faltantes);
-      console.log('📊 Tipo proveedor:', estadoProveedor?.tipo_proveedor);
+      logger.log('📊 Documentos permitidos:', documentosPermitidos);
+      logger.log('📊 Tipos existentes:', tiposExistentes);
+      logger.log('📊 Documentos faltantes:', faltantes);
+      logger.log('📊 Tipo proveedor:', estadoProveedor?.tipo_proveedor);
     }
 
     return faltantes;

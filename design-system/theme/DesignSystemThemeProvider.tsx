@@ -9,6 +9,7 @@
 import React, { createContext, useMemo, ReactNode } from 'react';
 import { TOKENS } from '../tokens';
 import { SHADOWS } from '../tokens/shadows';
+import logger from '@/utils/logger';
 
 // Fallback completo para TOKENS si no está disponible
 const FALLBACK_TOKENS = {
@@ -158,7 +159,7 @@ const FALLBACK_TOKENS = {
 const validateTokens = (tokens: any) => {
   // Protección contra tokens undefined/null
   if (!tokens || typeof tokens !== 'object') {
-    console.error('❌ TOKENS is not a valid object, using fallback');
+    logger.error('❌ TOKENS is not a valid object, using fallback');
     return TOKENS && typeof TOKENS === 'object' ? TOKENS : FALLBACK_TOKENS;
   }
 
@@ -187,7 +188,7 @@ const validateTokens = (tokens: any) => {
   const hasValidSpacing = tokens?.spacing && typeof tokens.spacing === 'object' && typeof tokens.spacing?.md !== 'undefined';
 
   if (!hasValidBorders || !hasValidTypography || !hasValidColors || !hasValidSpacing) {
-    console.error('❌ TOKENS validation failed in DesignSystemThemeProvider:', {
+    logger.error('❌ TOKENS validation failed in DesignSystemThemeProvider:', {
       hasTokens: !!tokens,
       hasValidBorders,
       hasValidTypography,
@@ -209,7 +210,7 @@ let safeTOKENS: any;
 try {
   safeTOKENS = TOKENS || FALLBACK_TOKENS;
 } catch (e) {
-  console.error('❌ Error accessing TOKENS in DesignSystemThemeProvider:', e);
+  logger.error('❌ Error accessing TOKENS in DesignSystemThemeProvider:', e);
   safeTOKENS = FALLBACK_TOKENS;
 }
 
@@ -232,7 +233,7 @@ export const DesignSystemThemeProvider: React.FC<DesignSystemThemeProviderProps>
   try {
     tokensToValidate = TOKENS || safeTOKENS || FALLBACK_TOKENS;
   } catch (e) {
-    console.error('❌ Error accessing TOKENS in DesignSystemThemeProvider component:', e);
+    logger.error('❌ Error accessing TOKENS in DesignSystemThemeProvider component:', e);
     tokensToValidate = FALLBACK_TOKENS;
   }
 

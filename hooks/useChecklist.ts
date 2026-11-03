@@ -18,6 +18,7 @@ import {
   itemChecklistCompleto,
   type ChecklistBundle,
 } from '@/hooks/fetchChecklistBundle';
+import logger from '@/utils/logger';
 
 type SaveResponseOptions = {
   /** Evita refetch completo (p.ej. init PHOTO): patch local basta y no rompe la UI. */
@@ -360,7 +361,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
         reader.readAsDataURL(blob);
       });
     } catch (e) {
-      console.warn('⚠️ No se pudo persistir blob de foto en web:', e);
+      logger.warn('⚠️ No se pudo persistir blob de foto en web:', e);
       return uri;
     }
   }, []);
@@ -540,7 +541,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
                 await checklistService.markOfflinePhotoSynced(photo.local_id, uploadResult.data);
               }
             } catch (e) {
-              console.warn('No se pudo subir foto pendiente:', photo.local_id, e);
+              logger.warn('No se pudo subir foto pendiente:', photo.local_id, e);
             }
           }
         }

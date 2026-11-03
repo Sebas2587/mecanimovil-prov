@@ -1,6 +1,7 @@
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import logger from '@/utils/logger';
 
 /**
  * Configuración dinámica del servidor backend para la aplicación de proveedores
@@ -47,7 +48,7 @@ async function getLocalNetworkInfo() {
   } catch (error) {
     // Solo loguear en desarrollo
     if (__DEV__) {
-      console.warn('⚠️ No se pudo obtener información de red:', error);
+      logger.warn('⚠️ No se pudo obtener información de red:', error);
     }
   }
   return null;
@@ -112,7 +113,7 @@ async function testConnection(url: string, timeout: number = 5000): Promise<bool
   try {
     // Solo loguear en desarrollo
     if (__DEV__) {
-      console.log(`🔍 Probando conexión a: ${url}`);
+      logger.log(`🔍 Probando conexión a: ${url}`);
     }
 
     const controller = new AbortController();
@@ -142,12 +143,12 @@ async function testConnection(url: string, timeout: number = 5000): Promise<bool
 
     if (response.ok) {
       if (__DEV__) {
-        console.log(`✅ Servidor encontrado en: ${url}`);
+        logger.log(`✅ Servidor encontrado en: ${url}`);
       }
       return true;
     } else {
       if (__DEV__) {
-        console.log(`❌ Error HTTP ${response.status} en: ${url}`);
+        logger.log(`❌ Error HTTP ${response.status} en: ${url}`);
       }
       return false;
     }
@@ -155,9 +156,9 @@ async function testConnection(url: string, timeout: number = 5000): Promise<bool
   } catch (error: any) {
     if (__DEV__) {
       if (error.name === 'AbortError') {
-        console.log(`⏱️ Timeout en: ${url}`);
+        logger.log(`⏱️ Timeout en: ${url}`);
       } else {
-        console.log(`❌ Error de conexión a ${url}: ${error.message}`);
+        logger.log(`❌ Error de conexión a ${url}: ${error.message}`);
       }
     }
     return false;
@@ -170,23 +171,23 @@ async function testConnection(url: string, timeout: number = 5000): Promise<bool
 async function discoverServerURL(): Promise<string> {
   // Solo loguear en desarrollo
   if (__DEV__) {
-    console.log('🔍 Iniciando auto-discovery del servidor...');
+    logger.log('🔍 Iniciando auto-discovery del servidor...');
   }
 
   // 1. Si hay URL de ngrok configurada y activada, probarla PRIMERO
   if (ENV_CONFIG.USE_NGROK && ENV_CONFIG.NGROK_URL) {
     const ngrokAPIUrl = `${ENV_CONFIG.NGROK_URL}/api`;
     if (__DEV__) {
-      console.log('🌐 Probando URL de ngrok:', ngrokAPIUrl);
+      logger.log('🌐 Probando URL de ngrok:', ngrokAPIUrl);
     }
     if (await testConnection(ngrokAPIUrl)) {
       if (__DEV__) {
-        console.log(`✅ Servidor encontrado en ngrok: ${ngrokAPIUrl}`);
+        logger.log(`✅ Servidor encontrado en ngrok: ${ngrokAPIUrl}`);
       }
       return ngrokAPIUrl;
     }
     if (__DEV__) {
-      console.log('⚠️ ngrok no disponible, probando alternativas locales...');
+      logger.log('⚠️ ngrok no disponible, probando alternativas locales...');
     }
   }
 
@@ -195,7 +196,7 @@ async function discoverServerURL(): Promise<string> {
   const port = ENV_CONFIG.SERVER_PORT || DEFAULT_CONFIG.port;
 
   if (__DEV__) {
-    console.log('🔍 Probando IPs locales candidatas:', possibleIPs);
+    logger.log('🔍 Probando IPs locales candidatas:', possibleIPs);
   }
 
   // Probar cada IP local secuencialmente
@@ -204,24 +205,24 @@ async function discoverServerURL(): Promise<string> {
 
     if (await testConnection(url)) {
       if (__DEV__) {
-        console.log(`✅ Servidor LOCAL encontrado en: ${url}`);
+        logger.log(`✅ Servidor LOCAL encontrado en: ${url}`);
       }
       return url;
     }
   }
 
   if (__DEV__) {
-    console.log('⚠️ No se encontró servidor local, probando producción...');
+    logger.log('⚠️ No se encontró servidor local, probando producción...');
   }
 
   // 3. FALLBACK: Si hay configuración manual (API_URL de producción), probarla
   if (ENV_CONFIG.API_URL) {
     if (__DEV__) {
-      console.log('🌐 Probando URL de producción:', ENV_CONFIG.API_URL);
+      logger.log('🌐 Probando URL de producción:', ENV_CONFIG.API_URL);
     }
     if (await testConnection(ENV_CONFIG.API_URL)) {
       if (__DEV__) {
-        console.log(`✅ Conectado a producción: ${ENV_CONFIG.API_URL}`);
+        logger.log(`✅ Conectado a producción: ${ENV_CONFIG.API_URL}`);
       }
       return ENV_CONFIG.API_URL;
     }
@@ -231,12 +232,12 @@ async function discoverServerURL(): Promise<string> {
   if (DEFAULT_CONFIG.forcedServerIP) {
     const forcedURL = `${DEFAULT_CONFIG.protocol}://${DEFAULT_CONFIG.forcedServerIP}:${port}${DEFAULT_CONFIG.apiPath}`;
     if (__DEV__) {
-      console.log('🔧 Probando IP forzada:', forcedURL);
+      logger.log('🔧 Probando IP forzada:', forcedURL);
     }
 
     if (await testConnection(forcedURL)) {
       if (__DEV__) {
-        console.log(`✅ Servidor encontrado en IP forzada: ${forcedURL}`);
+        logger.log(`✅ Servidor encontrado en IP forzada: ${forcedURL}`);
       }
       return forcedURL;
     }
@@ -245,7 +246,7 @@ async function discoverServerURL(): Promise<string> {
   // 5. Fallback final a localhost
   const fallbackURL = `${DEFAULT_CONFIG.protocol}://localhost:${port}${DEFAULT_CONFIG.apiPath}`;
   if (__DEV__) {
-    console.log(`⚠️ No se pudo conectar a ningún servidor, usando fallback: ${fallbackURL}`);
+    logger.log(`⚠️ No se pudo conectar a ningún servidor, usando fallback: ${fallbackURL}`);
   }
   return fallbackURL;
 }
@@ -290,7 +291,7 @@ class ServerConfig {
     try {
       // Solo loguear en desarrollo
       if (__DEV__) {
-        console.log('🚀 Inicializando configuración del servidor...');
+        logger.log('🚀 Inicializando configuración del servidor...');
       }
 
       // Si estamos en producción, usar URL de producción directamente
@@ -311,10 +312,10 @@ class ServerConfig {
         this.lastCheck = Date.now();
 
         // Loguear siempre en producción para debugging (pero solo información básica)
-        console.log('🚀 [PRODUCCIÓN] Configuración del servidor inicializada:');
-        console.log(`   📡 API URL: ${this.baseURL}`);
-        console.log(`   🎨 Media URL: ${this.mediaURL}`);
-        console.log(`   📱 Plataforma: ${Platform.OS}`);
+        logger.log('🚀 [PRODUCCIÓN] Configuración del servidor inicializada:');
+        logger.log(`   📡 API URL: ${this.baseURL}`);
+        logger.log(`   🎨 Media URL: ${this.mediaURL}`);
+        logger.log(`   📱 Plataforma: ${Platform.OS}`);
 
         return true;
       }
@@ -327,11 +328,11 @@ class ServerConfig {
 
       // Solo loguear en desarrollo
       if (__DEV__) {
-        console.log('✅ Configuración del servidor inicializada:');
-        console.log(`   📡 API URL: ${this.baseURL}`);
-        console.log(`   🎨 Media URL: ${this.mediaURL}`);
-        console.log(`   📱 Plataforma: ${Platform.OS}`);
-        console.log(`   🔧 Modo desarrollo: ${__DEV__ ? 'SÍ' : 'NO'}`);
+        logger.log('✅ Configuración del servidor inicializada:');
+        logger.log(`   📡 API URL: ${this.baseURL}`);
+        logger.log(`   🎨 Media URL: ${this.mediaURL}`);
+        logger.log(`   📱 Plataforma: ${Platform.OS}`);
+        logger.log(`   🔧 Modo desarrollo: ${__DEV__ ? 'SÍ' : 'NO'}`);
       }
 
       return true;
@@ -339,7 +340,7 @@ class ServerConfig {
     } catch (error) {
       // Solo loguear errores en desarrollo
       if (__DEV__) {
-        console.error('❌ Error inicializando configuración del servidor:', error);
+        logger.error('❌ Error inicializando configuración del servidor:', error);
       }
       this.isConnected = false;
 
@@ -435,7 +436,7 @@ class ServerConfig {
     this.lastCheck = null;
     // Solo loguear en desarrollo
     if (__DEV__) {
-      console.log('🔄 Configuración del servidor reseteada');
+      logger.log('🔄 Configuración del servidor reseteada');
     }
   }
 

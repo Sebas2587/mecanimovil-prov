@@ -4,6 +4,7 @@
 import { Platform } from 'react-native';
 import { setItem, deleteItem } from '@/utils/authStorage';
 import { get, post } from '@/services/api';
+import logger from '@/utils/logger';
 
 const WEB_PUSH_ENDPOINT_KEY = 'web_push_endpoint';
 const PUSH_SERVICE_UNAVAILABLE =
@@ -39,7 +40,7 @@ function marcarPushNoDisponible(): void {
   pushServiceUnavailable = true;
   if (__DEV__ && !pushUnavailableLogged) {
     pushUnavailableLogged = true;
-    console.warn(`[webPush] ${PUSH_SERVICE_UNAVAILABLE} Las alertas web quedan desactivadas.`);
+    logger.warn(`[webPush] ${PUSH_SERVICE_UNAVAILABLE} Las alertas web quedan desactivadas.`);
   }
 }
 
@@ -63,7 +64,7 @@ async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null
     await navigator.serviceWorker.ready;
     return registration;
   } catch (err) {
-    if (__DEV__) console.error('[webPush] Error registrando Service Worker:', err);
+    if (__DEV__) logger.error('[webPush] Error registrando Service Worker:', err);
     return null;
   }
 }
@@ -109,11 +110,11 @@ async function getVapidPublicKey(): Promise<string | null> {
       || code === 'ERR_CANCELED'
     ) {
       if (__DEV__) {
-        console.warn('[webPush] VAPID no disponible', status ? `(HTTP ${status})` : code || '');
+        logger.warn('[webPush] VAPID no disponible', status ? `(HTTP ${status})` : code || '');
       }
       return null;
     }
-    if (__DEV__) console.warn('[webPush] No se pudo obtener VAPID public key:', err);
+    if (__DEV__) logger.warn('[webPush] No se pudo obtener VAPID public key:', err);
     return null;
   }
 }
@@ -172,7 +173,7 @@ export async function subscribeWebPush(): Promise<boolean> {
       marcarPushNoDisponible();
       return false;
     }
-    if (__DEV__) console.warn('[webPush] subscribeWebPush:', err);
+    if (__DEV__) logger.warn('[webPush] subscribeWebPush:', err);
     return false;
   }
 }
@@ -199,7 +200,7 @@ export async function unsubscribeWebPush(): Promise<void> {
 
     await deleteItem(WEB_PUSH_ENDPOINT_KEY);
   } catch (err) {
-    if (__DEV__) console.error('[webPush] unsubscribeWebPush:', err);
+    if (__DEV__) logger.error('[webPush] unsubscribeWebPush:', err);
   }
 }
 

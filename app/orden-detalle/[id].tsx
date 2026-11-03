@@ -32,6 +32,7 @@ import {
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -112,7 +113,7 @@ export default function OrdenDetalleScreen() {
         ];
         
         if ((ordenData as any).oferta_proveedor_id && estadosConChecklist.includes(ordenData.estado)) {
-          console.log('🔄 Redirigiendo a oferta-detalle porque la orden tiene oferta asociada');
+          logger.log('🔄 Redirigiendo a oferta-detalle porque la orden tiene oferta asociada');
           router.replace(`/oferta-detalle/${(ordenData as any).oferta_proveedor_id}`);
           return;
         }
@@ -137,11 +138,11 @@ export default function OrdenDetalleScreen() {
             } else {
               // ✅ No hay checklist disponible - esto es normal
               setTieneChecklistDisponible(false);
-              console.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
+              logger.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
             }
           } catch (error) {
             // ✅ Manejar error sin mostrar al usuario
-            console.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
+            logger.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
             setTieneChecklistDisponible(false);
           }
         } else {
@@ -152,7 +153,7 @@ export default function OrdenDetalleScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error inesperado cargando orden:', error);
+      logger.error('Error inesperado cargando orden:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado');
       router.back();
     } finally {
@@ -195,7 +196,7 @@ export default function OrdenDetalleScreen() {
                 Alert.alert('Error', response.message || 'No se pudo aceptar la orden');
               }
             } catch (error) {
-              console.error('Error inesperado aceptando orden:', error);
+              logger.error('Error inesperado aceptando orden:', error);
               Alert.alert('Error', 'Ocurrió un error inesperado');
             } finally {
               setProcesando(false);
@@ -227,7 +228,7 @@ export default function OrdenDetalleScreen() {
               Alert.alert('Error', response.message || 'No se pudo rechazar la orden');
             }
           } catch (error) {
-            console.error('Error inesperado rechazando orden:', error);
+            logger.error('Error inesperado rechazando orden:', error);
             Alert.alert('Error', 'Ocurrió un error inesperado');
           } finally {
             setProcesando(false);
@@ -253,20 +254,20 @@ export default function OrdenDetalleScreen() {
           onPress: async () => {
             try {
               setProcesando(true);
-              console.log('🚀 Iniciando servicio para orden desde detalle:', orden.id);
+              logger.log('🚀 Iniciando servicio para orden desde detalle:', orden.id);
               const resultado = await ordenesProveedorService.iniciarServicio(orden.id);
               
               if (resultado.success) {
                 // 🔄 INVALIDAR CACHE DEL CHECKLIST PARA ESTA ORDEN
-                console.log('♻️ Invalidando cache de checklist para orden desde detalle:', orden.id);
+                logger.log('♻️ Invalidando cache de checklist para orden desde detalle:', orden.id);
                 await checklistService.forceRefreshChecklist(orden.id);
                 
                 // ⏰ ESPERAR UN MOMENTO PARA QUE EL BACKEND TERMINE DE CREAR EL CHECKLIST
-                console.log('⏰ Esperando 2 segundos para que se complete la creación del checklist...');
+                logger.log('⏰ Esperando 2 segundos para que se complete la creación del checklist...');
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
                 // 🔄 LIMPIAR CACHE COMPLETAMENTE Y RECARGAR
-                console.log('🧹 Limpiando cache completo de checklist...');
+                logger.log('🧹 Limpiando cache completo de checklist...');
                 await checklistService.clearChecklistCache();
                 
                 Alert.alert(
@@ -277,7 +278,7 @@ export default function OrdenDetalleScreen() {
                       text: 'OK',
                       onPress: async () => {
                         // Recargar después de que el usuario cierre el alert
-                        console.log('🔄 Recargando datos después de iniciar servicio desde detalle...');
+                        logger.log('🔄 Recargando datos después de iniciar servicio desde detalle...');
                         await cargarOrden();
                       }
                     }
@@ -287,7 +288,7 @@ export default function OrdenDetalleScreen() {
                 Alert.alert('Error', resultado.message || 'No se pudo iniciar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado iniciando servicio desde detalle:', error);
+              logger.error('Error inesperado iniciando servicio desde detalle:', error);
               Alert.alert('Error', 'Error inesperado al iniciar el servicio');
             } finally {
               setProcesando(false);
@@ -320,7 +321,7 @@ export default function OrdenDetalleScreen() {
                 Alert.alert('Error', response.message || 'No se pudo completar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado completando servicio:', error);
+              logger.error('Error inesperado completando servicio:', error);
               Alert.alert('Error', 'Ocurrió un error inesperado');
             } finally {
               setProcesando(false);
@@ -333,7 +334,7 @@ export default function OrdenDetalleScreen() {
 
   // 🔄 FUNCIONES DE CHECKLIST - IGUALES QUE EN INDEX.TSX
   const handleChecklistComplete = () => {
-    console.log('✅ handleChecklistComplete - Cerrando ChecklistContainer desde orden-detalle');
+    logger.log('✅ handleChecklistComplete - Cerrando ChecklistContainer desde orden-detalle');
     Alert.alert(
       'Checklist Completado',
       'El checklist ha sido finalizado exitosamente',
@@ -351,7 +352,7 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleChecklistCancel = () => {
-    console.log('🚫 handleChecklistCancel - Cerrando ChecklistContainer desde orden-detalle');
+    logger.log('🚫 handleChecklistCancel - Cerrando ChecklistContainer desde orden-detalle');
     setShowChecklistContainer(false);
     setSelectedOrdenIdForContainer(null);
   };
@@ -368,7 +369,7 @@ export default function OrdenDetalleScreen() {
           text: 'Finalizar',
           onPress: async () => {
             try {
-              console.log('✅ Finalizando servicio para orden desde detalle:', orden.id);
+              logger.log('✅ Finalizando servicio para orden desde detalle:', orden.id);
               const resultado = await ordenesProveedorService.finalizarServicio(orden.id);
               
               if (resultado.success) {
@@ -381,7 +382,7 @@ export default function OrdenDetalleScreen() {
                 Alert.alert('Error', resultado.message || 'No se pudo finalizar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado finalizando servicio desde detalle:', error);
+              logger.error('Error inesperado finalizando servicio desde detalle:', error);
               Alert.alert('Error', 'Error inesperado al finalizar el servicio');
             }
           },
@@ -394,12 +395,12 @@ export default function OrdenDetalleScreen() {
   const getBotonChecklist = () => {
     if (!orden) return null;
 
-    console.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado);
-    console.log('🔍 [ORDEN-DETALLE] Estados checklist:', { showChecklistContainer, selectedOrdenIdForContainer });
+    logger.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado);
+    logger.log('🔍 [ORDEN-DETALLE] Estados checklist:', { showChecklistContainer, selectedOrdenIdForContainer });
     
     // 1. Orden aceptada por proveedor → Mostrar "Iniciar Servicio"
     if (orden.estado === 'aceptada_por_proveedor') {
-      console.log('✅ [ORDEN-DETALLE] Retornando botón Iniciar Servicio');
+      logger.log('✅ [ORDEN-DETALLE] Retornando botón Iniciar Servicio');
       return {
         texto: 'Iniciar Servicio',
         color: I.primary,
@@ -414,13 +415,13 @@ export default function OrdenDetalleScreen() {
       // ✅ Verificar si hay checklist disponible antes de mostrar el botón
       if (tieneChecklistDisponible === false) {
         // No hay checklist disponible - no mostrar botón
-        console.log('ℹ️ [ORDEN-DETALLE] No hay checklist disponible para orden:', orden.id);
+        logger.log('ℹ️ [ORDEN-DETALLE] No hay checklist disponible para orden:', orden.id);
         return null;
       }
       
       // Si aún está verificando (null), mostrar botón deshabilitado temporalmente
       if (tieneChecklistDisponible === null) {
-        console.log('⏳ [ORDEN-DETALLE] Verificando checklist para orden:', orden.id);
+        logger.log('⏳ [ORDEN-DETALLE] Verificando checklist para orden:', orden.id);
         return {
           texto: 'Verificando Checklist...',
           color: I.muted,
@@ -431,17 +432,17 @@ export default function OrdenDetalleScreen() {
       }
       
       // ✅ Hay checklist disponible - mostrar botón
-      console.log('✅ [ORDEN-DETALLE] Retornando botón Realizar Checklist');
+      logger.log('✅ [ORDEN-DETALLE] Retornando botón Realizar Checklist');
       return {
         texto: 'Realizar Checklist',
         color: I.primary,
         icon: 'assignment',
         onPress: () => {
-          console.log('🎯 [ORDEN-DETALLE] Presionado Realizar Checklist para orden:', orden.id);
-          console.log('🎯 [ORDEN-DETALLE] Activando showChecklistContainer...');
+          logger.log('🎯 [ORDEN-DETALLE] Presionado Realizar Checklist para orden:', orden.id);
+          logger.log('🎯 [ORDEN-DETALLE] Activando showChecklistContainer...');
           setSelectedOrdenIdForContainer(orden.id);
           setShowChecklistContainer(true);
-          console.log('🎯 [ORDEN-DETALLE] Estados actualizados:', { 
+          logger.log('🎯 [ORDEN-DETALLE] Estados actualizados:', { 
             selectedOrdenIdForContainer: orden.id, 
             showChecklistContainer: true 
           });
@@ -477,14 +478,14 @@ export default function OrdenDetalleScreen() {
 
   // 🔄 RENDERIZADO CONDICIONAL DE CHECKLIST - IGUAL QUE EN INDEX.TSX
   // Si está mostrando checklist, renderizar ChecklistContainer como pantalla completa
-  console.log('🔍 [ORDEN-DETALLE] Verificando renderizado condicional:', {
+  logger.log('🔍 [ORDEN-DETALLE] Verificando renderizado condicional:', {
     showChecklistContainer,
     selectedOrdenIdForContainer,
     shouldRender: showChecklistContainer && selectedOrdenIdForContainer
   });
   
   if (showChecklistContainer && selectedOrdenIdForContainer) {
-    console.log('🎯 [ORDEN-DETALLE] ✅ RENDERIZANDO ChecklistContainer como pantalla completa para orden:', selectedOrdenIdForContainer);
+    logger.log('🎯 [ORDEN-DETALLE] ✅ RENDERIZANDO ChecklistContainer como pantalla completa para orden:', selectedOrdenIdForContainer);
     return (
       <ChecklistContainer
         ordenId={selectedOrdenIdForContainer}

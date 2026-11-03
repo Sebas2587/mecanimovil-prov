@@ -32,6 +32,7 @@ import {
 } from '@/services/privacyService';
 import { useAuth } from '@/context/AuthContext';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const SUPPORT_WA =
@@ -95,7 +96,7 @@ export default function PrivacidadDatosScreen() {
           showAlert('Export listo', 'Tus datos quedaron en el portapapeles (JSON).');
         } else {
           showAlert('Export listo', 'Datos preparados. Revisa la consola de desarrollo.');
-          console.log('[privacy-export-prov]', data);
+          logger.log('[privacy-export-prov]', data);
         }
       }
     } catch (e: any) {

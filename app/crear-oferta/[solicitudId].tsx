@@ -19,6 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import { useAlerts } from '@/context/AlertsContext';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -78,7 +79,7 @@ export default function CrearOfertaScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error cargando solicitud:', error);
+      logger.error('Error cargando solicitud:', error);
       Alert.alert('Error', 'No se pudo cargar la solicitud');
       router.back();
     } finally {
@@ -98,12 +99,12 @@ export default function CrearOfertaScreen() {
       if (result.success && result.data) {
         setVerificacionCreditos(result.data);
       } else {
-        console.error('Error verificando créditos:', result.error);
+        logger.error('Error verificando créditos:', result.error);
         // No bloquear si hay error en verificación, continuar
         setVerificacionCreditos(null);
       }
     } catch (error) {
-      console.error('Error verificando créditos:', error);
+      logger.error('Error verificando créditos:', error);
       setVerificacionCreditos(null);
     } finally {
       setVerificandoCreditos(false);
@@ -202,7 +203,7 @@ export default function CrearOfertaScreen() {
       const fueSeleccionadoDirectamente = esSolicitudDirigida || esProveedorDirigido;
       
       if (__DEV__) {
-        console.log('🔍 Validación de zonas:', {
+        logger.log('🔍 Validación de zonas:', {
           tipoProveedor: estadoProveedor?.tipo_proveedor,
           usuarioId: usuario?.id,
           tipoSolicitud: solicitud?.tipo_solicitud,
@@ -245,7 +246,7 @@ export default function CrearOfertaScreen() {
             return;
           }
         } catch (error) {
-          console.error('Error verificando zonas de cobertura:', error);
+          logger.error('Error verificando zonas de cobertura:', error);
           Alert.alert(
             'Error',
             'No se pudo verificar tus zonas de cobertura. Por favor, intenta nuevamente.'
@@ -300,7 +301,7 @@ export default function CrearOfertaScreen() {
         );
       }
     } catch (error: any) {
-      console.error('Error enviando oferta:', error);
+      logger.error('Error enviando oferta:', error);
       Alert.alert('Error', 'No se pudo enviar la oferta. Por favor, intenta nuevamente.');
     } finally {
       setEnviando(false);

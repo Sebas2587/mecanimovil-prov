@@ -8,6 +8,7 @@ import {
   getWebPushStatus,
   type WebPushStatus,
 } from '@/services/push/webPushService';
+import logger from '@/utils/logger';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
@@ -107,7 +108,7 @@ class NotificationService {
         ),
       );
     } catch (e) {
-      if (__DEV__) console.warn('[NotificationService] canales Android:', e);
+      if (__DEV__) logger.warn('[NotificationService] canales Android:', e);
     }
   }
 
@@ -133,7 +134,7 @@ class NotificationService {
     if (!Notifications || !Device) return false;
 
     if (!Device.isDevice && __DEV__) {
-      console.log('[NotificationService] Simulador: push limitado');
+      logger.log('[NotificationService] Simulador: push limitado');
     }
 
     const { status: existing } = await Notifications.getPermissionsAsync();
@@ -166,7 +167,7 @@ class NotificationService {
       Constants.easConfig?.projectId;
 
     if (!projectId) {
-      if (__DEV__) console.warn('[NotificationService] Falta eas.projectId en app config');
+      if (__DEV__) logger.warn('[NotificationService] Falta eas.projectId en app config');
       return null;
     }
 
@@ -174,7 +175,7 @@ class NotificationService {
       const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
       return data;
     } catch (e) {
-      if (__DEV__) console.error('[NotificationService] getExpoPushTokenAsync:', e);
+      if (__DEV__) logger.error('[NotificationService] getExpoPushTokenAsync:', e);
       return null;
     }
   }
@@ -192,7 +193,7 @@ class NotificationService {
         plataforma: platform,
       });
     } catch (e) {
-      if (__DEV__) console.error('[NotificationService] registrar token:', e);
+      if (__DEV__) logger.error('[NotificationService] registrar token:', e);
       return null;
     }
   }
@@ -201,7 +202,7 @@ class NotificationService {
     try {
       await post('/usuarios/desactivar-push-token/', { push_token: token });
     } catch (e) {
-      if (__DEV__) console.error('[NotificationService] desactivar token:', e);
+      if (__DEV__) logger.error('[NotificationService] desactivar token:', e);
     }
   }
 
@@ -209,7 +210,7 @@ class NotificationService {
   async syncPushTokenForUser(userId: number): Promise<void> {
     if (!userId || !this.isNativePushAvailable()) {
       if (__DEV__ && userId && IS_EXPO_GO) {
-        console.warn(
+        logger.warn(
           '[NotificationService] Expo Go no registra push nativo. Usa un dev build o EAS.',
         );
       }
@@ -218,7 +219,7 @@ class NotificationService {
     const token = await this.obtenerPushToken();
     if (!token) {
       if (__DEV__) {
-        console.warn('[NotificationService] Sin Expo push token (permiso denegado o projectId).');
+        logger.warn('[NotificationService] Sin Expo push token (permiso denegado o projectId).');
       }
       return;
     }

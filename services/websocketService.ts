@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import ServerConfig from './serverConfig';
 import { devLog } from '@/utils/devLog';
 import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
+import logger from '@/utils/logger';
 
 // Función simple para obtener token
 const getAuthToken = async (): Promise<string | null> => {
@@ -523,7 +524,7 @@ class WebSocketService {
         this.ws.send(JSON.stringify(heartbeatMessage));
         devLog('💓 Heartbeat enviado -', new Date().toISOString());
       } catch (error) {
-        console.error('❌ Error enviando heartbeat:', error);
+        logger.error('❌ Error enviando heartbeat:', error);
         // Si falla el envío, detener heartbeat y reconectar
         this.stopHeartbeat();
         this.scheduleReconnect();
@@ -711,7 +712,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback de nueva solicitud:', error);
+        logger.error('❌ Error en callback de nueva solicitud:', error);
       }
     });
   }
@@ -737,7 +738,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback de nuevo mensaje chat:', error);
+        logger.error('❌ Error en callback de nuevo mensaje chat:', error);
       }
     });
   }
@@ -763,7 +764,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback de pago expirado:', error);
+        logger.error('❌ Error en callback de pago expirado:', error);
       }
     });
   }
@@ -789,7 +790,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback de solicitud cancelada:', error);
+        logger.error('❌ Error en callback de solicitud cancelada:', error);
       }
     });
   }
@@ -811,7 +812,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback servicio_cerrado_por_cliente:', error);
+        logger.error('❌ Error en callback servicio_cerrado_por_cliente:', error);
       }
     });
   }
@@ -831,7 +832,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback ordenes_list_refresh:', error);
+        logger.error('❌ Error en callback ordenes_list_refresh:', error);
       }
     });
   }
@@ -849,7 +850,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback asignacion_mecanico:', error);
+        logger.error('❌ Error en callback asignacion_mecanico:', error);
       }
     });
   }
@@ -867,7 +868,7 @@ class WebSocketService {
       try {
         callback(event);
       } catch (error) {
-        console.error('❌ Error en callback agente IA:', error);
+        logger.error('❌ Error en callback agente IA:', error);
       }
     });
   }

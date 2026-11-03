@@ -31,6 +31,7 @@ import { HostSectionKicker } from '@/app/design-system/components/HostSurfaces';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
 import { useAuth } from '@/context/AuthContext';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -70,7 +71,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   onComplete,
   onCancel,
 }) => {
-  console.log('🚀 ChecklistContainer montado', { ordenId, citaPersonalId });
+  logger.log('🚀 ChecklistContainer montado', { ordenId, citaPersonalId });
 
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
@@ -139,7 +140,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return 'domicilio';
   }, [instance?.cita_personal_info?.tipo_servicio]);
 
-  console.log('📊 Estado del hook useChecklist:', {
+  logger.log('📊 Estado del hook useChecklist:', {
     template: template ? `Template cargado: ${template.nombre}` : 'No template',
     instance: instance ? `Instance ID: ${instance.id}, estado: ${instance.estado}` : 'No instance',
     loading,
@@ -330,7 +331,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   };
 
   const handleFinalize = () => {
-    console.log('🎯 Intentando finalizar checklist:', {
+    logger.log('🎯 Intentando finalizar checklist:', {
       canFinalize,
       currentStep,
       totalSteps,
@@ -347,8 +348,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     }
 
     if (!canFinalize) {
-      console.log('❌ No se puede finalizar - canFinalize es false');
-      console.log('🔍 Analizando campos para depuración:', {
+      logger.log('❌ No se puede finalizar - canFinalize es false');
+      logger.log('🔍 Analizando campos para depuración:', {
         instance_estado: instance?.estado,
         progreso: progreso,
         totalItems: template?.items?.length,
@@ -364,7 +365,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         return esObligatorio && !itemChecklistCompleto(instance?.respuestas, item);
       }) || [];
 
-      console.log('📋 Campos incompletos encontrados:', camposIncompletos.map(item => ({
+      logger.log('📋 Campos incompletos encontrados:', camposIncompletos.map(item => ({
         id: item.id,
         pregunta: item.pregunta_texto,
         es_obligatorio_efectivo: item.es_obligatorio_efectivo,
@@ -383,17 +384,17 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     // "La orden no tiene vehículo asociado". El impacto real se comunica en el
     // informe público (IA) tras la firma del supervisor; aquí vamos directo a firma.
     if (citaPersonalId) {
-      console.log('✅ Cita personal: saltando preview de impacto → firmas');
+      logger.log('✅ Cita personal: saltando preview de impacto → firmas');
       setShowSignatureModal(true);
       return;
     }
 
-    console.log('✅ Abriendo modal de impacto de salud antes de firmas');
+    logger.log('✅ Abriendo modal de impacto de salud antes de firmas');
     setShowDiffModal(true);
   };
 
   const handleDiffConfirm = () => {
-    console.log('✅ Diff confirmado, abriendo modal de firmas');
+    logger.log('✅ Diff confirmado, abriendo modal de firmas');
     setShowDiffModal(false);
     setShowSignatureModal(true);
   };
@@ -421,7 +422,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     // capturar también la firma del cliente en sitio (modo legacy 'both'),
     // `firmaCliente` viene como string y el backend cierra el flujo de
     // inmediato.
-    console.log('🏁 Enviando firma del técnico al backend...', {
+    logger.log('🏁 Enviando firma del técnico al backend...', {
       firmaCliente: firmaCliente ? 'presente (legacy 2 firmas)' : 'diferida (cliente firmará desde su app)',
     });
     setShowSignatureModal(false);
@@ -434,7 +435,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         ubicacion_lng: ubicacion.lng,
       });
 
-      console.log('🎊 Resultado de finalización:', result);
+      logger.log('🎊 Resultado de finalización:', result);
 
       if (result.success) {
         const requiereFirmaSupervisor = result.requiere_firma_supervisor;
@@ -477,14 +478,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           onComplete?.();
         }
       } else {
-        console.error('❌ Error en finalización:', result.message);
+        logger.error('❌ Error en finalización:', result.message);
         showAlert(
           'Error al Finalizar',
           result.message || 'No se pudo finalizar el checklist. Por favor, intenta nuevamente.',
         );
       }
     } catch (error: any) {
-      console.error('❌ Error inesperado en finalización:', error);
+      logger.error('❌ Error inesperado en finalización:', error);
       showAlert(
         'Error Inesperado',
         'Ocurrió un error al finalizar el checklist. Verifica tu conexión e intenta nuevamente.',

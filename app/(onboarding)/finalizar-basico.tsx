@@ -28,6 +28,7 @@ import {
   mergeRouteParamsIntoDraft,
   type FinalizarBasicoDatos,
 } from '@/utils/onboardingDraftParams';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -115,7 +116,7 @@ export default function FinalizarBasicoScreen() {
 
       return true;
     } catch (error) {
-      console.error('Error en validarDatos:', error);
+      logger.error('Error en validarDatos:', error);
       showAlert('Error', 'Ocurrió un error al validar los datos.');
       return false;
     }
@@ -123,7 +124,7 @@ export default function FinalizarBasicoScreen() {
 
   const guardarEspecialidadesYMarcas = async (datos: FinalizarBasicoDatos) => {
     try {
-      console.log('Iniciando guardado de especialidades y marcas:', {
+      logger.log('Iniciando guardado de especialidades y marcas:', {
         especialidades: datos.especialidades.length,
         marcas: datos.marcas.length,
         tipo: datos.tipo,
@@ -165,11 +166,11 @@ export default function FinalizarBasicoScreen() {
           }));
           await serviciosAPI.crearCatalogoInicial(payload);
         } catch (error: any) {
-          console.warn('⚠️ No se pudo guardar el catálogo inicial:', error?.response?.data || error?.message);
+          logger.warn('⚠️ No se pudo guardar el catálogo inicial:', error?.response?.data || error?.message);
         }
       }
     } catch (error: any) {
-      console.error('Error en guardarEspecialidadesYMarcas:', error);
+      logger.error('Error en guardarEspecialidadesYMarcas:', error);
       throw error;
     }
   };
@@ -190,10 +191,10 @@ export default function FinalizarBasicoScreen() {
   };
 
   const finalizarOnboardingBasico = async () => {
-    console.log('🚀 Iniciando proceso de finalización de onboarding básico...');
+    logger.log('🚀 Iniciando proceso de finalización de onboarding básico...');
 
     if (!validarDatos(datosCompletos) || !usuario) {
-      console.error('❌ Validación fallida o usuario no encontrado');
+      logger.error('❌ Validación fallida o usuario no encontrado');
       showAlert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
       return;
     }
@@ -207,7 +208,7 @@ export default function FinalizarBasicoScreen() {
       // 1. Verificar si ya existe un perfil del proveedor
       pasoCompletado = 1;
       setProgresoSubida('Verificando perfil existente...');
-      console.log('🔍 Paso 1: Verificando perfil existente...');
+      logger.log('🔍 Paso 1: Verificando perfil existente...');
       
       let tienePerfilDelTipo = false;
       let estadoActual: { tiene_perfil?: boolean; tipo_proveedor?: string } | null = null;
@@ -216,7 +217,7 @@ export default function FinalizarBasicoScreen() {
         estadoActual = await authAPI.obtenerEstadoProveedor();
         tienePerfilDelTipo =
           !!estadoActual?.tiene_perfil && estadoActual?.tipo_proveedor === datos.tipo;
-        console.log('✅ Estado proveedor:', estadoActual?.tipo_proveedor, 'objetivo:', datos.tipo);
+        logger.log('✅ Estado proveedor:', estadoActual?.tipo_proveedor, 'objetivo:', datos.tipo);
       } catch (error: any) {
         if (error.response?.status === 404) {
           tienePerfilDelTipo = false;
@@ -231,7 +232,7 @@ export default function FinalizarBasicoScreen() {
         // 2. Crear el perfil del proveedor solo si no existe
         pasoCompletado = 2;
         setProgresoSubida('Creando perfil...');
-        console.log('🏗️ Paso 2: Creando perfil del proveedor...');
+        logger.log('🏗️ Paso 2: Creando perfil del proveedor...');
         
         const descripcionInicial = datos.descripcion?.trim() ||
           (datos.tipo === 'taller'
@@ -256,27 +257,27 @@ export default function FinalizarBasicoScreen() {
         
         // Usar el método directo del API
         const resultadoInicializacion = await onboardingAPI.inicializarOnboarding(datosInicializacion);
-        console.log('✅ Onboarding inicializado exitosamente:', resultadoInicializacion);
+        logger.log('✅ Onboarding inicializado exitosamente:', resultadoInicializacion);
         
         perfilCreado = true;
-        console.log('✅ Perfil creado exitosamente');
+        logger.log('✅ Perfil creado exitosamente');
         
         // Esperar un momento para que el backend actualice las relaciones
         setProgresoSubida('Sincronizando perfil...');
-        console.log('⏳ Esperando sincronización del backend...');
+        logger.log('⏳ Esperando sincronización del backend...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Refrescar el estado del proveedor para asegurar que el backend reconoce el nuevo perfil
-        console.log('🔄 Refrescando estado del proveedor...');
+        logger.log('🔄 Refrescando estado del proveedor...');
         await refrescarEstadoProveedor();
       } else {
-        console.log('✅ Perfil ya existe, continuando con especialidades y marcas');
+        logger.log('✅ Perfil ya existe, continuando con especialidades y marcas');
       }
 
       // 3. Actualizar perfil con datos del onboarding (CRÍTICO)
       pasoCompletado = 3;
       setProgresoSubida('Actualizando perfil con datos del onboarding...');
-      console.log('📝 Paso 3: Actualizando perfil con datos completos del onboarding...');
+      logger.log('📝 Paso 3: Actualizando perfil con datos completos del onboarding...');
       
       const descripcionValidada = datos.descripcion?.trim() ||
         (datos.tipo === 'taller'
@@ -319,12 +320,12 @@ export default function FinalizarBasicoScreen() {
           });
         }
         
-        console.log('✅ Perfil actualizado con datos del onboarding');
+        logger.log('✅ Perfil actualizado con datos del onboarding');
         await new Promise(resolve => setTimeout(resolve, 1000));
         
       } catch (error: any) {
-        console.error('❌ Error actualizando perfil:', error);
-        console.error('❌ Detalles del error:', error.response?.data);
+        logger.error('❌ Error actualizando perfil:', error);
+        logger.error('❌ Detalles del error:', error.response?.data);
         
         // Si falla la actualización, es un error crítico porque los datos deben estar correctos
         throw new Error(`Error crítico actualizando perfil: ${error.response?.data?.error || error.message}`);
@@ -332,23 +333,23 @@ export default function FinalizarBasicoScreen() {
 
       // 4. Guardar especialidades y marcas
       pasoCompletado = 4;
-      console.log('🎯 Paso 4: Guardando especialidades y marcas...');
+      logger.log('🎯 Paso 4: Guardando especialidades y marcas...');
       await guardarEspecialidadesYMarcas(datos);
-      console.log('✅ Especialidades y marcas guardadas exitosamente');
+      logger.log('✅ Especialidades y marcas guardadas exitosamente');
 
       // 5. Completar el onboarding
       pasoCompletado = 5;
       setProgresoSubida('Finalizando onboarding básico...');
-      console.log('🏁 Paso 5: Completando onboarding básico...');
+      logger.log('🏁 Paso 5: Completando onboarding básico...');
       
       let onboardingCompletado = false;
       let resultadoOnboarding: any = null;
       try {
         resultadoOnboarding = await onboardingAPI.completarOnboarding(datos.tipo);
-        console.log('✅ Onboarding básico completado exitosamente:', resultadoOnboarding);
+        logger.log('✅ Onboarding básico completado exitosamente:', resultadoOnboarding);
         onboardingCompletado = true;
       } catch (error: any) {
-        console.error('❌ Error crítico al completar onboarding:', error.response?.data);
+        logger.error('❌ Error crítico al completar onboarding:', error.response?.data);
         
         // Si falla completar onboarding, es un error crítico
         const errores = error.response?.data?.errores || [error.response?.data?.error || 'Error desconocido'];
@@ -357,11 +358,11 @@ export default function FinalizarBasicoScreen() {
 
       // 6. Refrescar estado del proveedor
       pasoCompletado = 6;
-      console.log('🔄 Paso 6: Refrescando estado final...');
+      logger.log('🔄 Paso 6: Refrescando estado final...');
       await refrescarEstadoProveedor();
 
       // 7. Mostrar mensaje de éxito y redirigir a documentos
-      console.log('🎉 Onboarding básico completado exitosamente');
+      logger.log('🎉 Onboarding básico completado exitosamente');
       
       const mensajeExito = perfilCreado
         ? `Tu perfil de ${datos.tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido creado exitosamente.`
@@ -374,7 +375,7 @@ export default function FinalizarBasicoScreen() {
           {
             text: 'Subir Documentos',
             onPress: () => {
-              console.log('🏠 Navegando a subir documentos...');
+              logger.log('🏠 Navegando a subir documentos...');
               resetDraft();
               router.replace('/(onboarding)/subir-documentos');
             },
@@ -383,8 +384,8 @@ export default function FinalizarBasicoScreen() {
       );
 
     } catch (error: any) {
-      console.error(`❌ Error en paso ${pasoCompletado} de finalización:`, error);
-      console.error('📋 Detalles del error:', {
+      logger.error(`❌ Error en paso ${pasoCompletado} de finalización:`, error);
+      logger.error('📋 Detalles del error:', {
         message: error?.message || 'Error desconocido',
         status: error?.response?.status,
         data: error?.response?.data,
@@ -415,17 +416,17 @@ export default function FinalizarBasicoScreen() {
       
       if (error.response?.data?.codigo === 'MECANICO_DUPLICADO' || 
           error.response?.data?.codigo === 'TALLER_DUPLICADO') {
-        console.log('🔄 Perfil duplicado detectado, intentando actualización...');
+        logger.log('🔄 Perfil duplicado detectado, intentando actualización...');
         tituloError = 'Perfil Existente';
         mensajeError = 'Ya tienes un perfil registrado. Continuaremos con la actualización de tus especialidades y marcas.';
         
         // Si el perfil ya existe, intentar solo especialidades y marcas
         try {
-          console.log('🎯 Guardando especialidades para perfil existente...');
+          logger.log('🎯 Guardando especialidades para perfil existente...');
           await guardarEspecialidadesYMarcas(datos);
-          console.log('🏁 Completando onboarding para perfil existente...');
+          logger.log('🏁 Completando onboarding para perfil existente...');
           await onboardingAPI.completarOnboarding(datos.tipo);
-          console.log('🔄 Refrescando estado para perfil existente...');
+          logger.log('🔄 Refrescando estado para perfil existente...');
           await refrescarEstadoProveedor();
           
           showAlertButtons(
@@ -435,7 +436,7 @@ export default function FinalizarBasicoScreen() {
           );
           return;
         } catch (updateError: any) {
-          console.error('❌ Error actualizando información:', updateError);
+          logger.error('❌ Error actualizando información:', updateError);
           mensajeError = 'Error actualizando tu información. Por favor, intenta nuevamente.';
         }
       } else if (error.message) {
@@ -452,7 +453,7 @@ export default function FinalizarBasicoScreen() {
     } finally {
       setIsSubmitting(false);
       setProgresoSubida('');
-      console.log('🔚 Proceso de finalización de onboarding básico terminado');
+      logger.log('🔚 Proceso de finalización de onboarding básico terminado');
     }
   };
 

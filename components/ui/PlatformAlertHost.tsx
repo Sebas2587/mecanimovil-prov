@@ -15,6 +15,7 @@ import {
   registerPlatformAlertHost,
   type PlatformAlertRequest,
 } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -34,7 +35,7 @@ export function PlatformAlertHost() {
     if (current.kind === 'confirm') {
       if (result) {
         Promise.resolve(current.onConfirm?.()).catch((e) => {
-          if (__DEV__) console.error(e);
+          if (__DEV__) logger.error(e);
         });
       } else {
         current.onCancel?.();

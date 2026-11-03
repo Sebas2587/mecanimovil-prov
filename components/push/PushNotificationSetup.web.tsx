@@ -13,6 +13,7 @@ import {
 import { post } from '@/services/api';
 import { useAlerts } from '@/context/AlertsContext';
 import { maybeInvalidateFromPushData } from '@/utils/invalidateProveedorComercial';
+import logger from '@/utils/logger';
 
 export function PushNotificationSetup() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export function PushNotificationSetup() {
 
     void subscribeWebPush().catch((err) => {
       if (__DEV__) {
-        console.warn('[web-push] Suscripción automática falló:', err);
+        logger.warn('[web-push] Suscripción automática falló:', err);
       }
     });
   }, [isAuthenticated]);

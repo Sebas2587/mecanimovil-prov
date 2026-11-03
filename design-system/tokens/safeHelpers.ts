@@ -5,6 +5,7 @@
  */
 
 import { TYPOGRAPHY } from './typography';
+import logger from '@/utils/logger';
 
 /**
  * Obtiene TYPOGRAPHY de forma segura con validaciones exhaustivas
@@ -28,7 +29,7 @@ export const getSafeTypography = () => {
       return TYPOGRAPHY;
     }
   } catch (e) {
-    console.warn('⚠️ Error accessing TYPOGRAPHY, using fallback:', e);
+    logger.warn('⚠️ Error accessing TYPOGRAPHY, using fallback:', e);
   }
 
   // Fallback completo con valores por defecto

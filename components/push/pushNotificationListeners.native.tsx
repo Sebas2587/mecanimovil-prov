@@ -9,6 +9,7 @@ import {
   type PushNotificationData,
 } from '@/utils/push/navigateByPushNotification';
 import { maybeInvalidateFromPushData } from '@/utils/invalidateProveedorComercial';
+import logger from '@/utils/logger';
 
 const SOLICITUD_PUSH_TYPES = new Set([
   'nueva_solicitud',
@@ -73,7 +74,7 @@ export function PushNotificationListeners() {
         }, `msg-${messageId}`);
       }
       if (SOLICITUD_PUSH_TYPES.has(type) && __DEV__) {
-        console.log('[Push] Nueva solicitud recibida en foreground:', data);
+        logger.log('[Push] Nueva solicitud recibida en foreground:', data);
       }
     });
 

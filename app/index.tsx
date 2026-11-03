@@ -7,6 +7,7 @@ import { getItem } from '@/utils/authStorage';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { applyProveedorRoute, resolveProveedorRoute } from '@/utils/auth/resolveProveedorRoute';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -26,12 +27,12 @@ export default function IndexScreen() {
   const autoRetryDone = useRef(false);
 
   if (__DEV__) {
-    console.log('🎬 IndexScreen montado/renderizado');
+    logger.log('🎬 IndexScreen montado/renderizado');
   }
 
   useEffect(() => {
     if (__DEV__) {
-      console.log('🔍 Index useEffect - Estado actual:', {
+      logger.log('🔍 Index useEffect - Estado actual:', {
         isLoading,
         isAuthenticated,
         hasUsuario: !!usuario,
@@ -51,7 +52,7 @@ export default function IndexScreen() {
       const route = resolveProveedorRoute(estadoProveedor, { authenticated: true });
       if (route.kind === 'href') {
         if (__DEV__) {
-          console.log('✅ Navegando según resolveProveedorRoute:', route.href);
+          logger.log('✅ Navegando según resolveProveedorRoute:', route.href);
         }
         applyProveedorRoute(router, route);
         return;

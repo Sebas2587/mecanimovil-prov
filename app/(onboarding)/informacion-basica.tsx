@@ -40,6 +40,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
+import logger from '@/utils/logger';
 
 const DEBOUNCE_MS = 500;
 
@@ -172,7 +173,7 @@ export default function InformacionBasicaScreen() {
         }
       }
     } catch (error) {
-      console.error('Error pre-llenando datos del usuario:', error);
+      logger.error('Error pre-llenando datos del usuario:', error);
     }
   }, [usuario, draft.nombre, draft.telefono]);
 

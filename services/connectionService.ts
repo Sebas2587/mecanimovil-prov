@@ -2,6 +2,7 @@ import api from './api';
 import { AppState, AppStateStatus } from 'react-native';
 import { getItem } from '@/utils/authStorage';
 import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
+import logger from '@/utils/logger';
 
 export interface ConnectionStatus {
   esta_conectado: boolean;
@@ -26,21 +27,21 @@ class ConnectionService {
       throw new Error('Radar de oportunidades inactivo');
     }
     try {
-      console.log('🔗 Marcando proveedor como conectado...');
-      console.log('📍 Usando endpoint: /usuarios/proveedores/conectar/');
+      logger.log('🔗 Marcando proveedor como conectado...');
+      logger.log('📍 Usando endpoint: /usuarios/proveedores/conectar/');
       
       const response = await api.post('/usuarios/proveedores/conectar/');
       
       if (response.status === 200) {
         this.isConnected = true;
-        console.log('✅ Proveedor marcado como conectado');
+        logger.log('✅ Proveedor marcado como conectado');
         return response.data;
       } else {
-        console.log('❌ Error marcando como conectado:', response.status);
+        logger.log('❌ Error marcando como conectado:', response.status);
         throw new Error('Error al conectar');
       }
     } catch (error) {
-      console.log('❌ Error en connect():', error);
+      logger.log('❌ Error en connect():', error);
       throw error;
     }
   }
@@ -53,26 +54,26 @@ class ConnectionService {
       // Verificar si hay token antes de intentar desconectar
       const token = await getItem('authToken');
       if (!token) {
-        console.log('⚠️ No hay token válido, saltando desconexión');
+        logger.log('⚠️ No hay token válido, saltando desconexión');
         this.isConnected = false;
         return null;
       }
 
-      console.log('🔌 Marcando proveedor como desconectado...');
-      console.log('📍 Usando endpoint: /usuarios/proveedores/desconectar/');
+      logger.log('🔌 Marcando proveedor como desconectado...');
+      logger.log('📍 Usando endpoint: /usuarios/proveedores/desconectar/');
       
       const response = await api.post('/usuarios/proveedores/desconectar/');
       
       if (response.status === 200) {
         this.isConnected = false;
-        console.log('✅ Proveedor marcado como desconectado');
+        logger.log('✅ Proveedor marcado como desconectado');
         return response.data;
       } else {
-        console.log('❌ Error marcando como desconectado:', response.status);
+        logger.log('❌ Error marcando como desconectado:', response.status);
         throw new Error('Error al desconectar');
       }
     } catch (error) {
-      console.log('❌ Error en disconnect():', error);
+      logger.log('❌ Error en disconnect():', error);
       // Si hay error, asumir que está desconectado
       this.isConnected = false;
       return null;
@@ -83,7 +84,7 @@ class ConnectionService {
    * Maneja los cambios de estado de la app
    */
   private handleAppStateChange = (nextAppState: AppStateStatus) => {
-    console.log('📱 Estado de la app cambiado:', this.lastAppState, '→', nextAppState);
+    logger.log('📱 Estado de la app cambiado:', this.lastAppState, '→', nextAppState);
     
     // Solo procesar si el estado realmente cambió
     if (this.lastAppState === nextAppState) {
@@ -94,13 +95,13 @@ class ConnectionService {
     
     if (nextAppState === 'active') {
       // App vuelve a estar activa - reconectar
-      console.log('🔄 App activa - reconectando...');
+      logger.log('🔄 App activa - reconectando...');
       
       // Limpiar timeout de desconexión si existe
       if (this.disconnectTimeout) {
         clearTimeout(this.disconnectTimeout);
         this.disconnectTimeout = null;
-        console.log('⏰ Timeout de desconexión cancelado');
+        logger.log('⏰ Timeout de desconexión cancelado');
       }
 
       if (!isRadarOportunidadesActivo()) {
@@ -108,17 +109,17 @@ class ConnectionService {
       }
       
       this.connect().catch(error => {
-        console.log('⚠️ Error reconectando:', error);
+        logger.log('⚠️ Error reconectando:', error);
       });
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
       // App pasa a segundo plano o se cierra - desconectar después de un delay
-      console.log('🛑 App en segundo plano - programando desconexión...');
+      logger.log('🛑 App en segundo plano - programando desconexión...');
       
       // Desconectar después de 5 segundos para evitar desconexiones falsas
       this.disconnectTimeout = setTimeout(() => {
-        console.log('🛑 Ejecutando desconexión programada...');
+        logger.log('🛑 Ejecutando desconexión programada...');
         this.disconnect().catch(error => {
-          console.log('⚠️ Error desconectando:', error);
+          logger.log('⚠️ Error desconectando:', error);
         });
       }, 5000) as any; // 5 segundos
     }
@@ -129,7 +130,7 @@ class ConnectionService {
    */
   startConnectionMonitoring(): void {
     if (!isRadarOportunidadesActivo()) {
-      console.log('⏸️ Monitoreo de conexión: radar inactivo, no se inicia');
+      logger.log('⏸️ Monitoreo de conexión: radar inactivo, no se inicia');
       return;
     }
 
@@ -142,11 +143,11 @@ class ConnectionService {
       this.appStateListener = null;
     }
 
-    console.log('🔄 Iniciando monitoreo de conexión...');
+    logger.log('🔄 Iniciando monitoreo de conexión...');
     
     // Conectar inmediatamente
     this.connect().catch(error => {
-      console.log('⚠️ Error en conexión inicial:', error);
+      logger.log('⚠️ Error en conexión inicial:', error);
     });
 
     // Mantener conexión activa cada 60 segundos (más eficiente)
@@ -158,7 +159,7 @@ class ConnectionService {
         try {
           await this.connect();
         } catch (error) {
-          console.log('⚠️ Error manteniendo conexión:', error);
+          logger.log('⚠️ Error manteniendo conexión:', error);
           this.isConnected = false;
         }
       }
@@ -166,18 +167,18 @@ class ConnectionService {
 
     // Escuchar cambios de estado de la app
     this.appStateListener = AppState.addEventListener('change', this.handleAppStateChange);
-    console.log('👂 Escuchando cambios de estado de la app');
+    logger.log('👂 Escuchando cambios de estado de la app');
     
     // Obtener estado inicial
     this.lastAppState = AppState.currentState;
-    console.log('📱 Estado inicial de la app:', this.lastAppState);
+    logger.log('📱 Estado inicial de la app:', this.lastAppState);
   }
 
   /**
    * Detiene el monitoreo de conexión
    */
   stopConnectionMonitoring(): void {
-    console.log('🛑 Deteniendo monitoreo de conexión...');
+    logger.log('🛑 Deteniendo monitoreo de conexión...');
     
     if (this.connectionInterval) {
       clearInterval(this.connectionInterval);
@@ -194,12 +195,12 @@ class ConnectionService {
     if (this.appStateListener) {
       this.appStateListener.remove();
       this.appStateListener = null;
-      console.log('👂 Removido listener de AppState');
+      logger.log('👂 Removido listener de AppState');
     }
 
     // Desconectar al salir (solo si hay token)
     this.disconnect().catch(error => {
-      console.log('⚠️ Error al desconectar:', error);
+      logger.log('⚠️ Error al desconectar:', error);
     });
   }
 

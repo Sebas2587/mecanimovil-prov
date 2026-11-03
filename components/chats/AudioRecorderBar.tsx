@@ -17,6 +17,7 @@ import {
 } from 'expo-audio';
 import { Check, Mic, Trash2 } from 'lucide-react-native';
 import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/design-system/tokens';
+import logger from '@/utils/logger';
 
 export type RecordedAttachment = {
   uri: string;
@@ -105,7 +106,7 @@ export function AudioRecorderBar({
         }
       }
     } catch (e) {
-      console.warn('startRecording failed', e);
+      logger.warn('startRecording failed', e);
       activeRef.current = false;
       setIsRecording(false);
       Alert.alert('Error', 'No se pudo iniciar la grabación.');
@@ -168,7 +169,7 @@ export function AudioRecorderBar({
         }
       }
     } catch (e) {
-      console.warn('finishRecording failed', e);
+      logger.warn('finishRecording failed', e);
       Alert.alert('Error', 'No se pudo guardar el audio.');
     } finally {
       activeRef.current = false;

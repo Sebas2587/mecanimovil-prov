@@ -24,6 +24,7 @@ import Header from '@/components/Header';
 import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import logger from '@/utils/logger';
 
 const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
 
@@ -112,14 +113,14 @@ export default function ComprarCreditosScreen() {
           } else if (result.isNotFound) {
             // Error 404, la compra no existe en el origen (ej. cambio a BD Prod) - limpiar localmente
             await AsyncStorage.removeItem(COMPRA_PENDIENTE_KEY);
-            console.log('Compra no encontrada (404). Se limpió el registro pendiente.');
+            logger.log('Compra no encontrada (404). Se limpió el registro pendiente.');
           }
 
           setVerificacionAutomatica(false);
         }
       }
     } catch (error) {
-      console.error('Error verificando compra pendiente:', error);
+      logger.error('Error verificando compra pendiente:', error);
       setVerificacionAutomatica(false);
     }
   };
@@ -132,7 +133,7 @@ export default function ComprarCreditosScreen() {
         unitBruto = Number(statsRes.data.precio_credito_unitario_clp);
       }
     } catch (e) {
-      if (__DEV__) console.warn('[ComprarCreditos] precio desde API:', e);
+      if (__DEV__) logger.warn('[ComprarCreditos] precio desde API:', e);
     }
     setPrecioUnitarioClp(unitBruto);
 
@@ -187,7 +188,7 @@ export default function ComprarCreditosScreen() {
         Alert.alert('Error', result.error || 'Error al realizar la compra');
       }
     } catch (error: any) {
-      console.error('Error comprando créditos:', error);
+      logger.error('Error comprando créditos:', error);
       Alert.alert('Error', 'Error al realizar la compra');
     } finally {
       setComprando(false);

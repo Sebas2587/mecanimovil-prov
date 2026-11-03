@@ -21,6 +21,7 @@ import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import { pasoDeCaso } from '@/utils/pasoComercial';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { useInvalidateCotizacionesCanalTaller } from '@/hooks/useCotizacionesCanalTallerQuery';
+import logger from '@/utils/logger';
 
 const C = COLORS;
 
@@ -65,12 +66,12 @@ export default function TabLayout() {
 
   useEffect(() => {
     if (__DEV__) {
-      console.log('🏠 TabLayout - Monitoreando autenticación:', { isAuthenticated, isLoading });
+      logger.log('🏠 TabLayout - Monitoreando autenticación:', { isAuthenticated, isLoading });
     }
 
     if (!isLoading && !isAuthenticated) {
       if (__DEV__) {
-        console.log('🚪 TabLayout - Usuario no autenticado, navegando al login');
+        logger.log('🚪 TabLayout - Usuario no autenticado, navegando al login');
       }
       websocketService.disconnect({ force: true });
       connectionService.stopConnectionMonitoring();
@@ -82,7 +83,7 @@ export default function TabLayout() {
         radarOportunidadesActivo || esMecanicoEquipo || websocketService.isTallerTabsSessionActive();
       if (mantenerWs) {
         if (__DEV__) {
-          console.log('🔗 TabLayout - WebSocket activo', {
+          logger.log('🔗 TabLayout - WebSocket activo', {
             radar: radarOportunidadesActivo,
             mecanico: esMecanicoEquipo,
             tallerTabs: websocketService.isTallerTabsSessionActive(),
@@ -96,7 +97,7 @@ export default function TabLayout() {
         }
       } else {
         if (__DEV__) {
-          console.log('⏸️ TabLayout - Sin sesión comercial activa: WebSocket apagado');
+          logger.log('⏸️ TabLayout - Sin sesión comercial activa: WebSocket apagado');
         }
         if (!websocketService.isChatSessionActive()) {
           websocketService.disconnect();
@@ -109,7 +110,7 @@ export default function TabLayout() {
   useEffect(() => {
     return () => {
       if (__DEV__) {
-        console.log('🧹 TabLayout - Desmontando, desconectando WebSocket y monitoreo de conexión');
+        logger.log('🧹 TabLayout - Desmontando, desconectando WebSocket y monitoreo de conexión');
       }
       websocketService.disconnect({ force: true });
       connectionService.stopConnectionMonitoring();

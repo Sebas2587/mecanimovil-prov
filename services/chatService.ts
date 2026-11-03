@@ -2,6 +2,7 @@ import { get, post } from './api';
 import { getItem } from '@/utils/authStorage';
 import ServerConfig from './serverConfig';
 import { appendChatFileToFormData } from '@/utils/chatAttachmentMedia';
+import logger from '@/utils/logger';
 
 type WsPayload = Record<string, unknown>;
 
@@ -130,7 +131,7 @@ class ChatService {
 
     const token = await getItem('authToken');
     if (!token) {
-      console.error('[chatService] Sin token para WebSocket');
+      logger.error('[chatService] Sin token para WebSocket');
       return;
     }
 
@@ -141,7 +142,7 @@ class ChatService {
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
-      if (__DEV__) console.log('[chatService] WS conectado', conversationId);
+      logger.log('[chatService] WS conectado', conversationId);
     };
 
     this.socket.onmessage = (event) => {
@@ -149,12 +150,12 @@ class ChatService {
         const data = JSON.parse(String(event.data)) as WsPayload;
         this.messageCallback?.(data);
       } catch (e) {
-        console.error('[chatService] Error parseando WS:', e);
+        logger.error('[chatService] Error parseando WS:', e);
       }
     };
 
     this.socket.onerror = () => {
-      console.warn('[chatService] Error WebSocket');
+      logger.warn('[chatService] Error WebSocket');
     };
 
     this.socket.onclose = () => {

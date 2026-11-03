@@ -7,6 +7,7 @@
  *   - POST /api/suscripciones/mi-suscripcion/cancelar/       → cancelar
  */
 import apiClient from '@/services/api';
+import logger from '@/utils/logger';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -77,7 +78,7 @@ const obtenerPlanes = async (): Promise<{ success: boolean; planes: PlanSuscripc
         const planes = response.data?.results ?? response.data ?? [];
         return { success: true, planes };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error obteniendo planes:', error?.response?.data || error);
+        logger.error('[suscripcionesService] Error obteniendo planes:', error?.response?.data || error);
         return {
             success: false,
             planes: [],
@@ -97,7 +98,7 @@ const suscribirse = async (
         const response = await apiClient.post(`/suscripciones/planes/${planId}/suscribirse/`);
         return { success: true, data: response.data };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error suscribiéndose:', error?.response?.data || error);
+        logger.error('[suscripcionesService] Error suscribiéndose:', error?.response?.data || error);
         return {
             success: false,
             error: error?.response?.data?.error || 'No se pudo iniciar la suscripción. Intente nuevamente.',
@@ -121,9 +122,9 @@ const obtenerMiSuscripcion = async (): Promise<{
         const code = error?.response?.data?.code;
         const status = error?.response?.status;
         if (status === 503 && code === 'database_unavailable') {
-            if (__DEV__) console.warn('[suscripcionesService] API temporalmente no disponible (BD)');
+            if (__DEV__) logger.warn('[suscripcionesService] API temporalmente no disponible (BD)');
         } else {
-            console.error('[suscripcionesService] Error obteniendo suscripción:', error?.response?.data || error);
+            logger.error('[suscripcionesService] Error obteniendo suscripción:', error?.response?.data || error);
         }
         return {
             success: false,
@@ -149,7 +150,7 @@ const cancelarSuscripcion = async (): Promise<{ success: boolean; mensaje?: stri
         return { success: true, mensaje: data.mensaje || 'Suscripción cancelada exitosamente' };
     } catch (error: any) {
         const data = error?.response?.data;
-        console.error('[suscripcionesService] Error cancelando suscripción:', data || error);
+        logger.error('[suscripcionesService] Error cancelando suscripción:', data || error);
         return {
             success: false,
             error:
@@ -184,7 +185,7 @@ const verificarSuscripcion = async (suscripcionId: number): Promise<{
         }
         return { success: true, activa: false, estado: sus?.estado };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error verificando suscripción:', error);
+        logger.error('[suscripcionesService] Error verificando suscripción:', error);
         return { success: false, activa: false };
     }
 };
@@ -206,7 +207,7 @@ const sincronizarSuscripcion = async (): Promise<{
         const response = await apiClient.post('/suscripciones/mi-suscripcion/sincronizar/');
         return { success: true, ...response.data };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error sincronizando suscripción:', error?.response?.data || error);
+        logger.error('[suscripcionesService] Error sincronizando suscripción:', error?.response?.data || error);
         return {
             success: false,
             sincronizado: false,
@@ -287,7 +288,7 @@ const obtenerHistorialCobros = async (): Promise<{
             total: response.data?.total ?? 0,
         };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error obteniendo historial cobros:', error?.response?.data || error);
+        logger.error('[suscripcionesService] Error obteniendo historial cobros:', error?.response?.data || error);
         return {
             success: false,
             cobros: [],
@@ -314,10 +315,10 @@ const obtenerEstadoSalud = async (): Promise<{
         const status = error?.response?.status;
         if (status === 503 && code === 'database_unavailable') {
             if (__DEV__) {
-                console.warn('[suscripcionesService] API temporalmente no disponible (BD)');
+                logger.warn('[suscripcionesService] API temporalmente no disponible (BD)');
             }
         } else {
-            console.error('[suscripcionesService] Error obteniendo estado salud:', error?.response?.data || error);
+            logger.error('[suscripcionesService] Error obteniendo estado salud:', error?.response?.data || error);
         }
         return {
             success: false,
@@ -339,7 +340,7 @@ const obtenerUsoFeatures = async (): Promise<{
         const response = await apiClient.get('/suscripciones/mi-suscripcion/uso-features/');
         return { success: true, data: response.data };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error obteniendo uso features:', error?.response?.data || error);
+        logger.error('[suscripcionesService] Error obteniendo uso features:', error?.response?.data || error);
         return {
             success: false,
             data: null,

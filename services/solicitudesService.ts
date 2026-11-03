@@ -1,6 +1,7 @@
 import api, { getAPI } from './api';
 import { getItem } from '@/utils/authStorage';
 import { appendChatFileToFormData } from '@/utils/chatAttachmentMedia';
+import logger from '@/utils/logger';
 
 // Tipos para solicitudes públicas
 export interface ServicioSolicitado {
@@ -369,7 +370,7 @@ export const obtenerSolicitudesDisponibles = async (): Promise<ApiResponse<Solic
       data: solicitudes
     };
   } catch (error: any) {
-    console.error('Error obteniendo solicitudes disponibles:', error);
+    logger.error('Error obteniendo solicitudes disponibles:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener solicitudes'
@@ -402,7 +403,7 @@ export const obtenerDetalleSolicitud = async (id: string): Promise<ApiResponse<S
       data: solicitud
     };
   } catch (error: any) {
-    console.error('Error obteniendo detalle de solicitud:', error);
+    logger.error('Error obteniendo detalle de solicitud:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener detalle de solicitud'
@@ -415,18 +416,18 @@ export const obtenerDetalleSolicitud = async (id: string): Promise<ApiResponse<S
  */
 export const crearOferta = async (datosOferta: OfertaProveedorData): Promise<ApiResponse<OfertaProveedor>> => {
   try {
-    console.log('📤 Enviando oferta:', JSON.stringify(datosOferta, null, 2));
+    logger.log('📤 Enviando oferta:', JSON.stringify(datosOferta, null, 2));
     const response = await api.post('/ordenes/ofertas/', datosOferta);
 
-    console.log('✅ Oferta creada exitosamente:', response.data);
+    logger.log('✅ Oferta creada exitosamente:', response.data);
     return {
       success: true,
       data: response.data
     };
   } catch (error: any) {
-    console.error('❌ Error creando oferta:', error);
-    console.error('❌ Error detallado:', error.response?.data);
-    console.error('❌ Datos enviados:', JSON.stringify(datosOferta, null, 2));
+    logger.error('❌ Error creando oferta:', error);
+    logger.error('❌ Error detallado:', error.response?.data);
+    logger.error('❌ Datos enviados:', JSON.stringify(datosOferta, null, 2));
 
     // Extraer mensaje de error más detallado
     let errorMessage = 'Error al crear oferta';
@@ -470,14 +471,14 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
     // ✅ Usar getAPI() para obtener la instancia de API correctamente configurada
     const apiInstance = await getAPI();
 
-    console.log('🔄 Obteniendo mis ofertas...');
+    logger.log('🔄 Obteniendo mis ofertas...');
 
     // ✅ El backend filtra automáticamente por proveedor en get_queryset()
     // No es necesario enviar el parámetro 'proveedor: me', pero no causa problemas si se envía
     // mis_ofertas devuelve todas las ofertas del proveedor (sin paginación de PAGE_SIZE=10 del list)
     const response = await apiInstance.get('/ordenes/ofertas/mis_ofertas/');
 
-    console.log('✅ Respuesta mis_ofertas:', {
+    logger.log('✅ Respuesta mis_ofertas:', {
       hasData: !!response.data,
       isArray: Array.isArray(response.data),
       count: Array.isArray(response.data) ? response.data.length : 0,
@@ -491,15 +492,15 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
       ofertas = response.data.results;
     }
 
-    console.log(`✅ Total ofertas obtenidas: ${ofertas.length}`);
+    logger.log(`✅ Total ofertas obtenidas: ${ofertas.length}`);
 
     return {
       success: true,
       data: ofertas
     };
   } catch (error: any) {
-    console.error('❌ Error obteniendo mis ofertas:', error);
-    console.error('❌ Detalles del error:', {
+    logger.error('❌ Error obteniendo mis ofertas:', error);
+    logger.error('❌ Detalles del error:', {
       message: error?.message,
       code: error?.code,
       status: error?.response?.status,
@@ -528,7 +529,7 @@ export const obtenerDetalleOferta = async (id: string): Promise<ApiResponse<Ofer
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo detalle de oferta:', error);
+    logger.error('Error obteniendo detalle de oferta:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener detalle de oferta'
@@ -541,12 +542,12 @@ export const obtenerDetalleOferta = async (id: string): Promise<ApiResponse<Ofer
  */
 export const obtenerChatOferta = async (ofertaId: string): Promise<ApiResponse<MensajeChat[]>> => {
   try {
-    console.log(`📨 [SOLICITUDES SERVICE] Obteniendo chat de oferta: ${ofertaId}`);
+    logger.log(`📨 [SOLICITUDES SERVICE] Obteniendo chat de oferta: ${ofertaId}`);
 
     // Usar el endpoint correcto con la acción personalizada por_oferta
     const response = await api.get(`/ordenes/chat-solicitudes/por_oferta/${ofertaId}/`);
 
-    console.log(`✅ [SOLICITUDES SERVICE] Chat obtenido - ${response.data.length} mensajes`);
+    logger.log(`✅ [SOLICITUDES SERVICE] Chat obtenido - ${response.data.length} mensajes`);
 
     let mensajes: MensajeChat[] = [];
 
@@ -557,14 +558,14 @@ export const obtenerChatOferta = async (ofertaId: string): Promise<ApiResponse<M
     }
 
     // Los mensajes ya vienen ordenados del backend por fecha de envío
-    console.log(`📨 [SOLICITUDES SERVICE] Mensajes procesados: ${mensajes.length}`);
+    logger.log(`📨 [SOLICITUDES SERVICE] Mensajes procesados: ${mensajes.length}`);
 
     return {
       success: true,
       data: mensajes
     };
   } catch (error: any) {
-    console.error('❌ [SOLICITUDES SERVICE] Error obteniendo chat de oferta:', error);
+    logger.error('❌ [SOLICITUDES SERVICE] Error obteniendo chat de oferta:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener chat'
@@ -616,7 +617,7 @@ export const enviarMensajeChat = async (
         mimeType: tipoArchivo,
       });
 
-      console.log('📤 [SOLICITUDES SERVICE] Enviando mensaje con adjunto:', attachment.name);
+      logger.log('📤 [SOLICITUDES SERVICE] Enviando mensaje con adjunto:', attachment.name);
 
       // Usar fetch nativo para evitar problemas de Network Error con axios + FormData en RN
       // Obtener URL base de la instancia de axios
@@ -635,7 +636,7 @@ export const enviarMensajeChat = async (
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Error envío fetch:', response.status, errorText);
+        logger.error('❌ Error envío fetch:', response.status, errorText);
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
@@ -659,7 +660,7 @@ export const enviarMensajeChat = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error enviando mensaje:', error);
+    logger.error('Error enviando mensaje:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al enviar mensaje'
@@ -677,13 +678,13 @@ export const marcarMensajesComoLeidos = async (ofertaId: string): Promise<ApiRes
   try {
     // Ya no es necesario hacer esta llamada porque el endpoint por_oferta
     // marca automáticamente los mensajes como leídos
-    console.log('marcarMensajesComoLeidos: No es necesario, por_oferta ya lo hace automáticamente');
+    logger.log('marcarMensajesComoLeidos: No es necesario, por_oferta ya lo hace automáticamente');
 
     return {
       success: true
     };
   } catch (error: any) {
-    console.error('Error marcando mensajes como leídos:', error);
+    logger.error('Error marcando mensajes como leídos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al marcar mensajes como leídos'
@@ -705,15 +706,15 @@ export const rechazarSolicitud = async (
       detalle_motivo: detalle || ''
     });
 
-    console.log('✅ Solicitud rechazada exitosamente:', response.data);
+    logger.log('✅ Solicitud rechazada exitosamente:', response.data);
     return {
       success: true,
       data: response.data.rechazo || response.data,
       message: response.data.message
     };
   } catch (error: any) {
-    console.error('❌ Error rechazando solicitud:', error);
-    console.error('❌ Error detallado:', error.response?.data);
+    logger.error('❌ Error rechazando solicitud:', error);
+    logger.error('❌ Error detallado:', error.response?.data);
 
     let errorMessage = 'Error al rechazar solicitud';
     if (error.response?.data) {
@@ -763,7 +764,7 @@ export const eliminarChatPorOferta = async (
     const response = await api.delete(`/ordenes/chat-solicitudes/eliminar-por-oferta/${ofertaId}/`);
     return { success: true, data: response.data };
   } catch (error: any) {
-    console.error('Error eliminando chat:', error);
+    logger.error('Error eliminando chat:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.response?.data?.detail || error.message || 'No se pudo eliminar el chat',
@@ -775,30 +776,30 @@ export const obtenerListaChats = async (): Promise<any[]> => {
   try {
     const token = await getItem('authToken');
     if (!token) {
-      console.log('⚠️ [SOLICITUDES SERVICE] No hay token, no se puede obtener lista de chats');
+      logger.log('⚠️ [SOLICITUDES SERVICE] No hay token, no se puede obtener lista de chats');
       return [];
     }
 
-    console.log('📨 [SOLICITUDES SERVICE] Obteniendo inbox unificado de chats');
+    logger.log('📨 [SOLICITUDES SERVICE] Obteniendo inbox unificado de chats');
     try {
       const inboxResponse = await api.get('/chat/conversations/inbox/');
       if (Array.isArray(inboxResponse.data)) {
-        console.log('✅ [SOLICITUDES SERVICE] Inbox unificado:', inboxResponse.data.length);
+        logger.log('✅ [SOLICITUDES SERVICE] Inbox unificado:', inboxResponse.data.length);
         return inboxResponse.data;
       }
     } catch (inboxErr: any) {
       if (inboxErr.response?.status !== 404) {
-        console.warn('⚠️ [SOLICITUDES SERVICE] Inbox unificado no disponible, fallback legacy');
+        logger.warn('⚠️ [SOLICITUDES SERVICE] Inbox unificado no disponible, fallback legacy');
       }
     }
 
     const response = await api.get('/ordenes/chat-solicitudes/lista-chats/');
-    console.log('✅ [SOLICITUDES SERVICE] Lista de chats obtenida:', response.data);
+    logger.log('✅ [SOLICITUDES SERVICE] Lista de chats obtenida:', response.data);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error: any) {
     // Si es 401, no hay sesión - no es un error crítico, solo retornar array vacío
     if (error.response?.status === 401 || error.status === 401) {
-      console.log('⚠️ [SOLICITUDES SERVICE] No autenticado (401), retornando lista vacía');
+      logger.log('⚠️ [SOLICITUDES SERVICE] No autenticado (401), retornando lista vacía');
       return [];
     }
     if (
@@ -808,7 +809,7 @@ export const obtenerListaChats = async (): Promise<any[]> => {
     ) {
       return [];
     }
-    console.warn('⚠️ [SOLICITUDES SERVICE] Error al obtener lista de chats:', error?.message || error);
+    logger.warn('⚠️ [SOLICITUDES SERVICE] Error al obtener lista de chats:', error?.message || error);
     if (error.status === 404 || error.response?.status === 404) {
       return [];
     }
@@ -833,17 +834,17 @@ export const crearOfertaSecundaria = async (
       es_oferta_secundaria: true,
     };
 
-    console.log('📤 Enviando oferta secundaria:', JSON.stringify(datosOfertaSecundaria, null, 2));
+    logger.log('📤 Enviando oferta secundaria:', JSON.stringify(datosOfertaSecundaria, null, 2));
     const response = await api.post('/ordenes/ofertas/', datosOfertaSecundaria);
 
-    console.log('✅ Oferta secundaria creada exitosamente:', response.data);
+    logger.log('✅ Oferta secundaria creada exitosamente:', response.data);
     return {
       success: true,
       data: response.data
     };
   } catch (error: any) {
-    console.error('❌ Error creando oferta secundaria:', error);
-    console.error('❌ Error detallado:', error.response?.data);
+    logger.error('❌ Error creando oferta secundaria:', error);
+    logger.error('❌ Error detallado:', error.response?.data);
 
     let errorMessage = 'Error al crear oferta secundaria';
     if (error.response?.data) {
@@ -897,7 +898,7 @@ export const obtenerOfertasSecundarias = async (
       data: ofertas
     };
   } catch (error: any) {
-    console.error('Error obteniendo ofertas secundarias:', error);
+    logger.error('Error obteniendo ofertas secundarias:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener ofertas secundarias'
@@ -922,7 +923,7 @@ export const pagarOfertaSecundaria = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error pagando oferta secundaria:', error);
+    logger.error('Error pagando oferta secundaria:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al procesar el pago'
@@ -935,17 +936,17 @@ export const pagarOfertaSecundaria = async (
  */
 export const iniciarServicio = async (ofertaId: string): Promise<ApiResponse<OfertaProveedor> & { solicitud_servicio_id?: number }> => {
   try {
-    console.log(`🚀 Iniciando servicio para oferta ${ofertaId}...`);
+    logger.log(`🚀 Iniciando servicio para oferta ${ofertaId}...`);
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/iniciar-servicio/`);
 
-    console.log('✅ Servicio iniciado exitosamente:', response.data);
+    logger.log('✅ Servicio iniciado exitosamente:', response.data);
     return {
       success: true,
       data: response.data.oferta,
       solicitud_servicio_id: response.data.solicitud_servicio_id
     };
   } catch (error: any) {
-    console.error('❌ Error iniciando servicio:', error);
+    logger.error('❌ Error iniciando servicio:', error);
     let errorMessage = 'Error al iniciar el servicio';
     if (error.response?.data) {
       if (typeof error.response.data === 'string') {
@@ -971,16 +972,16 @@ export const iniciarServicio = async (ofertaId: string): Promise<ApiResponse<Ofe
  */
 export const terminarServicio = async (ofertaId: string): Promise<ApiResponse<OfertaProveedor>> => {
   try {
-    console.log(`✅ Terminando servicio para oferta ${ofertaId}...`);
+    logger.log(`✅ Terminando servicio para oferta ${ofertaId}...`);
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/terminar-servicio/`);
 
-    console.log('✅ Servicio terminado exitosamente:', response.data);
+    logger.log('✅ Servicio terminado exitosamente:', response.data);
     return {
       success: true,
       data: response.data.oferta
     };
   } catch (error: any) {
-    console.error('❌ Error terminando servicio:', error);
+    logger.error('❌ Error terminando servicio:', error);
     let errorMessage = 'Error al terminar el servicio';
     if (error.response?.data) {
       if (typeof error.response.data === 'string') {

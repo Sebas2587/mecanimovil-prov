@@ -64,6 +64,7 @@ import {
 } from '@/app/design-system/components';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import creditosService from '@/services/creditosService';
+import logger from '@/utils/logger';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -708,7 +709,7 @@ export default function SolicitudDetalleScreen() {
         Alert.alert('Error', result.error || 'No se pudo rechazar la solicitud');
       }
     } catch (error) {
-      console.error('Error rechazando solicitud:', error);
+      logger.error('Error rechazando solicitud:', error);
       Alert.alert('Error', 'Ocurrió un error al rechazar la solicitud');
     } finally {
       setRechazando(false);

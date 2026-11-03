@@ -39,6 +39,7 @@ import {
   useEstadoAgendaHorariosQuery,
   useHorariosTallerQuery,
 } from '@/hooks/useHorariosTallerQuery';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -666,7 +667,7 @@ export default function ConfiguracionHorariosScreen() {
       await Promise.all([refreshHorarios(), refreshEstadoAgenda()]);
       return true;
     } catch (error: unknown) {
-      console.error('Error guardando horarios:', error);
+      logger.error('Error guardando horarios:', error);
       const err = error as { response?: { data?: { error?: string } } };
       showAlert(
         'Error',

@@ -27,6 +27,7 @@ import { COLORS } from '@/app/design-system/tokens';
 import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -195,7 +196,7 @@ export default function SubirDocumentosScreen() {
     // Usar el documento pasado como parámetro o el estado actual
     const docInfo = documentoInfo || tipoDocumentoActual;
     if (!docInfo) {
-      console.error('❌ No hay tipo de documento especificado');
+      logger.error('❌ No hay tipo de documento especificado');
       return;
     }
 
@@ -224,7 +225,7 @@ export default function SubirDocumentosScreen() {
                   }
                 } catch (error) {
                   if (__DEV__) {
-                    console.error('Error abriendo configuración:', error);
+                    logger.error('Error abriendo configuración:', error);
                   }
                 }
               },
@@ -247,7 +248,7 @@ export default function SubirDocumentosScreen() {
       }
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error seleccionando imagen:', error);
+        logger.error('Error seleccionando imagen:', error);
       }
       showAlert(
         'Error', 
@@ -260,11 +261,11 @@ export default function SubirDocumentosScreen() {
     // Usar el documento pasado como parámetro o el estado actual
     const docInfo = documentoInfo || tipoDocumentoActual;
     if (!docInfo) {
-      console.error('❌ No hay tipo de documento especificado');
+      logger.error('❌ No hay tipo de documento especificado');
       return;
     }
 
-    console.log('📸 [DEBUG] Iniciando tomarFoto para:', docInfo.tipo);
+    logger.log('📸 [DEBUG] Iniciando tomarFoto para:', docInfo.tipo);
     
     // Cerrar modal si está abierto (solo en Android)
     if (Platform.OS === 'android') {
@@ -274,15 +275,15 @@ export default function SubirDocumentosScreen() {
     }
     
     try {
-      console.log('📸 [DEBUG] Solicitando permisos de cámara...');
+      logger.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
       // Solicitar permisos de cámara - exactamente como documentacion.tsx
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
-      console.log('📸 [DEBUG] Estado de permisos:', status);
+      logger.log('📸 [DEBUG] Estado de permisos:', status);
       
       if (status !== 'granted') {
-        console.log('📸 [DEBUG] Permisos denegados');
+        logger.log('📸 [DEBUG] Permisos denegados');
         showAlertButtons(
           'Permisos Requeridos',
           'Necesitamos acceso a tu cámara para tomar fotos de documentos. Por favor, permite el acceso en la configuración de la app.',
@@ -298,7 +299,7 @@ export default function SubirDocumentosScreen() {
                     await Linking.openSettings();
                   }
                 } catch (error) {
-                  console.error('❌ [DEBUG] Error abriendo configuración:', error);
+                  logger.error('❌ [DEBUG] Error abriendo configuración:', error);
                 }
               },
             },
@@ -307,7 +308,7 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
-      console.log('📸 [DEBUG] Permisos otorgados, ejecutando launchCameraAsync...');
+      logger.log('📸 [DEBUG] Permisos otorgados, ejecutando launchCameraAsync...');
       
       // Ejecutar directamente - sin delays adicionales en iOS ya que no hay Modal
       const result = await ImagePicker.launchCameraAsync({
@@ -316,21 +317,21 @@ export default function SubirDocumentosScreen() {
         quality: 0.8,
       });
 
-      console.log('📸 [DEBUG] Resultado recibido de launchCameraAsync');
-      console.log('📸 [DEBUG] Resultado cancelado:', result.canceled);
-      console.log('📸 [DEBUG] Assets:', result.assets?.length || 0);
+      logger.log('📸 [DEBUG] Resultado recibido de launchCameraAsync');
+      logger.log('📸 [DEBUG] Resultado cancelado:', result.canceled);
+      logger.log('📸 [DEBUG] Assets:', result.assets?.length || 0);
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
-        console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri, 'para tipo:', docInfo.tipo);
+        logger.log('📸 [DEBUG] Procesando documento con URI:', asset.uri, 'para tipo:', docInfo.tipo);
         procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg', docInfo);
       } else {
-        console.log('📸 [DEBUG] Usuario canceló o no hay assets');
+        logger.log('📸 [DEBUG] Usuario canceló o no hay assets');
       }
       
     } catch (error: any) {
-      console.error('❌ [DEBUG] Error en tomarFoto:', error);
-      console.error('❌ [DEBUG] Detalles del error:', {
+      logger.error('❌ [DEBUG] Error en tomarFoto:', error);
+      logger.error('❌ [DEBUG] Detalles del error:', {
         message: error?.message,
         stack: error?.stack,
         name: error?.name,
@@ -347,7 +348,7 @@ export default function SubirDocumentosScreen() {
     // Usar el documento pasado como parámetro o el estado actual
     const docInfo = documentoInfo || tipoDocumentoActual;
     if (!docInfo) {
-      console.error('❌ No hay tipo de documento especificado');
+      logger.error('❌ No hay tipo de documento especificado');
       return;
     }
 
@@ -366,7 +367,7 @@ export default function SubirDocumentosScreen() {
         procesarDocumento(asset.uri, asset.name, asset.mimeType || 'application/pdf', docInfo);
       }
     } catch (error) {
-      console.error('Error seleccionando documento:', error);
+      logger.error('Error seleccionando documento:', error);
       showAlert('Error', 'No se pudo seleccionar el documento');
     }
     setModalVisible(false);
@@ -376,11 +377,11 @@ export default function SubirDocumentosScreen() {
     // Usar el documento pasado como parámetro o el estado actual
     const docInfo = documentoInfo || tipoDocumentoActual;
     if (!docInfo) {
-      console.error('❌ No hay tipo de documento especificado para procesar');
+      logger.error('❌ No hay tipo de documento especificado para procesar');
       return;
     }
 
-    console.log('📄 Procesando documento:', { tipo: docInfo.tipo, fileName, fileType });
+    logger.log('📄 Procesando documento:', { tipo: docInfo.tipo, fileName, fileType });
 
     const documento: DocumentoSubido = {
       tipo: docInfo.tipo,
@@ -401,7 +402,7 @@ export default function SubirDocumentosScreen() {
   };
 
   const subirDocumento = async (documento: DocumentoSubido) => {
-    console.log('📤 Subiendo documento:', documento.tipo);
+    logger.log('📤 Subiendo documento:', documento.tipo);
     
     // Marcar como "subiéndose"
     setDocumentosSubidos(prev => ({
@@ -417,7 +418,7 @@ export default function SubirDocumentosScreen() {
       };
 
       const resultado = await documentosAPI.subirDocumento(archivo, documento.tipo);
-      console.log('✅ Documento subido exitosamente:', resultado);
+      logger.log('✅ Documento subido exitosamente:', resultado);
 
       // Marcar como subido
       setDocumentosSubidos(prev => ({
@@ -429,7 +430,7 @@ export default function SubirDocumentosScreen() {
       showAlert('✅ Documento Subido', `${getTipoDocumentoInfo(documento.tipo)?.nombre} se subió correctamente`);
 
     } catch (error: any) {
-      console.error('❌ Error subiendo documento:', error);
+      logger.error('❌ Error subiendo documento:', error);
 
       let mensajeError = 'No se pudo subir el archivo. Intenta de nuevo.';
       if (error?.message) {
@@ -497,7 +498,7 @@ export default function SubirDocumentosScreen() {
 
     try {
       // Avisar al backend que ya se subieron documentos (evita refrescarEstadoProveedor que hace 2 requests + reintentos)
-      console.log('📋 Confirmando documentación en backend...');
+      logger.log('📋 Confirmando documentación en backend...');
       await onboardingAPI.completarOnboardingDocumentos();
 
       // Refresco en background (no bloqueante) para que la app se ponga al día sin alargar el loading.
@@ -516,7 +517,7 @@ export default function SubirDocumentosScreen() {
       );
 
     } catch (error: any) {
-      console.error('❌ Error completando documentación:', error);
+      logger.error('❌ Error completando documentación:', error);
       showAlert('Error', 'No se pudo completar la documentación. Intenta nuevamente.');
     } finally {
       setIsFinalizando(false);

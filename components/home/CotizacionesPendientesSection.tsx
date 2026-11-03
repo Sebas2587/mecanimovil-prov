@@ -31,6 +31,7 @@ import { ModalAjusteBorrador } from './ModalAjusteBorrador';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert } from '@/utils/platformAlert';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -62,7 +63,7 @@ export function CotizacionesPendientesSection({
       showAlert('Cotización Enviada', `La cotización para ${cotizacion.cliente_nombre || 'el cliente'} ha sido aprobada y enviada.`);
       onRefresh();
     } catch (error: any) {
-      console.error('Error al aprobar cotización:', error);
+      logger.error('Error al aprobar cotización:', error);
       showAlert('Error', error?.message || 'No se pudo enviar la cotización.');
     } finally {
       setApprovingId(null);

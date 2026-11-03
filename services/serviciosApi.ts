@@ -4,6 +4,7 @@
 
 import { getAPI } from './api';
 import { fetchAllPaginated } from '@/utils/fetchPaginated';
+import logger from '@/utils/logger';
 
 // Interfaces para TypeScript
 export interface ServicioOferta {
@@ -182,15 +183,15 @@ export const serviciosProveedorAPI = {
    * Obtiene todos los servicios del proveedor autenticado
    */
   obtenerMisServicios: async (): Promise<ServicioOferta[]> => {
-    console.log('🔧 Obteniendo servicios del proveedor...');
+    logger.log('🔧 Obteniendo servicios del proveedor...');
 
     try {
       const api = await getAPI();
       const response = await api.get('/servicios/proveedor/mis-servicios/');
-      console.log(`✅ Servicios obtenidos: ${response.data.length} servicios`);
+      logger.log(`✅ Servicios obtenidos: ${response.data.length} servicios`);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo servicios del proveedor:', error);
+      logger.error('❌ Error obteniendo servicios del proveedor:', error);
       throw error;
     }
   },
@@ -199,15 +200,15 @@ export const serviciosProveedorAPI = {
    * Obtiene estadísticas resumen del proveedor
    */
   obtenerEstadisticas: async (): Promise<EstadisticasProveedor> => {
-    console.log('📊 Obteniendo estadísticas del proveedor...');
+    logger.log('📊 Obteniendo estadísticas del proveedor...');
 
     try {
       const api = await getAPI();
       const response = await api.get('/servicios/proveedor/mis-servicios/resumen_estadisticas/');
-      console.log('✅ Estadísticas obtenidas:', response.data);
+      logger.log('✅ Estadísticas obtenidas:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo estadísticas:', error);
+      logger.error('❌ Error obteniendo estadísticas:', error);
       throw error;
     }
   },
@@ -216,15 +217,15 @@ export const serviciosProveedorAPI = {
    * Crea un nuevo servicio
    */
   crearServicio: async (datos: CrearServicioData): Promise<ServicioOferta> => {
-    console.log('🚀 Creando nuevo servicio:', datos);
+    logger.log('🚀 Creando nuevo servicio:', datos);
 
     try {
       const api = await getAPI();
       const response = await api.post('/servicios/proveedor/mis-servicios/', datos);
-      console.log('✅ Servicio creado exitosamente:', response.data);
+      logger.log('✅ Servicio creado exitosamente:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error creando servicio:', error);
+      logger.error('❌ Error creando servicio:', error);
       throw error;
     }
   },
@@ -233,18 +234,18 @@ export const serviciosProveedorAPI = {
    * Actualiza un servicio existente
    */
   actualizarServicio: async (id: number, datos: Partial<CrearServicioData>): Promise<ServicioOferta> => {
-    console.log('📝 Actualizando servicio:', { id, datos });
+    logger.log('📝 Actualizando servicio:', { id, datos });
 
     try {
       const api = await getAPI();
       const response = await api.patch(`/servicios/proveedor/mis-servicios/${id}/`, datos);
-      console.log('✅ Servicio actualizado exitosamente');
+      logger.log('✅ Servicio actualizado exitosamente');
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error actualizando servicio:', error);
+      logger.error('❌ Error actualizando servicio:', error);
       if (error.response) {
-        console.error('❌ Datos del error response:', JSON.stringify(error.response.data, null, 2));
-        console.error('❌ Status:', error.response.status);
+        logger.error('❌ Datos del error response:', JSON.stringify(error.response.data, null, 2));
+        logger.error('❌ Status:', error.response.status);
       }
       throw error;
     }
@@ -254,7 +255,7 @@ export const serviciosProveedorAPI = {
    * Cambia la disponibilidad de un servicio
    */
   cambiarDisponibilidad: async (id: number, disponible: boolean): Promise<{ mensaje: string; disponible: boolean }> => {
-    console.log(`🔄 Cambiando disponibilidad del servicio ${id} a ${disponible ? 'activo' : 'inactivo'}`);
+    logger.log(`🔄 Cambiando disponibilidad del servicio ${id} a ${disponible ? 'activo' : 'inactivo'}`);
 
     try {
       const api = await getAPI();
@@ -262,10 +263,10 @@ export const serviciosProveedorAPI = {
         `/servicios/proveedor/mis-servicios/${id}/cambiar_disponibilidad/`,
         { disponible }
       );
-      console.log('✅ Disponibilidad cambiada:', response.data);
+      logger.log('✅ Disponibilidad cambiada:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error cambiando disponibilidad:', error);
+      logger.error('❌ Error cambiando disponibilidad:', error);
       throw error;
     }
   },
@@ -274,14 +275,14 @@ export const serviciosProveedorAPI = {
    * Elimina un servicio
    */
   eliminarServicio: async (id: number): Promise<void> => {
-    console.log(`🗑️ Eliminando servicio ${id}`);
+    logger.log(`🗑️ Eliminando servicio ${id}`);
 
     try {
       const api = await getAPI();
       await api.delete(`/servicios/proveedor/mis-servicios/${id}/`);
-      console.log('✅ Servicio eliminado exitosamente');
+      logger.log('✅ Servicio eliminado exitosamente');
     } catch (error) {
-      console.error('❌ Error eliminando servicio:', error);
+      logger.error('❌ Error eliminando servicio:', error);
       throw error;
     }
   },
@@ -300,7 +301,7 @@ export const serviciosProveedorAPI = {
       );
       return response.data;
     } catch (error) {
-      console.error('❌ Error calculando preview de precios:', error);
+      logger.error('❌ Error calculando preview de precios:', error);
       throw error;
     }
   },
@@ -309,15 +310,15 @@ export const serviciosProveedorAPI = {
    * Obtiene un servicio específico por ID
    */
   obtenerServicioPorId: async (id: number): Promise<ServicioOferta> => {
-    console.log(`🔍 Obteniendo servicio ${id}`);
+    logger.log(`🔍 Obteniendo servicio ${id}`);
 
     try {
       const api = await getAPI();
       const response = await api.get(`/servicios/proveedor/mis-servicios/${id}/`);
-      console.log('✅ Servicio obtenido:', response.data);
+      logger.log('✅ Servicio obtenido:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo servicio:', error);
+      logger.error('❌ Error obteniendo servicio:', error);
       throw error;
     }
   },
@@ -334,23 +335,23 @@ export const serviciosProveedorAPI = {
     solicitudId: string,
     servicioId: number
   ): Promise<ServicioConfiguradoParaOferta | null> => {
-    console.log(`🔍 Obteniendo servicio configurado para solicitud ${solicitudId}, servicio ${servicioId} (tipo: ${typeof servicioId})`);
+    logger.log(`🔍 Obteniendo servicio configurado para solicitud ${solicitudId}, servicio ${servicioId} (tipo: ${typeof servicioId})`);
 
     try {
       const api = await getAPI();
       const url = `/servicios/proveedor/mis-servicios/para_solicitud/?solicitud_id=${solicitudId}&servicio_id=${servicioId}`;
-      console.log(`📡 URL de petición: ${url}`);
+      logger.log(`📡 URL de petición: ${url}`);
 
       const response = await api.get<ServicioParaSolicitudResponse>(url);
 
-      console.log(`📥 Respuesta del servidor:`, {
+      logger.log(`📥 Respuesta del servidor:`, {
         tiene_servicio_configurado: !!response.data.servicio_configurado,
         mensaje: response.data.mensaje,
         debug_info: response.data.debug_info || null
       });
 
       if (response.data.servicio_configurado) {
-        console.log('✅ Servicio configurado encontrado:', {
+        logger.log('✅ Servicio configurado encontrado:', {
           id: response.data.servicio_configurado.id,
           nombre: response.data.servicio_configurado.servicio_info.nombre,
           tipo: response.data.servicio_configurado.tipo_servicio,
@@ -358,14 +359,14 @@ export const serviciosProveedorAPI = {
         });
         return response.data.servicio_configurado;
       } else {
-        console.log('ℹ️ No se encontró servicio configurado para esta combinación');
+        logger.log('ℹ️ No se encontró servicio configurado para esta combinación');
         if (response.data.debug_info) {
-          console.log('🔍 Información de debug:', response.data.debug_info);
+          logger.log('🔍 Información de debug:', response.data.debug_info);
         }
         return null;
       }
     } catch (error: any) {
-      console.error('❌ Error obteniendo servicio para solicitud:', {
+      logger.error('❌ Error obteniendo servicio para solicitud:', {
         error: error.message,
         status: error.response?.status,
         data: error.response?.data,
@@ -373,9 +374,9 @@ export const serviciosProveedorAPI = {
       });
       // Si el error es 404 o 400, retornar null en lugar de lanzar error
       if (error.response?.status === 404 || error.response?.status === 400) {
-        console.log('ℹ️ Servicio configurado no encontrado (error esperado)');
+        logger.log('ℹ️ Servicio configurado no encontrado (error esperado)');
         if (error.response?.data?.debug_info) {
-          console.log('🔍 Información de debug del error:', error.response.data.debug_info);
+          logger.log('🔍 Información de debug del error:', error.response.data.debug_info);
         }
         return null;
       }
@@ -393,7 +394,7 @@ export const catalogosAPI = {
    * Obtiene todas las marcas de vehículos
    */
   obtenerMarcas: async (): Promise<MarcaVehiculo[]> => {
-    console.log('🚗 Obteniendo marcas de vehículos...');
+    logger.log('🚗 Obteniendo marcas de vehículos...');
 
     try {
       const api = await getAPI();
@@ -406,10 +407,10 @@ export const catalogosAPI = {
       const sorted = marcas.sort((a, b) =>
         (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }),
       );
-      console.log(`✅ Marcas obtenidas: ${sorted.length} marcas`);
+      logger.log(`✅ Marcas obtenidas: ${sorted.length} marcas`);
       return sorted;
     } catch (error) {
-      console.error('❌ Error obteniendo marcas:', error);
+      logger.error('❌ Error obteniendo marcas:', error);
       throw error;
     }
   },
@@ -418,17 +419,17 @@ export const catalogosAPI = {
    * Obtiene servicios disponibles (opcionalmente filtrados por marca)
    */
   obtenerServicios: async (marcaId?: number): Promise<Servicio[]> => {
-    console.log('⚙️ Obteniendo servicios disponibles...', { marcaId });
+    logger.log('⚙️ Obteniendo servicios disponibles...', { marcaId });
 
     try {
       const api = await getAPI();
       const params = marcaId ? `?marca=${marcaId}` : '';
       const response = await api.get(`/servicios/servicios/${params}`);
       const servicios = response.data.results || response.data;
-      console.log(`✅ Servicios obtenidos: ${servicios.length} servicios`);
+      logger.log(`✅ Servicios obtenidos: ${servicios.length} servicios`);
       return servicios;
     } catch (error) {
-      console.error('❌ Error obteniendo servicios:', error);
+      logger.error('❌ Error obteniendo servicios:', error);
       throw error;
     }
   },
@@ -437,15 +438,15 @@ export const catalogosAPI = {
    * Obtiene repuestos asociados a un servicio específico
    */
   obtenerRepuestosPorServicio: async (servicioId: number): Promise<Repuesto[]> => {
-    console.log('🔩 Obteniendo repuestos para servicio:', servicioId);
+    logger.log('🔩 Obteniendo repuestos para servicio:', servicioId);
 
     try {
       const api = await getAPI();
       const response = await api.get(`/servicios/repuestos/por_servicio/?servicio=${servicioId}`);
-      console.log(`✅ Repuestos obtenidos: ${response.data.length} repuestos`);
+      logger.log(`✅ Repuestos obtenidos: ${response.data.length} repuestos`);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo repuestos:', error);
+      logger.error('❌ Error obteniendo repuestos:', error);
       throw error;
     }
   },
@@ -454,7 +455,7 @@ export const catalogosAPI = {
    * Obtiene todos los repuestos (con filtros opcionales)
    */
   obtenerRepuestos: async (categoria?: string, busqueda?: string): Promise<Repuesto[]> => {
-    console.log('🔩 Obteniendo catálogo de repuestos...', { categoria, busqueda });
+    logger.log('🔩 Obteniendo catálogo de repuestos...', { categoria, busqueda });
 
     try {
       const api = await getAPI();
@@ -468,10 +469,10 @@ export const catalogosAPI = {
 
       const response = await api.get(url);
       const repuestos = response.data.results || response.data;
-      console.log(`✅ Repuestos obtenidos: ${repuestos.length} repuestos`);
+      logger.log(`✅ Repuestos obtenidos: ${repuestos.length} repuestos`);
       return repuestos;
     } catch (error) {
-      console.error('❌ Error obteniendo repuestos:', error);
+      logger.error('❌ Error obteniendo repuestos:', error);
       throw error;
     }
   },
@@ -480,15 +481,15 @@ export const catalogosAPI = {
    * Obtiene repuestos por categoría específica
    */
   obtenerRepuestosPorCategoria: async (categoria: string): Promise<Repuesto[]> => {
-    console.log('📦 Obteniendo repuestos por categoría:', categoria);
+    logger.log('📦 Obteniendo repuestos por categoría:', categoria);
 
     try {
       const api = await getAPI();
       const response = await api.get(`/servicios/repuestos/por_categoria/?categoria=${categoria}`);
-      console.log(`✅ Repuestos de categoría obtenidos: ${response.data.length} repuestos`);
+      logger.log(`✅ Repuestos de categoría obtenidos: ${response.data.length} repuestos`);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo repuestos por categoría:', error);
+      logger.error('❌ Error obteniendo repuestos por categoría:', error);
       throw error;
     }
   },
