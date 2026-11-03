@@ -100,17 +100,17 @@ export interface AgenteIaActividadTaller {
 
 const agenteIaService = {
   async obtenerConfig(): Promise<AgenteIaConfig> {
-    const { data } = await api.get<AgenteIaConfig>('/agente-ia/config/');
+    const { data } = await api.get('/agente-ia/config/');
     return data;
   },
 
   async actualizarConfig(payload: Partial<AgenteIaConfig>): Promise<AgenteIaConfig> {
-    const { data } = await api.patch<AgenteIaConfig>('/agente-ia/config/', payload);
+    const { data } = await api.patch('/agente-ia/config/', payload);
     return data;
   },
 
   async listarDocumentos(): Promise<ConocimientoDocumento[]> {
-    const { data } = await api.get<ConocimientoDocumento[]>('/agente-ia/documentos/');
+    const { data } = await api.get('/agente-ia/documentos/');
     return data;
   },
 
@@ -157,7 +157,7 @@ const agenteIaService = {
       }
     }
 
-    const { data } = await api.post<ConocimientoDocumento>('/agente-ia/documentos/', form, {
+    const { data } = await api.post('/agente-ia/documentos/', form, {
       onUploadProgress: (event: AxiosProgressEvent) => {
         const total = event.total ?? 0;
         if (!total || !options?.onUploadProgress) return;
@@ -177,7 +177,7 @@ const agenteIaService = {
     conversationId: number | string,
     signal?: AbortSignal,
   ): Promise<AgenteSesionEstado> {
-    const { data } = await api.get<AgenteSesionEstado>('/agente-ia/sesion/', {
+    const { data } = await api.get('/agente-ia/sesion/', {
       params: { conversation_id: conversationId },
       signal,
     });
@@ -196,7 +196,7 @@ const agenteIaService = {
     conversationId: number | string,
     activo: boolean,
   ): Promise<AgenteSesionEstado> {
-    const { data } = await api.post<AgenteSesionEstado>('/agente-ia/activar-chat/', {
+    const { data } = await api.post('/agente-ia/activar-chat/', {
       conversation_id: conversationId,
       activo,
     });
@@ -214,7 +214,7 @@ const agenteIaService = {
   },
 
   async obtenerAprendizajeScore(): Promise<AgenteAprendizajeScore> {
-    const { data } = await api.get<AgenteAprendizajeScore>('/agente-ia/aprendizaje-score/');
+    const { data } = await api.get('/agente-ia/aprendizaje-score/');
     return data;
   },
 
@@ -232,7 +232,7 @@ const agenteIaService = {
   },
 
   async actividadTaller(): Promise<AgenteIaActividadTaller> {
-    const { data } = await api.get<AgenteIaActividadTaller>('/agente-ia/actividad-taller/');
+    const { data } = await api.get('/agente-ia/actividad-taller/');
     return data;
   },
 

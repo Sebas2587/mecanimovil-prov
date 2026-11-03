@@ -342,7 +342,7 @@ export const serviciosProveedorAPI = {
       const url = `/servicios/proveedor/mis-servicios/para_solicitud/?solicitud_id=${solicitudId}&servicio_id=${servicioId}`;
       logger.log(`📡 URL de petición: ${url}`);
 
-      const response = await api.get<ServicioParaSolicitudResponse>(url);
+      const response = await api.get(url);
 
       logger.log(`📥 Respuesta del servidor:`, {
         tiene_servicio_configurado: !!response.data.servicio_configurado,

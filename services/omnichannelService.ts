@@ -122,7 +122,7 @@ export interface InboxChatItem {
 
 const omnichannelService = {
   async obtenerEstadoCanales(): Promise<EstadoCanalesResponse> {
-    const { data } = await api.get<EstadoCanalesResponse>('/omnichannel/connections/estado/');
+    const { data } = await api.get('/omnichannel/connections/estado/');
     return data;
   },
 
@@ -133,14 +133,14 @@ const omnichannelService = {
     const params = new URLSearchParams({ channel });
     if (opciones.modo) params.set('modo', opciones.modo);
     if (opciones.numero) params.set('numero', opciones.numero);
-    const { data } = await api.get<IniciarConexionCanalResponse>(
+    const { data } = await api.get(
       `/omnichannel/connections/iniciar-conexion/?${params.toString()}`,
     );
     return data;
   },
 
   async completarConexion(payload: CompletarConexionPayload): Promise<CompletarConexionResponse> {
-    const { data } = await api.post<CompletarConexionResponse>(
+    const { data } = await api.post(
       '/omnichannel/connections/completar-conexion/',
       payload,
     );
@@ -148,7 +148,7 @@ const omnichannelService = {
   },
 
   async toggleCanal(connectionId: string, enabled: boolean): Promise<ConexionCanal> {
-    const { data } = await api.patch<ConexionCanal>(
+    const { data } = await api.patch(
       `/omnichannel/connections/${connectionId}/toggle/`,
       { enabled },
     );
@@ -156,14 +156,14 @@ const omnichannelService = {
   },
 
   async desconectarCanal(connectionId: string): Promise<ConexionCanal> {
-    const { data } = await api.post<ConexionCanal>(
+    const { data } = await api.post(
       `/omnichannel/connections/${connectionId}/desconectar/`,
     );
     return data;
   },
 
   async configurarWhatsapp(connectionId: string, phoneNumberId: string): Promise<ConexionCanal> {
-    const { data } = await api.post<ConexionCanal>(
+    const { data } = await api.post(
       `/omnichannel/connections/${connectionId}/configurar-whatsapp/`,
       { phone_number_id: phoneNumberId.trim() },
     );
@@ -171,7 +171,7 @@ const omnichannelService = {
   },
 
   async obtenerInboxUnificado(): Promise<InboxChatItem[]> {
-    const { data } = await api.get<InboxChatItem[]>('/chat/conversations/inbox/');
+    const { data } = await api.get('/chat/conversations/inbox/');
     return Array.isArray(data) ? data : [];
   },
 
@@ -179,10 +179,7 @@ const omnichannelService = {
     conversation_id: string;
     conversaciones_eliminadas: number;
   }> {
-    const { data } = await api.delete<{
-      conversation_id: string;
-      conversaciones_eliminadas: number;
-    }>(`/chat/conversations/${conversationId}/`);
+    const { data } = await api.delete(`/chat/conversations/${conversationId}/`);
     return data;
   },
 
