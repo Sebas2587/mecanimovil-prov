@@ -29,6 +29,7 @@ import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominat
 import { reverseGeocodeProveedor } from '@/utils/providerReverseGeocode';
 import { useLocationConsentGate } from '@/hooks/useLocationConsentGate';
 import LocationConsentModal from '@/components/legal/LocationConsentModal';
+import logger from '@/utils/logger';
 
 type SearchUi = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
@@ -120,7 +121,7 @@ async function refrescarEstadoConReintentos(
       await sleep(400 * i);
     }
   }
-  console.warn('refrescarEstadoProveedor tras guardar:', last);
+  logger.warn('refrescarEstadoProveedor tras guardar:', last);
   return null;
 }
 

@@ -24,6 +24,7 @@ import {
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import logger from '@/utils/logger';
 
 export default function EditarZonaServicioScreen() {
   const params = useLocalSearchParams<{ id: string | string[] }>();
@@ -55,7 +56,7 @@ export default function EditarZonaServicioScreen() {
       try {
         await Promise.all([loadRegions(), loadAllCommunes(), loadServiceAreaData()]);
       } catch (error) {
-        console.error('Error cargando datos iniciales:', error);
+        logger.error('Error cargando datos iniciales:', error);
       }
     };
 
@@ -102,7 +103,7 @@ export default function EditarZonaServicioScreen() {
       setZoneName(area.name || '');
 
     } catch (error) {
-      console.error('Error cargando zona de servicio:', error);
+      logger.error('Error cargando zona de servicio:', error);
       Alert.alert('Error', 'No se pudo cargar la zona de servicio');
       router.back();
     } finally {
@@ -116,7 +117,7 @@ export default function EditarZonaServicioScreen() {
       const response = await serviceAreasApi.getRegions();
       setRegions(response || []);
     } catch (error) {
-      console.error('Error cargando regiones:', error);
+      logger.error('Error cargando regiones:', error);
       setRegions([]);
     }
   };
@@ -128,7 +129,7 @@ export default function EditarZonaServicioScreen() {
       const response = await serviceAreasApi.getCommunes();
       setAvailableCommunes(response || []);
     } catch (error) {
-      console.error('Error cargando comunas:', error);
+      logger.error('Error cargando comunas:', error);
       setAvailableCommunes([]);
     } finally {
       setLoadingCommunes(false);
@@ -236,7 +237,7 @@ export default function EditarZonaServicioScreen() {
       );
 
     } catch (error) {
-      console.error('Error actualizando zona:', error);
+      logger.error('Error actualizando zona:', error);
       Alert.alert('Error', 'No se pudo actualizar la zona de servicio');
     } finally {
       setLoading(false);
@@ -273,7 +274,7 @@ export default function EditarZonaServicioScreen() {
                 ]
               );
             } catch (error) {
-              console.error('Error eliminando zona:', error);
+              logger.error('Error eliminando zona:', error);
               Alert.alert('Error', 'No se pudo eliminar la zona');
             } finally {
               setLoading(false);

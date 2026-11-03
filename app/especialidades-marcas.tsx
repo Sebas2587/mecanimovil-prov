@@ -36,6 +36,7 @@ import {
   invalidateEspecialidadesMarcasQueries,
   useEspecialidadesMarcasQuery,
 } from '@/hooks/useEspecialidadesMarcasQuery';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -320,7 +321,7 @@ export default function EspecialidadesMarcasScreen() {
       invalidateEspecialidadesMarcasQueries(queryClient);
       await refresh();
     } catch (error: any) {
-      console.error('Error guardando configuración:', error);
+      logger.error('Error guardando configuración:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo guardar la configuración. Intenta nuevamente.',

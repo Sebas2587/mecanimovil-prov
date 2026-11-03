@@ -23,6 +23,7 @@ import {
   mostrarDetallePago,
   type OfertaDetalleUiContext,
 } from '@/utils/ofertaDetalleProveedorUi';
+import logger from '@/utils/logger';
 
 const ESTADOS_CON_CHECKLIST = new Set(['en_ejecucion', 'completada']);
 
@@ -53,7 +54,7 @@ export function useOfertaEjecucion(options: {
         setChecklistLoadError(false);
       }
     } catch (error) {
-      console.warn('Error cargando checklist para solicitud:', solicitudServicioId, error);
+      logger.warn('Error cargando checklist para solicitud:', solicitudServicioId, error);
       setChecklistInstance(null);
       setChecklistLoadError(true);
     } finally {
@@ -164,7 +165,7 @@ export function useOfertaEjecucion(options: {
         showAlert('Error', result.error || 'No se pudo iniciar el servicio');
       }
     } catch (error) {
-      console.error('Error iniciando servicio:', error);
+      logger.error('Error iniciando servicio:', error);
       showAlert('Error', 'No se pudo iniciar el servicio');
     } finally {
       setProcesando(false);
@@ -197,7 +198,7 @@ export function useOfertaEjecucion(options: {
         showAlert('Error', result.error || 'No se pudo terminar el servicio');
       }
     } catch (error) {
-      console.error('Error terminando servicio:', error);
+      logger.error('Error terminando servicio:', error);
       showAlert('Error', 'No se pudo terminar el servicio');
     } finally {
       setProcesando(false);

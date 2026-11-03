@@ -40,6 +40,7 @@ import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
+import logger from '@/utils/logger';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
@@ -266,7 +267,7 @@ export default function HomeScreen() {
           devLog('ℹ️ No hay alertas activas (404 - normal)');
           setMostrarAlertaPago(false);
         } else {
-          console.error('❌ Error cargando alertas:', error);
+          logger.error('❌ Error cargando alertas:', error);
           // En caso de error, ocultar la alerta para evitar mostrar información incorrecta
           setMostrarAlertaPago(false);
         }
@@ -492,7 +493,7 @@ export default function HomeScreen() {
                 const { post } = await import('@/services/api');
                 await post(`/ordenes/solicitudes-publicas/${alertaSolicitudId}/descartar-alerta/`);
               } catch (error) {
-                console.error('Error descartando alerta:', error);
+                logger.error('Error descartando alerta:', error);
               }
             }
           }}

@@ -3,6 +3,7 @@
  * Permite configurar, verificar y gestionar la integración con Mercado Pago
  */
 import api from './api';
+import logger from '@/utils/logger';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -134,7 +135,7 @@ export const obtenerEstadoCuenta = async (): Promise<ApiResponse<CuentaMercadoPa
   } catch (error: any) {
     // Solo loguear en modo desarrollo para evitar spam en consola
     if (__DEV__) {
-      console.log('Estado de cuenta MP - manejando respuesta de error:', error.response?.status);
+      logger.log('Estado de cuenta MP - manejando respuesta de error:', error.response?.status);
     }
 
     // Si es 404 o 400, significa que no tiene cuenta configurada o perfil de proveedor
@@ -177,7 +178,7 @@ export const iniciarConexion = async (): Promise<ApiResponse<IniciarConexionResp
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error iniciando conexión con MP:', error);
+    logger.error('Error iniciando conexión con MP:', error);
 
     // Detectar error 503 específico (servicio no disponible - configuración faltante)
     if (error.response?.status === 503) {
@@ -209,7 +210,7 @@ export const procesarCallbackOAuth = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error procesando callback OAuth:', error);
+    logger.error('Error procesando callback OAuth:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al procesar la autorización de Mercado Pago'
@@ -229,7 +230,7 @@ export const desconectarCuenta = async (): Promise<ApiResponse<CuentaMercadoPago
       message: 'Cuenta de Mercado Pago desconectada exitosamente'
     };
   } catch (error: any) {
-    console.error('Error desconectando cuenta MP:', error);
+    logger.error('Error desconectando cuenta MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al desconectar la cuenta de Mercado Pago'
@@ -248,7 +249,7 @@ export const reconectarCuenta = async (): Promise<ApiResponse<IniciarConexionRes
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error reconectando cuenta MP:', error);
+    logger.error('Error reconectando cuenta MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al reconectar la cuenta de Mercado Pago'
@@ -267,7 +268,7 @@ export const verificarConexion = async (): Promise<ApiResponse<{ conectado: bool
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error verificando conexión MP:', error);
+    logger.error('Error verificando conexión MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al verificar la conexión'
@@ -289,7 +290,7 @@ export const obtenerEstadisticasPagos = async (): Promise<ApiResponse<Estadistic
     // Si no tiene cuenta configurada (400), devolver valores en cero
     if (error.response?.status === 400) {
       if (__DEV__) {
-        console.log('MP: Cuenta no configurada al obtener estadísticas (400)');
+        logger.log('MP: Cuenta no configurada al obtener estadísticas (400)');
       }
       return {
         success: true, // Tratamos como éxito pero con ceros
@@ -306,7 +307,7 @@ export const obtenerEstadisticasPagos = async (): Promise<ApiResponse<Estadistic
       };
     }
 
-    console.error('Error obteniendo estadísticas de pagos MP:', error);
+    logger.error('Error obteniendo estadísticas de pagos MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener estadísticas de pagos'
@@ -328,7 +329,7 @@ export const obtenerHistorialPagos = async (): Promise<ApiResponse<HistorialPago
     // Si no tiene cuenta configurada (400), devolver lista vacía
     if (error.response?.status === 400) {
       if (__DEV__) {
-        console.log('MP: Cuenta no configurada al obtener historial (400)');
+        logger.log('MP: Cuenta no configurada al obtener historial (400)');
       }
       return {
         success: true,
@@ -340,7 +341,7 @@ export const obtenerHistorialPagos = async (): Promise<ApiResponse<HistorialPago
       };
     }
 
-    console.error('Error obteniendo historial de pagos MP:', error);
+    logger.error('Error obteniendo historial de pagos MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener historial de pagos'
@@ -360,7 +361,7 @@ export const actualizarInfoCuenta = async (): Promise<ApiResponse<CuentaMercadoP
       message: 'Información de la cuenta actualizada'
     };
   } catch (error: any) {
-    console.error('Error actualizando info de cuenta MP:', error);
+    logger.error('Error actualizando info de cuenta MP:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al actualizar la información de la cuenta'

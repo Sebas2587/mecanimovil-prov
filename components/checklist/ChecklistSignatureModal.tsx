@@ -22,6 +22,7 @@ import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/equipo/MecanicoAsignadoCard';
 import { useLocationConsentGate } from '@/hooks/useLocationConsentGate';
 import LocationConsentModal from '@/components/legal/LocationConsentModal';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -204,7 +205,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Manejar firma capturada
   const handleSignature = (signature: string) => {
-    console.log('✍️ Firma capturada para:', currentStep, 'modo:', signatureMode);
+    logger.log('✍️ Firma capturada para:', currentStep, 'modo:', signatureMode);
     const cleanSignature = signature.replace('data:image/png;base64,', '');
     
     const newSignatures = {
@@ -217,18 +218,18 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
     // Modo una sola firma: ir directo a ubicación
     if (signatureMode === 'tecnico_only' || signatureMode === 'cliente_only' || signatureMode === 'supervisor_only') {
-      console.log('🎯 Firma única completada, obteniendo ubicación');
+      logger.log('🎯 Firma única completada, obteniendo ubicación');
       obtenerUbicacion(newSignatures);
       return;
     }
 
     // Modo ambas: avanzar al siguiente paso o finalizar
     if (currentStep === 'tecnico') {
-      console.log('➡️ Avanzando a firma del cliente');
+      logger.log('➡️ Avanzando a firma del cliente');
       setCurrentStep('cliente');
       setTimeout(() => signatureRef.current?.clearSignature(), 100);
     } else {
-      console.log('🎯 Ambas firmas completadas, obteniendo ubicación');
+      logger.log('🎯 Ambas firmas completadas, obteniendo ubicación');
       obtenerUbicacion(newSignatures);
     }
   };
@@ -236,7 +237,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   // Detectar cuando se empieza a dibujar
   const handleBeginDraw = () => {
     setHasDrawnSignature(true);
-    console.log('✏️ Usuario comenzó a dibujar firma');
+    logger.log('✏️ Usuario comenzó a dibujar firma');
   };
 
   // Detectar cuando el canvas está vacío
@@ -256,7 +257,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       try {
         onComplete(firmaTecnico, firmaCliente, coords);
       } catch (err) {
-        console.error('❌ Error en callback onComplete:', err);
+        logger.error('❌ Error en callback onComplete:', err);
       }
     }
   };
@@ -276,7 +277,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
       // Taller / supervisor: ubicación del local de inmediato.
       if (esTallerOSupervisor && preferida) {
-        console.log('📍 Usando ubicación del taller:', preferida);
+        logger.log('📍 Usando ubicación del taller:', preferida);
         completarConUbicacion(finalSignatures, preferida);
         return;
       }
@@ -290,14 +291,14 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         try {
           const browserCoords = await tryBrowserGeolocation(1500);
           if (browserCoords) {
-            console.log('📍 GPS navegador:', browserCoords);
+            logger.log('📍 GPS navegador:', browserCoords);
             completarConUbicacion(finalSignatures, browserCoords);
             return;
           }
         } catch (err) {
-          console.warn('📍 Error intentando GPS navegador:', err);
+          logger.warn('📍 Error intentando GPS navegador:', err);
         }
-        console.log('📍 Web sin GPS; continuando con (0,0)');
+        logger.log('📍 Web sin GPS; continuando con (0,0)');
         completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
         return;
       }
@@ -314,12 +315,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
               lat: last.coords.latitude,
               lng: last.coords.longitude,
             };
-            console.log('📍 Usando última ubicación conocida:', coords);
+            logger.log('📍 Usando última ubicación conocida:', coords);
             completarConUbicacion(finalSignatures, coords);
             return;
           }
         } catch (e) {
-          console.warn('No hay última ubicación conocida:', e);
+          logger.warn('No hay última ubicación conocida:', e);
         }
       }
 
@@ -350,12 +351,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           }
         }
       } catch (e) {
-        console.warn('GPS live no disponible, usando fallback:', e);
+        logger.warn('GPS live no disponible, usando fallback:', e);
       }
 
       completarConUbicacion(finalSignatures, preferida || { lat: 0, lng: 0 });
     } catch (err) {
-      console.error('❌ Error general en obtenerUbicacion:', err);
+      logger.error('❌ Error general en obtenerUbicacion:', err);
       completarConUbicacion(finalSignatures, resolvePreferida(ubicacionPreferida) || { lat: 0, lng: 0 });
     } finally {
       setObtainingLocation(false);

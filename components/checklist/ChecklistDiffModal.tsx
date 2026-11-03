@@ -22,6 +22,7 @@ import {
   ChecklistNivelAlerta,
   ChecklistTipoActualizacion,
 } from '@/services/checklistService';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -96,7 +97,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
         setPreview(res.data);
       } catch (e: any) {
         const msg = e?.response?.data?.detail || e?.message || 'No se pudo calcular el impacto.';
-        console.warn('Error preview-impacto:', e);
+        logger.warn('Error preview-impacto:', e);
         setError(msg);
       } finally {
         setLoading(false);

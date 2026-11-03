@@ -42,6 +42,7 @@ import { SPACING as SPACING_IMPORT } from './spacing';
 import { SHADOWS as SHADOWS_IMPORT } from './shadows';
 import { BORDERS as BORDERS_IMPORT } from './borders';
 import { ANIMATIONS as ANIMATIONS_IMPORT } from './animations';
+import logger from '@/utils/logger';
 
 // Variables locales con validación
 let COLORS_LOCAL: any = {};
@@ -57,7 +58,7 @@ try {
     COLORS_LOCAL = COLORS_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing COLORS:', e);
+  logger.error('❌ Error importing COLORS:', e);
   COLORS_LOCAL = {};
 }
 
@@ -73,7 +74,7 @@ try {
     TYPOGRAPHY_LOCAL = TYPOGRAPHY_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing TYPOGRAPHY:', e);
+  logger.error('❌ Error importing TYPOGRAPHY:', e);
   TYPOGRAPHY_LOCAL = {};
 }
 
@@ -83,7 +84,7 @@ try {
     SPACING_LOCAL = SPACING_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing SPACING:', e);
+  logger.error('❌ Error importing SPACING:', e);
   SPACING_LOCAL = {};
 }
 
@@ -93,7 +94,7 @@ try {
     SHADOWS_LOCAL = SHADOWS_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing SHADOWS:', e);
+  logger.error('❌ Error importing SHADOWS:', e);
   SHADOWS_LOCAL = {};
 }
 
@@ -108,7 +109,7 @@ try {
     BORDERS_LOCAL = BORDERS_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing BORDERS:', e);
+  logger.error('❌ Error importing BORDERS:', e);
   BORDERS_LOCAL = {};
 }
 
@@ -118,7 +119,7 @@ try {
     ANIMATIONS_LOCAL = ANIMATIONS_IMPORT;
   }
 } catch (e) {
-  console.error('❌ Error importing ANIMATIONS:', e);
+  logger.error('❌ Error importing ANIMATIONS:', e);
   ANIMATIONS_LOCAL = {};
 }
 
@@ -141,7 +142,7 @@ try {
   const hasBorders = !!(TOKENS?.borders) && Object.keys(TOKENS?.borders || {}).length > 0;
   const hasAnimations = !!(TOKENS?.animations) && Object.keys(TOKENS?.animations || {}).length > 0;
 
-  console.log('✅ Design System TOKENS initialized:', {
+  logger.log('✅ Design System TOKENS initialized:', {
     hasColors,
     hasTypography,
     hasSpacing,

@@ -1,4 +1,5 @@
 import api from './api';
+import logger from '@/utils/logger';
 
 // Interfaces TypeScript
 export interface Commune {
@@ -56,19 +57,19 @@ class ServiceAreasApi {
    */
   async getRegions(): Promise<Region[]> {
     try {
-      console.log('🗺️ Obteniendo regiones desde API...');
+      logger.log('🗺️ Obteniendo regiones desde API...');
       
       const response = await api.get('/usuarios/chilean-communes/regions/');
       
-      console.log('🔍 DEBUG - Response completa:', response);
-      console.log('🔍 DEBUG - Response.data:', response.data);
-      console.log('🔍 DEBUG - Es array?:', Array.isArray(response.data));
-      console.log('🔍 DEBUG - Tipo:', typeof response.data);
+      logger.log('🔍 DEBUG - Response completa:', response);
+      logger.log('🔍 DEBUG - Response.data:', response.data);
+      logger.log('🔍 DEBUG - Es array?:', Array.isArray(response.data));
+      logger.log('🔍 DEBUG - Tipo:', typeof response.data);
       
-      console.log('✅ Regiones obtenidas:', response.data?.length || 0);
+      logger.log('✅ Regiones obtenidas:', response.data?.length || 0);
       return response.data || [];
     } catch (error) {
-      console.error('❌ Error obteniendo regiones:', error);
+      logger.error('❌ Error obteniendo regiones:', error);
       throw error;
     }
   }
@@ -78,7 +79,7 @@ class ServiceAreasApi {
    */
   async getCommunes(regionCode?: string): Promise<Commune[]> {
     try {
-      console.log('🏙️ Obteniendo comunas desde API...', regionCode ? `filtradas por región ${regionCode}` : 'todas');
+      logger.log('🏙️ Obteniendo comunas desde API...', regionCode ? `filtradas por región ${regionCode}` : 'todas');
       
       let url = '/usuarios/chilean-communes/';
       if (regionCode) {
@@ -87,15 +88,15 @@ class ServiceAreasApi {
       
       const response = await api.get(url);
       
-      console.log('🔍 DEBUG - Comunas Response completa:', response);
-      console.log('🔍 DEBUG - Comunas Response.data:', response.data);
-      console.log('🔍 DEBUG - Comunas Es array?:', Array.isArray(response.data));
-      console.log('🔍 DEBUG - Comunas Tipo:', typeof response.data);
+      logger.log('🔍 DEBUG - Comunas Response completa:', response);
+      logger.log('🔍 DEBUG - Comunas Response.data:', response.data);
+      logger.log('🔍 DEBUG - Comunas Es array?:', Array.isArray(response.data));
+      logger.log('🔍 DEBUG - Comunas Tipo:', typeof response.data);
       
-      console.log('✅ Comunas obtenidas:', response.data?.length || 0);
+      logger.log('✅ Comunas obtenidas:', response.data?.length || 0);
       return response.data || [];
     } catch (error) {
-      console.error('❌ Error obteniendo comunas:', error);
+      logger.error('❌ Error obteniendo comunas:', error);
       throw error;
     }
   }
@@ -109,16 +110,16 @@ class ServiceAreasApi {
    */
   async getServiceAreas(): Promise<ServiceArea[]> {
     try {
-      console.log('🏠 Obteniendo zonas de servicio desde API...');
+      logger.log('🏠 Obteniendo zonas de servicio desde API...');
       
       const response = await api.get('/usuarios/mechanics/me/service-areas/');
       
       // El backend devuelve respuestas paginadas con estructura { count, results }
       const zones = response.data?.results || response.data || [];
-      console.log('✅ Zonas de servicio obtenidas:', zones.length);
+      logger.log('✅ Zonas de servicio obtenidas:', zones.length);
       return zones;
     } catch (error) {
-      console.error('❌ Error obteniendo zonas de servicio:', error);
+      logger.error('❌ Error obteniendo zonas de servicio:', error);
       throw error;
     }
   }
@@ -128,14 +129,14 @@ class ServiceAreasApi {
    */
   async createServiceArea(data: CreateServiceAreaData): Promise<ServiceArea> {
     try {
-      console.log('➕ Creando zona de servicio:', data);
+      logger.log('➕ Creando zona de servicio:', data);
       
       const response = await api.post('/usuarios/mechanics/me/service-areas/', data);
       
-      console.log('✅ Zona de servicio creada:', response.data?.id);
+      logger.log('✅ Zona de servicio creada:', response.data?.id);
       return response.data;
     } catch (error) {
-      console.error('❌ Error creando zona de servicio:', error);
+      logger.error('❌ Error creando zona de servicio:', error);
       throw error;
     }
   }
@@ -145,14 +146,14 @@ class ServiceAreasApi {
    */
   async updateServiceArea(id: string, data: UpdateServiceAreaData): Promise<ServiceArea> {
     try {
-      console.log('✏️ Actualizando zona de servicio:', id, data);
+      logger.log('✏️ Actualizando zona de servicio:', id, data);
       
       const response = await api.put(`/usuarios/mechanics/me/service-areas/${id}/`, data);
       
-      console.log('✅ Zona de servicio actualizada:', response.data?.id);
+      logger.log('✅ Zona de servicio actualizada:', response.data?.id);
       return response.data;
     } catch (error) {
-      console.error('❌ Error actualizando zona de servicio:', error);
+      logger.error('❌ Error actualizando zona de servicio:', error);
       throw error;
     }
   }
@@ -162,13 +163,13 @@ class ServiceAreasApi {
    */
   async deleteServiceArea(id: string): Promise<void> {
     try {
-      console.log('🗑️ Eliminando zona de servicio:', id);
+      logger.log('🗑️ Eliminando zona de servicio:', id);
       
       await api.delete(`/usuarios/mechanics/me/service-areas/${id}/`);
       
-      console.log('✅ Zona de servicio eliminada');
+      logger.log('✅ Zona de servicio eliminada');
     } catch (error) {
-      console.error('❌ Error eliminando zona de servicio:', error);
+      logger.error('❌ Error eliminando zona de servicio:', error);
       throw error;
     }
   }
@@ -178,14 +179,14 @@ class ServiceAreasApi {
    */
   async toggleServiceAreaActive(id: string): Promise<ServiceArea> {
     try {
-      console.log('🔄 Cambiando estado de zona de servicio:', id);
+      logger.log('🔄 Cambiando estado de zona de servicio:', id);
       
       const response = await api.patch(`/usuarios/mechanics/me/service-areas/${id}/toggle_active/`);
       
-      console.log('✅ Estado de zona cambiado:', response.data?.zona?.id);
+      logger.log('✅ Estado de zona cambiado:', response.data?.zona?.id);
       return response.data?.zona || response.data;
     } catch (error) {
-      console.error('❌ Error cambiando estado de zona:', error);
+      logger.error('❌ Error cambiando estado de zona:', error);
       throw error;
     }
   }
@@ -195,14 +196,14 @@ class ServiceAreasApi {
    */
   async getServiceAreaStats(): Promise<ServiceAreaStats> {
     try {
-      console.log('📊 Obteniendo estadísticas de zonas de servicio...');
+      logger.log('📊 Obteniendo estadísticas de zonas de servicio...');
       
       const response = await api.get('/usuarios/mechanics/me/service-areas/stats/');
       
-      console.log('✅ Estadísticas obtenidas:', response.data);
+      logger.log('✅ Estadísticas obtenidas:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error obteniendo estadísticas:', error);
+      logger.error('❌ Error obteniendo estadísticas:', error);
       throw error;
     }
   }

@@ -16,6 +16,7 @@ import {
   loadEstadoProveedorCache,
   saveEstadoProveedorCache,
 } from '@/utils/auth/estadoProveedorCache';
+import logger from '@/utils/logger';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -29,7 +30,7 @@ if (CAN_USE_NATIVE_GOOGLE) {
     });
   } catch (e: any) {
     if (__DEV__) {
-      console.warn('[AuthContext] GoogleSignin no disponible:', e?.message);
+      logger.warn('[AuthContext] GoogleSignin no disponible:', e?.message);
     }
   }
 }
@@ -40,7 +41,7 @@ async function registerPushForUser(userId: number | undefined): Promise<void> {
     await NotificationService.syncNotificationsForUser(userId);
   } catch (e) {
     if (__DEV__) {
-      console.warn('[Auth] No se pudo registrar push:', e);
+      logger.warn('[Auth] No se pudo registrar push:', e);
     }
   }
 }
@@ -209,7 +210,7 @@ async function resolveEstadoProveedorOrCache(
   const cached = await loadEstadoProveedorCache();
   if (isUsableEstadoProveedorCache(cached)) {
     if (__DEV__) {
-      console.log('♻️ Usando estadoProveedor en caché tras fallo transitorio de API');
+      logger.log('♻️ Usando estadoProveedor en caché tras fallo transitorio de API');
     }
     setEstadoProveedor(cached);
     return cached;
@@ -256,7 +257,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.error('Error obteniendo nombre del proveedor (detalles solo en desarrollo):', error);
+        logger.error('Error obteniendo nombre del proveedor (detalles solo en desarrollo):', error);
       }
       return 'Proveedor'; // Fallback seguro
     }
@@ -286,7 +287,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.error('Error obteniendo datos completos del proveedor (detalles solo en desarrollo):', error);
+        logger.error('Error obteniendo datos completos del proveedor (detalles solo en desarrollo):', error);
       }
       // Retornar datos seguros por defecto
       return {
@@ -311,30 +312,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('🔍 Verificando estado de autenticación...');
+        logger.log('🔍 Verificando estado de autenticación...');
       }
       setIsLoading(true);
       
       // Verificar si hay tokens almacenados
       const tokenExiste = await authAPI.isAuthenticated();
       if (__DEV__) {
-        console.log('🔑 Token existe:', tokenExiste);
+        logger.log('🔑 Token existe:', tokenExiste);
       }
       
       if (tokenExiste) {
         if (__DEV__) {
-          console.log('📱 Token encontrado, obteniendo datos del usuario...');
+          logger.log('📱 Token encontrado, obteniendo datos del usuario...');
         }
         const storedToken = await getItem('authToken');
         completeAuthHydration(storedToken);
         const userData = await authAPI.getUserData();
         if (__DEV__) {
-          console.log('👤 Datos del usuario obtenidos:', userData ? 'SÍ' : 'NO', userData?.username);
+          logger.log('👤 Datos del usuario obtenidos:', userData ? 'SÍ' : 'NO', userData?.username);
         }
         
         if (userData) {
           if (__DEV__) {
-            console.log('✅ Estableciendo usuario como autenticado');
+            logger.log('✅ Estableciendo usuario como autenticado');
           }
           setUsuario(userData);
           setIsAuthenticated(true);
@@ -351,7 +352,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const token = await getItem('authToken');
             if (!token) {
               if (__DEV__) {
-                console.log('⚠️ No hay token, no se pueden obtener datos actualizados del usuario');
+                logger.log('⚠️ No hay token, no se pueden obtener datos actualizados del usuario');
               }
               // Continuar con el flujo, no retornar de la función completa
             } else {
@@ -360,13 +361,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Actualizar también los datos guardados en SecureStore
               await setItem('userData', JSON.stringify(datosUsuarioActualizados));
               if (__DEV__) {
-                console.log('✅ Datos del usuario actualizados con foto de perfil');
+                logger.log('✅ Datos del usuario actualizados con foto de perfil');
               }
             }
           } catch (userError: any) {
             if (isAuthSessionError(userError)) {
               if (__DEV__) {
-                console.log('🚨 Sesión inválida al obtener datos del usuario — limpiando', {
+                logger.log('🚨 Sesión inválida al obtener datos del usuario — limpiando', {
                   status: userError?.response?.status,
                   code: userError?.code,
                   message: userError?.message,
@@ -376,7 +377,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 await clearStoredAuthSession();
               } catch (cleanupError) {
                 if (__DEV__) {
-                  console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
+                  logger.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
                 }
               }
               setUsuario(null);
@@ -386,13 +387,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               return;
             }
             if (__DEV__) {
-              console.log('No se pudieron obtener datos actualizados del usuario, usando datos del cache');
+              logger.log('No se pudieron obtener datos actualizados del usuario, usando datos del cache');
             }
           }
           
           // Obtener estado del proveedor si está autenticado
           if (__DEV__) {
-            console.log('🔍 Obteniendo estado del proveedor...');
+            logger.log('🔍 Obteniendo estado del proveedor...');
           }
           try {
             // Verificar token antes de intentar obtener estado
@@ -400,7 +401,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (!token) {
               // userData en caché sin token → sesión inconsistente; ir a login
               if (__DEV__) {
-                console.log('⚠️ userData sin authToken — limpiando sesión fantasma');
+                logger.log('⚠️ userData sin authToken — limpiando sesión fantasma');
               }
               await clearStoredAuthSession();
               setUsuario(null);
@@ -411,14 +412,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
             const estado = await obtenerEstadoProveedorWithRetries();
             if (__DEV__) {
-              console.log('📊 Estado del proveedor obtenido:', estado);
+              logger.log('📊 Estado del proveedor obtenido:', estado);
             }
             await applyEstadoProveedor(setEstadoProveedor, estado);
           } catch (error: any) {
             // Sesión inválida / token limpio mid-bootstrap → login (no pantalla de taller)
             if (isAuthSessionError(error)) {
               if (__DEV__) {
-                console.log('🚨 Sesión inválida al obtener estado — limpiando y yendo a login', {
+                logger.log('🚨 Sesión inválida al obtener estado — limpiando y yendo a login', {
                   status: error?.response?.status,
                   code: error?.code,
                   message: error?.message,
@@ -428,7 +429,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 await clearStoredAuthSession();
               } catch (cleanupError) {
                 if (__DEV__) {
-                  console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
+                  logger.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
                 }
               }
               setUsuario(null);
@@ -439,7 +440,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             if (__DEV__) {
-              console.log('❌ Error obteniendo estado del proveedor:', error.response?.status || error?.code);
+              logger.log('❌ Error obteniendo estado del proveedor:', error.response?.status || error?.code);
             }
 
             if (error.response?.status === 404 || error.response?.status === 403) {
@@ -453,7 +454,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 necesita_onboarding: true,
               } as EstadoProveedor;
               if (__DEV__) {
-                console.log(
+                logger.log(
                   error.response?.status === 404
                     ? '👤 Usuario no tiene perfil de proveedor, estableciendo estado inicial'
                     : '🚫 Usuario sin permisos de proveedor, evaluando si conservar estado previo',
@@ -476,7 +477,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               const fromCache = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
               if (!fromCache) {
                 if (__DEV__) {
-                  console.log('❓ Sin estado ni caché usable — Index mostrará reintento');
+                  logger.log('❓ Sin estado ni caché usable — Index mostrará reintento');
                 }
                 // No pisar un estado usable ya mostrado (optimistic hydrate)
                 setEstadoProveedor((prev) =>
@@ -493,7 +494,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } else {
         if (__DEV__) {
-          console.log('🔒 No hay tokens - Usuario no autenticado');
+          logger.log('🔒 No hay tokens - Usuario no autenticado');
         }
         setIsAuthenticated(false);
         setUsuario(null);
@@ -503,7 +504,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.error('❌ Error verificando autenticación (detalles solo en desarrollo):', error);
+        logger.error('❌ Error verificando autenticación (detalles solo en desarrollo):', error);
       }
       setIsAuthenticated(false);
       setUsuario(null);
@@ -511,7 +512,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       completeAuthHydration(null);
     } finally {
       if (__DEV__) {
-        console.log('🏁 checkAuthStatus completado, estableciendo isLoading = false');
+        logger.log('🏁 checkAuthStatus completado, estableciendo isLoading = false');
       }
       setIsLoading(false);
     }
@@ -615,30 +616,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Logs solo en desarrollo (__DEV__), nunca en producción (APK)
       if (__DEV__) {
-        console.log('🎯 AuthContext.login iniciado');
-        console.log('Username recibido:', username);
-        console.log('Password length:', password.length);
-        console.log('manageLoading:', manageLoading);
+        logger.log('🎯 AuthContext.login iniciado');
+        logger.log('Username recibido:', username);
+        // NUNCA loggear passwords o información relacionada por seguridad
+        logger.log('manageLoading:', manageLoading);
       }
       
       if (manageLoading) {
         setIsLoading(true);
         if (__DEV__) {
-          console.log('⏳ isLoading establecido a true en AuthContext');
+          logger.log('⏳ isLoading establecido a true en AuthContext');
         }
       }
       
       if (__DEV__) {
-        console.log('📡 Llamando a authAPI.login...');
+        logger.log('📡 Llamando a authAPI.login...');
       }
       const response = await authAPI.login({ username, password, acepta_terminos: aceptaTerminos });
       
       if (__DEV__) {
-        console.log('✅ Respuesta de authAPI.login recibida');
+        logger.log('✅ Respuesta de authAPI.login recibida');
       }
       
       if (__DEV__) {
-        console.log('👤 Estableciendo usuario en estado...');
+        logger.log('👤 Estableciendo usuario en estado...');
       }
       setUsuario(response.user);
       setIsAuthenticated(true);
@@ -647,20 +648,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Obtener estado del proveedor después del login
       if (__DEV__) {
-        console.log('🔍 Obteniendo estado del proveedor...');
+        logger.log('🔍 Obteniendo estado del proveedor...');
       }
       try {
         const estado = await obtenerEstadoProveedorWithRetries();
         if (__DEV__) {
-          console.log('Estado obtenido del API:', estado);
+          logger.log('Estado obtenido del API:', estado);
         }
         estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estado);
         if (__DEV__) {
-          console.log('✅ Estado del proveedor establecido correctamente');
+          logger.log('✅ Estado del proveedor establecido correctamente');
         }
       } catch (error: any) {
         if (__DEV__) {
-          console.log('Error obteniendo estado del proveedor tras login:', error.response?.status);
+          logger.log('Error obteniendo estado del proveedor tras login:', error.response?.status);
         }
         if (error.response?.status === 404 || error.response?.status === 403) {
           const estadoSinPerfil = {
@@ -673,7 +674,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             necesita_onboarding: true,
           } as EstadoProveedor;
           if (__DEV__) {
-            console.log('Estableciendo estado sin perfil:', estadoSinPerfil);
+            logger.log('Estableciendo estado sin perfil:', estadoSinPerfil);
           }
           estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estadoSinPerfil);
         } else {
@@ -682,16 +683,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       if (__DEV__) {
-        console.log('🎉 Proceso de login en AuthContext completado exitosamente');
+        logger.log('🎉 Proceso de login en AuthContext completado exitosamente');
       }
       
       // Pequeño delay para asegurar que el estado se propague correctamente
       if (__DEV__) {
-        console.log('⏰ Esperando 100ms para propagación de estado...');
+        logger.log('⏰ Esperando 100ms para propagación de estado...');
       }
       await new Promise(resolve => setTimeout(resolve, 100));
       if (__DEV__) {
-        console.log('✅ Estado debería estar propagado ahora');
+        logger.log('✅ Estado debería estar propagado ahora');
       }
 
       void registerPushForUser(response.user?.id);
@@ -703,14 +704,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Log detallado solo en desarrollo para debugging
       // En producción (APK), estos logs NO aparecerán
       if (__DEV__) {
-        console.error('❌ Error en login AuthContext (detalles solo en desarrollo):', {
+        logger.error('❌ Error en login AuthContext (detalles solo en desarrollo):', {
           message: error.message,
           status: error.response?.status,
           code: error.code,
           // NO loguear datos sensibles, contraseñas, o detalles técnicos completos
         });
         if (error.response?.data) {
-          console.error('Response data:', error.response.data);
+          logger.error('Response data:', error.response.data);
         }
       }
       
@@ -775,7 +776,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       if (manageLoading) {
         if (__DEV__) {
-          console.log('🏁 Estableciendo isLoading a false en AuthContext');
+          logger.log('🏁 Estableciendo isLoading a false en AuthContext');
         }
         setIsLoading(false);
       }
@@ -787,25 +788,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('Enviando datos de registro:', datos);
+        logger.log('Enviando datos de registro:', datos);
       }
       
       // Debug: verificar si hay token almacenado
       const tokenAlmacenado = await authAPI.getUserData();
       if (__DEV__) {
-        console.log('Token almacenado antes del registro:', tokenAlmacenado ? 'SÍ HAY TOKEN' : 'NO HAY TOKEN');
+        logger.log('Token almacenado antes del registro:', tokenAlmacenado ? 'SÍ HAY TOKEN' : 'NO HAY TOKEN');
       }
       
       const response = await authAPI.registro(datos);
       if (__DEV__) {
-        console.log('✅ Respuesta de registro exitosa recibida:', response);
+        logger.log('✅ Respuesta de registro exitosa recibida:', response);
       }
       
       // Después del registro exitoso, guardar credenciales temporalmente para el onboarding
       // NO intentar login automático porque el usuario aún no está marcado como proveedor
       if (datos.username && datos.password) {
         if (__DEV__) {
-          console.log('💾 Guardando credenciales temporalmente para onboarding...');
+          logger.log('💾 Guardando credenciales temporalmente para onboarding...');
         }
         
         try {
@@ -818,13 +819,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }));
           
           if (__DEV__) {
-            console.log('✅ Credenciales guardadas temporalmente');
-            console.log('📝 El usuario será redirigido al onboarding');
-            console.log('🔐 El login se hará después de seleccionar el tipo de cuenta');
+            logger.log('✅ Credenciales guardadas temporalmente');
+            logger.log('📝 El usuario será redirigido al onboarding');
+            logger.log('🔐 El login se hará después de seleccionar el tipo de cuenta');
           }
         } catch (saveError) {
           if (__DEV__) {
-            console.warn('⚠️ Error guardando credenciales temporales (no crítico):', saveError);
+            logger.warn('⚠️ Error guardando credenciales temporales (no crítico):', saveError);
           }
           // No es crítico, el usuario puede hacer login manualmente
         }
@@ -834,14 +835,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       // Log detallado solo en desarrollo
       if (__DEV__) {
-        console.error('Error completo en registro (detalles solo en desarrollo):', {
+        logger.error('Error completo en registro (detalles solo en desarrollo):', {
           message: error.message,
           status: error.response?.status,
           code: error.code,
           // NO loguear datos sensibles
         });
         if (error.response?.data) {
-          console.error('Respuesta del servidor:', error.response.data);
+          logger.error('Respuesta del servidor:', error.response.data);
         }
       }
       
@@ -892,7 +893,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('🚪 Iniciando logout...');
+        logger.log('🚪 Iniciando logout...');
       }
       
       // Limpiar estado del contexto PRIMERO (para UI inmediata)
@@ -923,13 +924,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authAPI.logout();
       
       if (__DEV__) {
-        console.log('✅ Logout completado exitosamente');
-        console.log('🧹 Estado de onboarding incompleto eliminado - próximo registro empezará desde cero');
+        logger.log('✅ Logout completado exitosamente');
+        logger.log('🧹 Estado de onboarding incompleto eliminado - próximo registro empezará desde cero');
       }
     } catch (error) {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.error('❌ Error en logout (detalles solo en desarrollo):', error);
+        logger.error('❌ Error en logout (detalles solo en desarrollo):', error);
       }
       
       // Aún así limpiar el estado local
@@ -937,7 +938,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(false);
       setEstadoProveedor(null);
       if (__DEV__) {
-        console.log('🧹 Estado local limpiado tras error');
+        logger.log('🧹 Estado local limpiado tras error');
       }
     }
   };
@@ -978,7 +979,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             return null;
           }
           if (__DEV__) {
-            console.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);
+            logger.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);
           }
         }
 
@@ -994,7 +995,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (error.response?.status === 403 || error.response?.status === 404) {
           if (__DEV__) {
-            console.log('ℹ️ Usuario aún no tiene perfil de proveedor (normal después del registro)');
+            logger.log('ℹ️ Usuario aún no tiene perfil de proveedor (normal después del registro)');
           }
           const sinPerfil = {
             tiene_perfil: false,
@@ -1027,7 +1028,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (fromCache) return fromCache;
 
         if (__DEV__) {
-          console.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
+          logger.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
         }
         throw error;
       }

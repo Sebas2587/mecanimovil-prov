@@ -4,6 +4,7 @@
  */
 
 import { Dimensions } from 'react-native';
+import logger from '@/utils/logger';
 
 // Obtener dimensiones de la pantalla para responsividad
 // Validar que Dimensions esté disponible antes de usarlo
@@ -15,7 +16,7 @@ try {
     SCREEN_WIDTH = dimensions.width;
   }
 } catch (e) {
-  console.warn('⚠️ Error obteniendo dimensiones de pantalla, usando valor por defecto:', e);
+  logger.warn('⚠️ Error obteniendo dimensiones de pantalla, usando valor por defecto:', e);
 }
 
 export const SPACING = {

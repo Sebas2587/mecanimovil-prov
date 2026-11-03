@@ -31,6 +31,7 @@ import {
   hostScreenStyles,
   HOST_GUTTER,
 } from '@/app/design-system/components';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -152,7 +153,7 @@ export default function GestionarTallerScreen() {
           setValidationStatus('invalid');
         }
       } catch (error) {
-        console.error('Error en validación automática:', error);
+        logger.error('Error en validación automática:', error);
         setValidationStatus('invalid');
         setSearchResults([]);
       } finally {
@@ -169,7 +170,7 @@ export default function GestionarTallerScreen() {
 
       // Cargar datos del proveedor desde el contexto
       if (estadoProveedor?.datos_proveedor) {
-        console.log('📋 Cargando datos del taller desde contexto:', {
+        logger.log('📋 Cargando datos del taller desde contexto:', {
           nombre: estadoProveedor.nombre,
           descripcion: estadoProveedor.datos_proveedor.descripcion,
           direccion_fisica: estadoProveedor.datos_proveedor.direccion_fisica,
@@ -196,7 +197,7 @@ export default function GestionarTallerScreen() {
           setModalidad(modalidadActual);
         }
 
-        console.log('📍 Datos de dirección cargados:', {
+        logger.log('📍 Datos de dirección cargados:', {
           direccion_completa: direccionCompleta,
           comuna: comuna,
           ciudad: ciudad,
@@ -207,7 +208,7 @@ export default function GestionarTallerScreen() {
         // porque ya viene estructurada desde el backend
       }
     } catch (error) {
-      console.error('Error cargando datos del taller:', error);
+      logger.error('Error cargando datos del taller:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos del taller');
     } finally {
       setLoading(false);
@@ -239,7 +240,7 @@ export default function GestionarTallerScreen() {
     if (value.trim()) {
       const numeroMatch = value.match(/\d+/);
       const textoLimpio = value.replace(/\d+/g, '').trim();
-      console.log('🔍 Cambio en búsqueda:', {
+      logger.log('🔍 Cambio en búsqueda:', {
         valor: value,
         tiene_numero: !!numeroMatch,
         numero: numeroMatch ? numeroMatch[0] : 'No',
@@ -261,7 +262,7 @@ export default function GestionarTallerScreen() {
       // Construir URL de búsqueda para Chile
       const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Chile')}&countrycodes=cl&limit=10&addressdetails=1&accept-language=es`;
 
-      console.log('🔍 Buscando dirección:', searchUrl);
+      logger.log('🔍 Buscando dirección:', searchUrl);
 
       const response = await fetch(searchUrl);
       if (!response.ok) {
@@ -269,7 +270,7 @@ export default function GestionarTallerScreen() {
       }
 
       const data = await response.json();
-      console.log('📍 Resultados de búsqueda:', data);
+      logger.log('📍 Resultados de búsqueda:', data);
 
       // ✅ FILTRADO INTELIGENTE: Aceptar direcciones Y comunas de Chile
       const resultadosFiltrados = data.filter((item: any) => {
@@ -298,11 +299,11 @@ export default function GestionarTallerScreen() {
         return false;
       });
 
-      console.log('🔍 Direcciones filtradas (válidas):', resultadosFiltrados.length);
+      logger.log('🔍 Direcciones filtradas (válidas):', resultadosFiltrados.length);
 
       // ✅ LOG DETALLADO DE FILTRADO
       resultadosFiltrados.forEach((item: any, index: number) => {
-        console.log(`🔍 Item ${index + 1}:`, {
+        logger.log(`🔍 Item ${index + 1}:`, {
           addresstype: item.addresstype,
           class: item.class,
           road: item.address.road,
@@ -319,7 +320,7 @@ export default function GestionarTallerScreen() {
         // ✅ EXTRAER NÚMERO DEL QUERY ORIGINAL (PRIORIDAD ALTA)
         const numeroExtraido = query.match(/\d+/)?.[0] || '';
 
-        console.log('🔍 Enriqueciendo resultado:', {
+        logger.log('🔍 Enriqueciendo resultado:', {
           road: item.address.road,
           numeroExtraido: numeroExtraido,
           house_number_original: item.address.house_number,
@@ -342,7 +343,7 @@ export default function GestionarTallerScreen() {
         };
       });
 
-      console.log('🔍 Resultados enriquecidos con número:', resultadosEnriquecidos.length);
+      logger.log('🔍 Resultados enriquecidos con número:', resultadosEnriquecidos.length);
 
       return resultadosEnriquecidos.map((item: any) => ({
         display_name: item.display_name,
@@ -352,7 +353,7 @@ export default function GestionarTallerScreen() {
       }));
 
     } catch (error) {
-      console.error('❌ Error buscando direcciones:', error);
+      logger.error('❌ Error buscando direcciones:', error);
       throw error;
     }
   };
@@ -369,7 +370,7 @@ export default function GestionarTallerScreen() {
   const geocodificarDireccion = async (direccion: string): Promise<{ lat: number, lng: number } | null> => {
     try {
       const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(direccion + ', Chile')}&countrycodes=cl&limit=1&addressdetails=1&accept-language=es`;
-      console.log('📍 Geocodificando dirección:', searchUrl);
+      logger.log('📍 Geocodificando dirección:', searchUrl);
 
       const response = await fetch(searchUrl);
       if (response.ok) {
@@ -380,15 +381,15 @@ export default function GestionarTallerScreen() {
           const lat = parseFloat(resultado.lat);
           const lng = parseFloat(resultado.lon);
 
-          console.log('📍 Coordenadas obtenidas:', { lat, lng, direccion });
+          logger.log('📍 Coordenadas obtenidas:', { lat, lng, direccion });
           return { lat, lng };
         }
       }
 
-      console.log('❌ No se pudo geocodificar la dirección:', direccion);
+      logger.log('❌ No se pudo geocodificar la dirección:', direccion);
       return null;
     } catch (error) {
-      console.error('❌ Error en geocodificación:', error);
+      logger.error('❌ Error en geocodificación:', error);
       return null;
     }
   };
@@ -396,14 +397,14 @@ export default function GestionarTallerScreen() {
   // ✅ BÚSQUEDA INTELIGENTE: Buscar tanto dirección como comuna
   const buscarDireccionesInteligentes = async (query: string): Promise<DireccionResultado[]> => {
     try {
-      console.log('🧠 Búsqueda inteligente iniciada para:', query);
+      logger.log('🧠 Búsqueda inteligente iniciada para:', query);
 
       // ✅ EXTRAER COMPONENTES DE LA BÚSQUEDA
       const numeroMatch = query.match(/\d+/);
       const numero = numeroMatch ? numeroMatch[0] : '';
       const textoLimpio = query.replace(/\d+/g, '').trim();
 
-      console.log('🧠 Componentes extraídos:', {
+      logger.log('🧠 Componentes extraídos:', {
         query_original: query,
         numero: numero,
         texto_limpio: textoLimpio
@@ -411,14 +412,14 @@ export default function GestionarTallerScreen() {
 
       // ✅ BÚSQUEDA 1: Dirección completa (como antes)
       const resultadosDireccion = await buscarDireccionesReales(query);
-      console.log('🧠 Resultados de dirección completa:', resultadosDireccion.length);
+      logger.log('🧠 Resultados de dirección completa:', resultadosDireccion.length);
 
       // ✅ BÚSQUEDA 2: Solo comuna/barrio (sin número)
       let resultadosComuna: DireccionResultado[] = [];
       if (textoLimpio.length >= 3) {
         try {
           const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(textoLimpio + ', Chile')}&countrycodes=cl&limit=5&addressdetails=1&accept-language=es`;
-          console.log('🧠 Buscando comuna:', searchUrl);
+          logger.log('🧠 Buscando comuna:', searchUrl);
 
           const response = await fetch(searchUrl);
           if (response.ok) {
@@ -449,10 +450,10 @@ export default function GestionarTallerScreen() {
               }
             }));
 
-            console.log('🧠 Resultados de comuna encontrados:', resultadosComuna.length);
+            logger.log('🧠 Resultados de comuna encontrados:', resultadosComuna.length);
           }
         } catch (error) {
-          console.log('🧠 Error buscando comuna:', error);
+          logger.log('🧠 Error buscando comuna:', error);
         }
       }
 
@@ -464,7 +465,7 @@ export default function GestionarTallerScreen() {
         index === self.findIndex(t => t.display_name === item.display_name)
       );
 
-      console.log('🧠 Resultados finales combinados:', {
+      logger.log('🧠 Resultados finales combinados:', {
         direccion: resultadosDireccion.length,
         comuna: resultadosComuna.length,
         total: resultadosUnicos.length
@@ -473,7 +474,7 @@ export default function GestionarTallerScreen() {
       return resultadosUnicos;
 
     } catch (error) {
-      console.error('Error en búsqueda inteligente:', error);
+      logger.error('Error en búsqueda inteligente:', error);
       // ✅ FALLBACK: Usar búsqueda original si falla la inteligente
       return await buscarDireccionesReales(query);
     }
@@ -496,7 +497,7 @@ export default function GestionarTallerScreen() {
       calle = address.neighbourhood; // ✅ Barrio como ubicación principal
     }
 
-    console.log('🧠 Ubicación principal determinada:', {
+    logger.log('🧠 Ubicación principal determinada:', {
       road: address.road,
       suburb: address.suburb,
       neighbourhood: address.neighbourhood,
@@ -517,7 +518,7 @@ export default function GestionarTallerScreen() {
     // ✅ FORMATO COMPLETO (para debugging)
     const direccionCompletaConDetalles = `${direccionCompleta}, ${comuna}, ${ciudad}, ${region}`.replace(/,\s*,/g, ',').replace(/^,\s*/, '').replace(/,\s*$/, '');
 
-    console.log('📍 Dirección seleccionada (FORMATO GOOGLE MAPS):', {
+    logger.log('📍 Dirección seleccionada (FORMATO GOOGLE MAPS):', {
       numero_casa: numeroCasa,
       calle: calle,
       direccion_completa: direccionCompleta,
@@ -544,7 +545,7 @@ export default function GestionarTallerScreen() {
         longitud: parseFloat(resultado.lon), // ✅ CAPTURAR COORDENADAS
       };
 
-      console.log('🔄 Estado del taller actualizado (CON DIRECCIÓN COMPLETA Y COORDENADAS):', {
+      logger.log('🔄 Estado del taller actualizado (CON DIRECCIÓN COMPLETA Y COORDENADAS):', {
         anterior: prev.direccion,
         nuevo: nuevoEstado.direccion,
         numero_casa: numeroCasa,
@@ -580,7 +581,7 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN MEJORADA: Extraer información de ubicación con dirección completa
   const extraerInformacionUbicacion = async (direccion: string) => {
     try {
-      console.log('🔍 Extrayendo información de ubicación de dirección existente:', direccion);
+      logger.log('🔍 Extrayendo información de ubicación de dirección existente:', direccion);
 
       // ✅ EXTRAER NÚMERO DEL QUERY ORIGINAL
       const numeroExtraido = direccion.match(/\d+/)?.[0] || '';
@@ -612,7 +613,7 @@ export default function GestionarTallerScreen() {
         const direccionSimplificada = `${direccionCompleta}, ${comuna}, ${ciudad}, Chile`.replace(/,\s*,/g, ',').replace(/^,\s*/, '').replace(/,\s*$/, '');
         const direccionCompletaConDetalles = `${direccionCompleta}, ${comuna}, ${ciudad}, ${region}`.replace(/,\s*,/g, ',').replace(/^,\s*/, '').replace(/,\s*$/, '');
 
-        console.log('📍 Información de ubicación extraída:', {
+        logger.log('📍 Información de ubicación extraída:', {
           numero_casa: numeroCasa,
           calle: calle,
           direccion_completa: direccionCompleta,
@@ -632,10 +633,10 @@ export default function GestionarTallerScreen() {
           region,
         }));
       } else {
-        console.log('⚠️ No se encontraron resultados para extraer información de ubicación');
+        logger.log('⚠️ No se encontraron resultados para extraer información de ubicación');
       }
     } catch (error) {
-      console.log('❌ No se pudo extraer información de ubicación de la dirección existente:', error);
+      logger.log('❌ No se pudo extraer información de ubicación de la dirección existente:', error);
     }
   };
 
@@ -685,7 +686,7 @@ export default function GestionarTallerScreen() {
       setShowAddressModal(true);
 
     } catch (error) {
-      console.error('Error validando dirección:', error);
+      logger.error('Error validando dirección:', error);
       Alert.alert(
         'Error de validación',
         'No se pudo validar la dirección. Verifica tu conexión a internet e intenta nuevamente.'
@@ -710,7 +711,7 @@ export default function GestionarTallerScreen() {
         setHasChanges(true);
       }
     } catch (error) {
-      console.error('Error seleccionando foto:', error);
+      logger.error('Error seleccionando foto:', error);
       Alert.alert('Error', 'No se pudo seleccionar la foto');
     }
   };
@@ -736,18 +737,18 @@ export default function GestionarTallerScreen() {
     try {
       setSaving(true);
 
-      console.log('💾 Guardando datos del taller:', { ...datosTaller, modalidad });
+      logger.log('💾 Guardando datos del taller:', { ...datosTaller, modalidad });
 
       // ✅ VERIFICAR QUE TENEMOS COORDENADAS VÁLIDAS (solo si hay dirección)
       if (datosTaller.direccion.trim() && (!datosTaller.latitud || !datosTaller.longitud)) {
-        console.log('⚠️ No hay coordenadas válidas, geocodificando dirección...');
+        logger.log('⚠️ No hay coordenadas válidas, geocodificando dirección...');
 
         // ✅ GEOCODIFICAR LA DIRECCIÓN SI NO TENEMOS COORDENADAS
         const coordenadas = await geocodificarDireccion(datosTaller.direccion);
         if (coordenadas) {
           datosTaller.latitud = coordenadas.lat;
           datosTaller.longitud = coordenadas.lng;
-          console.log('📍 Coordenadas obtenidas por geocodificación:', coordenadas);
+          logger.log('📍 Coordenadas obtenidas por geocodificación:', coordenadas);
         } else if (!soloDomicilio) {
           throw new Error('No se pudo obtener las coordenadas de la dirección');
         }
@@ -769,12 +770,12 @@ export default function GestionarTallerScreen() {
         datosActualizados.longitud = datosTaller.longitud;
       }
 
-      console.log('📤 Enviando datos al backend (CON COORDENADAS):', datosActualizados);
+      logger.log('📤 Enviando datos al backend (CON COORDENADAS):', datosActualizados);
 
       // Llamada real a la API del backend
       const response = await perfilAPI.actualizarDatosProveedor(datosActualizados);
 
-      console.log('✅ Respuesta del backend:', response);
+      logger.log('✅ Respuesta del backend:', response);
 
       Alert.alert('Éxito', 'Los datos del taller se han guardado correctamente');
       setHasChanges(false);
@@ -783,7 +784,7 @@ export default function GestionarTallerScreen() {
       await refrescarEstadoProveedor();
 
       // ✅ CONFIRMAR QUE LOS DATOS SE GUARDARON
-      console.log('🔄 Estado del proveedor refrescado');
+      logger.log('🔄 Estado del proveedor refrescado');
 
       // ✅ MOSTRAR CONFIRMACIÓN DE LA NUEVA DIRECCIÓN (solo si hay dirección)
       if (datosTaller.direccion.trim()) {
@@ -795,7 +796,7 @@ export default function GestionarTallerScreen() {
       }
 
     } catch (error) {
-      console.error('❌ Error guardando datos del taller:', error);
+      logger.error('❌ Error guardando datos del taller:', error);
       Alert.alert(
         'Error',
         'No se pudieron guardar los datos del taller. Verifica tu conexión e intenta nuevamente.'

@@ -12,6 +12,7 @@ import {
 import type { PushNotificationData } from '@/utils/push/navigateByPushNotification';
 import { invalidateAsignacionesMecanicoQueries } from '@/utils/invalidateAsignacionesMecanico';
 import websocketService from '@/services/websocketService';
+import logger from '@/utils/logger';
 
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
@@ -189,7 +190,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           alertasConfiguracion.push('mercado_pago_no_configurado');
         }
       } catch (error) {
-        console.error('Error verificando Mercado Pago:', error);
+        logger.error('Error verificando Mercado Pago:', error);
         // En caso de error, asumir que no está configurado
         necesitaMercadoPago = true;
         alertasConfiguracion.push('mercado_pago_no_configurado');
@@ -218,7 +219,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           alertasConfiguracion.push('ubicacion_no_configurada');
         }
       } catch (error) {
-        console.error('Error verificando ubicación del taller:', error);
+        logger.error('Error verificando ubicación del taller:', error);
       }
 
       // Verificar zonas de cobertura (solo para mecánicos a domicilio)
@@ -226,7 +227,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         try {
           // Verificar que serviceAreasApi esté disponible
           if (!serviceAreasApi || typeof serviceAreasApi.getServiceAreas !== 'function') {
-            console.warn('⚠️ serviceAreasApi no está disponible');
+            logger.warn('⚠️ serviceAreasApi no está disponible');
             necesitaZonas = true;
             alertasConfiguracion.push('zonas_cobertura_no_configuradas');
           } else {
@@ -234,7 +235,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             
             // Validar que zonas sea un array
             if (!Array.isArray(zonas)) {
-              console.warn('⚠️ Respuesta de zonas no es un array:', typeof zonas);
+              logger.warn('⚠️ Respuesta de zonas no es un array:', typeof zonas);
               necesitaZonas = true;
               alertasConfiguracion.push('zonas_cobertura_no_configuradas');
             } else {
@@ -249,12 +250,12 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         } catch (error: any) {
           // Si es un error 404, significa que no hay zonas configuradas
           if (error.response?.status === 404 || error.message?.includes('404')) {
-            console.log('ℹ️ No hay zonas de cobertura configuradas (404)');
+            logger.log('ℹ️ No hay zonas de cobertura configuradas (404)');
             necesitaZonas = true;
             alertasConfiguracion.push('zonas_cobertura_no_configuradas');
           } else {
             // Solo loguear otros errores, no mostrar alerta para errores de red o servidor
-            console.error('Error verificando zonas de cobertura:', error);
+            logger.error('Error verificando zonas de cobertura:', error);
           }
         }
       }
@@ -268,7 +269,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setSaludSuscripcion(saludData);
         }
       } catch (error) {
-        console.error('Error verificando salud de suscripción:', error);
+        logger.error('Error verificando salud de suscripción:', error);
       }
 
       // Eliminar todas las alertas de configuración existentes
@@ -376,7 +377,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
       }
     } catch (error) {
-      console.error('Error verificando alertas:', error);
+      logger.error('Error verificando alertas:', error);
     } finally {
       verificarInFlightRef.current = false;
     }

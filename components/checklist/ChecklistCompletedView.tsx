@@ -28,6 +28,7 @@ import { InstitutionalSectionHeader } from '@/design-system/components/Instituti
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
 import { HostPaperSection, HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
 import { showAlert } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -143,7 +144,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
         showAlert('Error', 'No se pudo cargar el checklist completado');
       }
     } catch (error) {
-      console.error('Error loading completed checklist:', error);
+      logger.error('Error loading completed checklist:', error);
       setInstance(null);
       showAlert('Error', 'Error al cargar el checklist');
     } finally {
@@ -159,7 +160,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
         setRecomendaciones(result.data.recomendaciones);
       }
     } catch (error) {
-      console.warn('No se pudieron cargar las recomendaciones ML:', error);
+      logger.warn('No se pudieron cargar las recomendaciones ML:', error);
     } finally {
       setLoadingRec(false);
     }

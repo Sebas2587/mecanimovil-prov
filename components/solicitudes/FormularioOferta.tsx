@@ -27,6 +27,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -618,11 +619,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             }));
             setServiciosDisponibles(serviciosFormateados);
           } else {
-            console.warn('No se encontró la marca del vehículo:', solicitud.vehiculo_info.marca);
+            logger.warn('No se encontró la marca del vehículo:', solicitud.vehiculo_info.marca);
             setServiciosDisponibles([]);
           }
         } catch (error) {
-          console.error('Error cargando servicios disponibles:', error);
+          logger.error('Error cargando servicios disponibles:', error);
           setServiciosDisponibles([]);
         } finally {
           setCargandoServicios(false);
@@ -682,7 +683,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     );
 
     if (!serviciosValidos) {
-      console.error('❌ Algunos servicios no tienen estructura válida:',
+      logger.error('❌ Algunos servicios no tienen estructura válida:',
         serviciosOferta.map((s, idx) => ({
           index: idx,
           tieneServicio: !!s?.servicio,
@@ -693,7 +694,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       return;
     }
 
-    console.log('🔄 Iniciando carga de servicios configurados...', {
+    logger.log('🔄 Iniciando carga de servicios configurados...', {
       cantidadServicios: serviciosOferta.length,
       solicitudId: solicitud.id,
       servicios: serviciosOferta.map((s, idx) => ({
@@ -711,11 +712,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
         // Verificar que el servicio tenga estructura válida
         if (!servicio || !servicio.servicio || servicio.servicio.id === undefined || servicio.servicio.id === null) {
-          console.error(`❌ Servicio ${index} no tiene estructura válida:`, servicio);
+          logger.error(`❌ Servicio ${index} no tiene estructura válida:`, servicio);
           continue;
         }
 
-        console.log(`📋 Servicio ${index}:`, {
+        logger.log(`📋 Servicio ${index}:`, {
           nombre: servicio.servicio.nombre,
           servicioId: servicio.servicio.id,
           tipoId: typeof servicio.servicio.id,
@@ -724,7 +725,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         });
 
         if (!servicio.servicioConfigurado && !servicio.loadingServicioConfigurado) {
-          console.log(`🚀 Cargando servicio configurado para índice ${index}...`);
+          logger.log(`🚀 Cargando servicio configurado para índice ${index}...`);
           await cargarServicioConfigurado(index);
         }
       }
@@ -742,7 +743,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   // Función para cargar servicio configurado
   const cargarServicioConfigurado = React.useCallback(async (index: number) => {
     if (!solicitud.id) {
-      console.warn('⚠️ No hay solicitud.id disponible');
+      logger.warn('⚠️ No hay solicitud.id disponible');
       return;
     }
 
@@ -750,18 +751,18 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const servicioActual = serviciosOferta[index];
 
     if (!servicioActual) {
-      console.error(`❌ No existe servicio en índice ${index}. Total servicios: ${serviciosOferta.length}`);
+      logger.error(`❌ No existe servicio en índice ${index}. Total servicios: ${serviciosOferta.length}`);
       return;
     }
 
     if (servicioActual.loadingServicioConfigurado) {
-      console.warn(`⚠️ Servicio ${index} ya está cargando`);
+      logger.warn(`⚠️ Servicio ${index} ya está cargando`);
       return;
     }
 
     // Verificar que el servicio tenga la estructura correcta
     if (!servicioActual.servicio) {
-      console.error(`❌ Servicio en índice ${index} no tiene estructura válida:`, servicioActual);
+      logger.error(`❌ Servicio en índice ${index} no tiene estructura válida:`, servicioActual);
       return;
     }
 
@@ -769,7 +770,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const rawId = servicioActual.servicio.id;
 
     if (rawId === undefined || rawId === null) {
-      console.error(`❌ servicio.id es undefined o null:`, {
+      logger.error(`❌ servicio.id es undefined o null:`, {
         servicio: servicioActual.servicio,
         rawId,
         tipo: typeof rawId,
@@ -781,7 +782,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const servicioId = typeof rawId === 'number' ? rawId : parseInt(String(rawId), 10);
 
     if (isNaN(servicioId)) {
-      console.error(`❌ servicioId no es un número válido:`, {
+      logger.error(`❌ servicioId no es un número válido:`, {
         rawId,
         tipo: typeof rawId,
         servicioCompleto: servicioActual.servicio
@@ -789,7 +790,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       return;
     }
 
-    console.log(`✅ servicioId válido obtenido: ${servicioId} (tipo: ${typeof servicioId})`);
+    logger.log(`✅ servicioId válido obtenido: ${servicioId} (tipo: ${typeof servicioId})`);
 
     // Marcar como cargando
     setServiciosOferta(prev => {
@@ -801,7 +802,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     });
 
     try {
-      console.log(`🔍 Buscando servicio configurado:`, {
+      logger.log(`🔍 Buscando servicio configurado:`, {
         solicitudId: solicitud.id,
         servicioId: servicioId,
         servicioNombre: servicioActual.servicio.nombre,
@@ -815,7 +816,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         servicioId
       );
 
-      console.log(`📦 Resultado para servicio ${servicioId}:`, {
+      logger.log(`📦 Resultado para servicio ${servicioId}:`, {
         encontrado: !!servicioConfigurado,
         nombre: servicioConfigurado?.servicio_info?.nombre,
         tipo: servicioConfigurado?.tipo_servicio,
@@ -849,7 +850,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         return nuevos;
       });
     } catch (error) {
-      console.error(`❌ Error cargando servicio configurado para servicio ${index}:`, error);
+      logger.error(`❌ Error cargando servicio configurado para servicio ${index}:`, error);
       setServiciosOferta(prev => {
         const nuevos = [...prev];
         if (!nuevos[index]) return prev;

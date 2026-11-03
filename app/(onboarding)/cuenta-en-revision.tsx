@@ -17,6 +17,7 @@ import { Card } from '@/app/design-system/components';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -60,7 +61,7 @@ export default function CuentaEnRevisionScreen() {
     try {
       await refrescarEstadoProveedor();
     } catch (error) {
-      console.error('Error refrescando estado:', error);
+      logger.error('Error refrescando estado:', error);
     } finally {
       setRefreshing(false);
     }

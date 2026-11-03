@@ -22,6 +22,7 @@ import { COLORS, withOpacity } from '@/app/design-system/tokens';
 import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -41,7 +42,7 @@ export default function FinalizarOnboardingScreen() {
     // Solo procesar una vez
     if (dataProcessed.current) return;
     
-    console.log('Procesando datos del onboarding...');
+    logger.log('Procesando datos del onboarding...');
     
     // Consolidar todos los datos del onboarding
     let especialidadesParsed = [];
@@ -52,9 +53,9 @@ export default function FinalizarOnboardingScreen() {
     if (especialidades) {
       try {
         especialidadesParsed = JSON.parse(especialidades as string);
-        console.log('Especialidades parseadas:', especialidadesParsed.length);
+        logger.log('Especialidades parseadas:', especialidadesParsed.length);
       } catch (error) {
-        console.error('Error parseando especialidades:', error);
+        logger.error('Error parseando especialidades:', error);
         especialidadesParsed = [];
       }
     }
@@ -63,9 +64,9 @@ export default function FinalizarOnboardingScreen() {
     if (marcas) {
       try {
         marcasParsed = JSON.parse(marcas as string);
-        console.log('Marcas parseadas:', marcasParsed.length);
+        logger.log('Marcas parseadas:', marcasParsed.length);
       } catch (error) {
-        console.error('Error parseando marcas:', error);
+        logger.error('Error parseando marcas:', error);
         marcasParsed = [];
       }
     }
@@ -76,24 +77,24 @@ export default function FinalizarOnboardingScreen() {
         // Intentar decodificar desde base64 primero
         const documentosDecoded = Buffer.from(documentos as string, 'base64').toString('utf-8');
         documentosParsed = JSON.parse(documentosDecoded);
-        console.log('Documentos parseados exitosamente desde base64:', Object.keys(documentosParsed).length);
+        logger.log('Documentos parseados exitosamente desde base64:', Object.keys(documentosParsed).length);
       } catch (error) {
-        console.error('Error parseando documentos desde base64:', error);
+        logger.error('Error parseando documentos desde base64:', error);
         
         // Segundo intento: decodificar URL
         try {
           const documentosDecoded = decodeURIComponent(documentos as string);
           documentosParsed = JSON.parse(documentosDecoded);
-          console.log('Documentos parseados (URL decoded):', Object.keys(documentosParsed).length);
+          logger.log('Documentos parseados (URL decoded):', Object.keys(documentosParsed).length);
         } catch (error2) {
-          console.error('Error parseando documentos (URL decoded):', error2);
+          logger.error('Error parseando documentos (URL decoded):', error2);
           
           // Tercer intento: JSON directo
           try {
             documentosParsed = JSON.parse(documentos as string);
-            console.log('Documentos parseados (JSON directo):', Object.keys(documentosParsed).length);
+            logger.log('Documentos parseados (JSON directo):', Object.keys(documentosParsed).length);
           } catch (error3) {
-            console.error('Error parseando documentos (JSON directo):', error3);
+            logger.error('Error parseando documentos (JSON directo):', error3);
             
             // Cuarto intento: limpiar caracteres problemáticos
             try {
@@ -103,11 +104,11 @@ export default function FinalizarOnboardingScreen() {
                 .replace(/,\s*]/g, ']'); // Eliminar comas finales en arrays
               
               documentosParsed = JSON.parse(documentosLimpio);
-              console.log('Documentos parseados (limpio):', Object.keys(documentosParsed).length);
+              logger.log('Documentos parseados (limpio):', Object.keys(documentosParsed).length);
             } catch (error4) {
-              console.error('Error parseando documentos (todos los intentos fallaron):', error4);
-              console.error('JSON original longitud:', (documentos as string).length);
-              console.error('JSON muestra (primeros 200 chars):', (documentos as string).substring(0, 200));
+              logger.error('Error parseando documentos (todos los intentos fallaron):', error4);
+              logger.error('JSON original longitud:', (documentos as string).length);
+              logger.error('JSON muestra (primeros 200 chars):', (documentos as string).substring(0, 200));
               documentosParsed = {};
               
               // CRÍTICO: Mostrar alerta al usuario
@@ -137,7 +138,7 @@ export default function FinalizarOnboardingScreen() {
       documentos: documentosParsed,
     };
     
-    console.log('Datos consolidados:', {
+    logger.log('Datos consolidados:', {
       tipo: datos.tipo,
       tieneEspecialidades: datos.especialidades?.length > 0,
       tieneMarcas: datos.marcas?.length > 0,
@@ -151,7 +152,7 @@ export default function FinalizarOnboardingScreen() {
       experiencia_anos: !!datos.experiencia_anos
     });
     
-    console.log('📋 Datos completos recibidos:', {
+    logger.log('📋 Datos completos recibidos:', {
       nombre: datos.nombre,
       telefono: datos.telefono, 
       rut: datos.rut,
@@ -203,7 +204,7 @@ export default function FinalizarOnboardingScreen() {
     const documentosKeys = Object.keys(documentosLocal);
     
     if (documentosKeys.length === 0) {
-      console.log('No hay documentos para subir');
+      logger.log('No hay documentos para subir');
       return { 
         documentosSubidos: 0, 
         documentosFallidos: 0,
@@ -213,7 +214,7 @@ export default function FinalizarOnboardingScreen() {
     }
 
     setProgresoSubida('Subiendo documentos...');
-    console.log('Iniciando subida de documentos:', documentosKeys);
+    logger.log('Iniciando subida de documentos:', documentosKeys);
     
     // Definir cuáles documentos son obligatorios vs opcionales
     const documentosObligatorios = ['dni_frontal', 'dni_trasero', 'rut_fiscal', 'licencia_conducir'];
@@ -231,7 +232,7 @@ export default function FinalizarOnboardingScreen() {
       const esOpcional = documentosOpcionales.includes(key);
       
       setProgresoSubida(`Subiendo documento ${i + 1} de ${documentosKeys.length}...`);
-      console.log(`Preparando documento ${i + 1}:`, {
+      logger.log(`Preparando documento ${i + 1}:`, {
         key,
         tipo: doc.tipo,
         uri: doc.uri,
@@ -248,49 +249,49 @@ export default function FinalizarOnboardingScreen() {
           name: doc.fileName || `${doc.tipo}_${Date.now()}.jpg`,
         };
 
-        console.log(`Enviando documento ${doc.tipo} al servidor...`);
+        logger.log(`Enviando documento ${doc.tipo} al servidor...`);
         const resultado = await documentosAPI.subirDocumento(archivo, doc.tipo);
-        console.log(`✅ Documento ${doc.tipo} subido exitosamente:`, resultado);
+        logger.log(`✅ Documento ${doc.tipo} subido exitosamente:`, resultado);
         documentosSubidos++;
         
       } catch (error: any) {
-        console.error(`❌ Error subiendo documento ${doc.tipo}:`, error);
-        console.error('Error response:', error.response?.data);
-        console.error('Error status:', error.response?.status);
-        console.error('Error message:', error.message);
+        logger.error(`❌ Error subiendo documento ${doc.tipo}:`, error);
+        logger.error('Error response:', error.response?.data);
+        logger.error('Error status:', error.response?.status);
+        logger.error('Error message:', error.message);
         
         documentosFallidos++;
         
         // Diferenciar entre documentos obligatorios y opcionales
         if (esObligatorio) {
           documentosObligatoriosFallidos++;
-          console.error(`⚠️ ERROR CRÍTICO: Documento obligatorio ${doc.tipo} falló al subir`);
+          logger.error(`⚠️ ERROR CRÍTICO: Documento obligatorio ${doc.tipo} falló al subir`);
         } else if (esOpcional) {
           documentosOpcionalesFallidos++;
-          console.warn(`⚠️ Documento opcional ${doc.tipo} no se pudo subir, pero continuando con el proceso`);
+          logger.warn(`⚠️ Documento opcional ${doc.tipo} no se pudo subir, pero continuando con el proceso`);
         } else {
-          console.warn(`⚠️ Documento ${doc.tipo} no se pudo subir, pero continuando con el proceso`);
+          logger.warn(`⚠️ Documento ${doc.tipo} no se pudo subir, pero continuando con el proceso`);
         }
       }
     }
     
-    console.log(`📊 Resumen de subida: ${documentosSubidos} exitosos, ${documentosFallidos} fallidos`);
-    console.log(`📊 Desglose: ${documentosObligatoriosFallidos} obligatorios fallidos, ${documentosOpcionalesFallidos} opcionales fallidos`);
+    logger.log(`📊 Resumen de subida: ${documentosSubidos} exitosos, ${documentosFallidos} fallidos`);
+    logger.log(`📊 Desglose: ${documentosObligatoriosFallidos} obligatorios fallidos, ${documentosOpcionalesFallidos} opcionales fallidos`);
     
     // Solo mostrar warnings para documentos obligatorios
     if (documentosObligatoriosFallidos > 0) {
-      console.warn(`⚠️ ${documentosObligatoriosFallidos} documentos obligatorios fallaron. Esto puede afectar la verificación.`);
+      logger.warn(`⚠️ ${documentosObligatoriosFallidos} documentos obligatorios fallaron. Esto puede afectar la verificación.`);
     }
     
     // Para documentos opcionales, solo log informativo
     if (documentosOpcionalesFallidos > 0) {
-      console.log(`ℹ️ ${documentosOpcionalesFallidos} documentos opcionales no se pudieron subir. Esto es normal y no afecta el proceso.`);
+      logger.log(`ℹ️ ${documentosOpcionalesFallidos} documentos opcionales no se pudieron subir. Esto es normal y no afecta el proceso.`);
     }
     
     if (documentosObligatoriosFallidos === 0 && documentosOpcionalesFallidos > 0) {
-      console.log('✅ Todos los documentos obligatorios subidos exitosamente. Documentos opcionales pueden subirse más tarde.');
+      logger.log('✅ Todos los documentos obligatorios subidos exitosamente. Documentos opcionales pueden subirse más tarde.');
     } else if (documentosObligatoriosFallidos === 0) {
-      console.log('✅ Todos los documentos subidos exitosamente');
+      logger.log('✅ Todos los documentos subidos exitosamente');
     }
     
     return { 
@@ -302,7 +303,7 @@ export default function FinalizarOnboardingScreen() {
   };
 
   const guardarEspecialidadesYMarcas = async () => {
-    console.log('Iniciando guardado de especialidades y marcas:', {
+    logger.log('Iniciando guardado de especialidades y marcas:', {
       especialidades: datosCompletos.especialidades?.length || 0,
       marcas: datosCompletos.marcas?.length || 0,
       tipo: datosCompletos.tipo
@@ -312,41 +313,41 @@ export default function FinalizarOnboardingScreen() {
     if (datosCompletos.especialidades?.length > 0) {
       try {
         setProgresoSubida('Guardando especialidades...');
-        console.log('Enviando especialidades:', datosCompletos.especialidades);
+        logger.log('Enviando especialidades:', datosCompletos.especialidades);
         await especialidadesAPI.actualizarEspecialidades(datosCompletos.especialidades);
-        console.log('Especialidades guardadas exitosamente');
+        logger.log('Especialidades guardadas exitosamente');
       } catch (error: any) {
-        console.error('Error guardando especialidades:', error);
-        console.error('Respuesta del error de especialidades:', error.response?.data);
+        logger.error('Error guardando especialidades:', error);
+        logger.error('Respuesta del error de especialidades:', error.response?.data);
         throw new Error(`Error al guardar especialidades: ${error.response?.data?.error || error.message}`);
       }
     } else {
-      console.log('No hay especialidades para guardar');
+      logger.log('No hay especialidades para guardar');
     }
     
     // Guardar marcas atendidas
     if (datosCompletos.marcas?.length > 0) {
       try {
         setProgresoSubida('Guardando marcas atendidas...');
-        console.log('Enviando marcas:', datosCompletos.marcas, 'para tipo:', datosCompletos.tipo);
+        logger.log('Enviando marcas:', datosCompletos.marcas, 'para tipo:', datosCompletos.tipo);
         
         if (datosCompletos.tipo === 'taller') {
           await tallerAPI.actualizarMarcas(datosCompletos.marcas);
-          console.log('Marcas del taller guardadas exitosamente');
+          logger.log('Marcas del taller guardadas exitosamente');
         } else {
           await mecanicoAPI.actualizarMarcas(datosCompletos.marcas);
-          console.log('Marcas del mecánico guardadas exitosamente');
+          logger.log('Marcas del mecánico guardadas exitosamente');
         }
       } catch (error: any) {
-        console.error('Error guardando marcas:', error);
-        console.error('Respuesta del error de marcas:', error.response?.data);
+        logger.error('Error guardando marcas:', error);
+        logger.error('Respuesta del error de marcas:', error.response?.data);
         throw new Error(`Error al guardar marcas: ${error.response?.data?.error || error.message}`);
       }
     } else {
-      console.log('No hay marcas para guardar');
+      logger.log('No hay marcas para guardar');
     }
     
-    console.log('Especialidades y marcas guardadas exitosamente');
+    logger.log('Especialidades y marcas guardadas exitosamente');
   };
 
   const getBackPath = () => {
@@ -360,15 +361,15 @@ export default function FinalizarOnboardingScreen() {
   };
 
   const finalizarRegistro = async () => {
-    console.log('🚀 Iniciando proceso de finalización de registro...');
+    logger.log('🚀 Iniciando proceso de finalización de registro...');
     
     if (!validarDatos() || !usuario) {
-      console.error('❌ Validación fallida o usuario no encontrado');
+      logger.error('❌ Validación fallida o usuario no encontrado');
       showAlert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
       return;
     }
 
-    console.log('✅ Validación exitosa, datos:', {
+    logger.log('✅ Validación exitosa, datos:', {
       tipo: datosCompletos.tipo,
       nombre: datosCompletos.nombre,
       telefono: datosCompletos.telefono,
@@ -385,22 +386,22 @@ export default function FinalizarOnboardingScreen() {
       // 1. Verificar si ya existe un perfil del proveedor
       pasoCompletado = 1;
       setProgresoSubida('Verificando perfil existente...');
-      console.log('🔍 Paso 1: Verificando perfil existente...');
+      logger.log('🔍 Paso 1: Verificando perfil existente...');
       
       let tienePerfilExistente = false;
       
       try {
         const estadoActual = await authAPI.obtenerEstadoProveedor();
         tienePerfilExistente = estadoActual.tiene_perfil;
-        console.log('✅ Perfil existente encontrado:', tienePerfilExistente);
+        logger.log('✅ Perfil existente encontrado:', tienePerfilExistente);
       } catch (error: any) {
-        console.log('🔍 Error consultando estado:', error.response?.status);
+        logger.log('🔍 Error consultando estado:', error.response?.status);
         // Si es 404, significa que no tiene perfil (caso normal para nuevos usuarios)
         if (error.response?.status === 404) {
-          console.log('✅ Usuario nuevo sin perfil - esto es normal');
+          logger.log('✅ Usuario nuevo sin perfil - esto es normal');
           tienePerfilExistente = false;
         } else {
-          console.error('❌ Error inesperado verificando perfil:', error);
+          logger.error('❌ Error inesperado verificando perfil:', error);
           throw error;
         }
       }
@@ -411,7 +412,7 @@ export default function FinalizarOnboardingScreen() {
         // 2. Crear el perfil del proveedor solo si no existe
         pasoCompletado = 2;
         setProgresoSubida('Creando perfil...');
-        console.log('🏗️ Paso 2: Creando perfil del proveedor...');
+        logger.log('🏗️ Paso 2: Creando perfil del proveedor...');
         
         const datosInicializacion: any = {
           tipo_proveedor: datosCompletos.tipo,
@@ -428,37 +429,37 @@ export default function FinalizarOnboardingScreen() {
           datosInicializacion.rut = datosCompletos.rut;
           datosInicializacion.direccion = datosCompletos.direccion;
           
-          console.log('🏪 Inicializando onboarding de taller:', datosInicializacion);
+          logger.log('🏪 Inicializando onboarding de taller:', datosInicializacion);
         } else {
           datosInicializacion.dni = datosCompletos.dni;
           datosInicializacion.experiencia_anos = parseInt(datosCompletos.experiencia_anos);
           
-          console.log('🔧 Inicializando onboarding de mecánico:', datosInicializacion);
+          logger.log('🔧 Inicializando onboarding de mecánico:', datosInicializacion);
         }
         
         // Usar el método directo del API
         const resultadoInicializacion = await onboardingAPI.inicializarOnboarding(datosInicializacion);
-        console.log('✅ Onboarding inicializado exitosamente:', resultadoInicializacion);
+        logger.log('✅ Onboarding inicializado exitosamente:', resultadoInicializacion);
         
         perfilCreado = true;
-        console.log('✅ Perfil creado exitosamente');
+        logger.log('✅ Perfil creado exitosamente');
         
         // Esperar un momento para que el backend actualice las relaciones
         setProgresoSubida('Sincronizando perfil...');
-        console.log('⏳ Esperando sincronización del backend...');
+        logger.log('⏳ Esperando sincronización del backend...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Refrescar el estado del proveedor para asegurar que el backend reconoce el nuevo perfil
-        console.log('🔄 Refrescando estado del proveedor...');
+        logger.log('🔄 Refrescando estado del proveedor...');
         await refrescarEstadoProveedor();
       } else {
-        console.log('✅ Perfil ya existe, continuando con documentos y especialidades');
+        logger.log('✅ Perfil ya existe, continuando con documentos y especialidades');
       }
 
       // 3. Actualizar perfil con datos del onboarding (CRÍTICO)
       pasoCompletado = 3;
       setProgresoSubida('Actualizando perfil con datos del onboarding...');
-      console.log('📝 Paso 3: Actualizando perfil con datos completos del onboarding...');
+      logger.log('📝 Paso 3: Actualizando perfil con datos completos del onboarding...');
       
       try {
         const datosActualizacion = {
@@ -474,10 +475,10 @@ export default function FinalizarOnboardingScreen() {
             direccion: datosCompletos.direccion,
           };
           
-          console.log('🏪 Actualizando datos del taller:', datosTaller);
+          logger.log('🏪 Actualizando datos del taller:', datosTaller);
           
           // Usar método de actualización específico para perfil existente
-          console.log('🔄 Actualizando perfil de taller existente usando método específico...');
+          logger.log('🔄 Actualizando perfil de taller existente usando método específico...');
           await tallerAPI.actualizarPerfilExistente(datosTaller);
           
         } else {
@@ -487,21 +488,21 @@ export default function FinalizarOnboardingScreen() {
             experiencia_anos: parseInt(datosCompletos.experiencia_anos),
           };
           
-          console.log('🔧 Actualizando datos del mecánico:', datosMecanico);
+          logger.log('🔧 Actualizando datos del mecánico:', datosMecanico);
           
           // Usar método de actualización específico para perfil existente
-          console.log('🔄 Actualizando perfil de mecánico existente usando método específico...');
+          logger.log('🔄 Actualizando perfil de mecánico existente usando método específico...');
           await mecanicoAPI.actualizarPerfilExistente(datosMecanico);
         }
         
-        console.log('✅ Perfil actualizado con datos del onboarding');
+        logger.log('✅ Perfil actualizado con datos del onboarding');
         
         // Esperar sincronización
         await new Promise(resolve => setTimeout(resolve, 1000));
         
       } catch (error: any) {
-        console.error('❌ Error actualizando perfil:', error);
-        console.error('❌ Detalles del error:', error.response?.data);
+        logger.error('❌ Error actualizando perfil:', error);
+        logger.error('❌ Detalles del error:', error.response?.data);
         
         // Si falla la actualización, es un error crítico porque los datos deben estar correctos
         throw new Error(`Error crítico actualizando perfil: ${error.response?.data?.error || error.message}`);
@@ -509,39 +510,39 @@ export default function FinalizarOnboardingScreen() {
 
       // 4. Subir documentos (CRÍTICO - documentos obligatorios deben subirse)
       pasoCompletado = 4;
-      console.log('📄 Paso 4: Subiendo documentos...');
+      logger.log('📄 Paso 4: Subiendo documentos...');
       const resultadoDocumentos = await subirDocumentos();
       
       // CRÍTICO: Si fallan documentos obligatorios, el onboarding no puede completarse
       if (resultadoDocumentos.documentosObligatoriosFallidos && resultadoDocumentos.documentosObligatoriosFallidos > 0) {
-        console.error(`❌ ERROR CRÍTICO: ${resultadoDocumentos.documentosObligatoriosFallidos} documentos obligatorios fallaron`);
+        logger.error(`❌ ERROR CRÍTICO: ${resultadoDocumentos.documentosObligatoriosFallidos} documentos obligatorios fallaron`);
         throw new Error(`No se pudieron subir ${resultadoDocumentos.documentosObligatoriosFallidos} documentos obligatorios. Verifica tu conexión a internet e intenta nuevamente.`);
       }
       
       // Solo mostrar mensaje informativo para documentos opcionales
       if (resultadoDocumentos.documentosOpcionalesFallidos && resultadoDocumentos.documentosOpcionalesFallidos > 0) {
-        console.log(`ℹ️ ${resultadoDocumentos.documentosOpcionalesFallidos} documentos opcionales no se pudieron subir. Esto es normal y no afecta el proceso.`);
+        logger.log(`ℹ️ ${resultadoDocumentos.documentosOpcionalesFallidos} documentos opcionales no se pudieron subir. Esto es normal y no afecta el proceso.`);
       }
 
       // 5. Guardar especialidades y marcas
       pasoCompletado = 5;
-      console.log('🎯 Paso 5: Guardando especialidades y marcas...');
+      logger.log('🎯 Paso 5: Guardando especialidades y marcas...');
       await guardarEspecialidadesYMarcas();
-      console.log('✅ Especialidades y marcas guardadas exitosamente');
+      logger.log('✅ Especialidades y marcas guardadas exitosamente');
 
       // 6. Completar el onboarding
       pasoCompletado = 6;
       setProgresoSubida('Finalizando registro...');
-      console.log('🏁 Paso 6: Completando onboarding...');
+      logger.log('🏁 Paso 6: Completando onboarding...');
       
       let onboardingCompletado = false;
       let resultadoOnboarding: any = null;
       try {
         resultadoOnboarding = await onboardingAPI.completarOnboarding();
-        console.log('✅ Onboarding completado exitosamente:', resultadoOnboarding);
+        logger.log('✅ Onboarding completado exitosamente:', resultadoOnboarding);
         onboardingCompletado = true;
       } catch (error: any) {
-        console.error('❌ Error crítico al completar onboarding:', error.response?.data);
+        logger.error('❌ Error crítico al completar onboarding:', error.response?.data);
         
         // Si falla completar onboarding, es un error crítico
         const errores = error.response?.data?.errores || [error.response?.data?.error || 'Error desconocido'];
@@ -550,7 +551,7 @@ export default function FinalizarOnboardingScreen() {
 
       // 7. Refrescar estado del proveedor
       pasoCompletado = 7;
-      console.log('🔄 Paso 7: Refrescando estado final...');
+      logger.log('🔄 Paso 7: Refrescando estado final...');
       await refrescarEstadoProveedor();
 
       // 8. Verificar que todo esté correcto antes de mostrar éxito
@@ -565,7 +566,7 @@ export default function FinalizarOnboardingScreen() {
       // Los documentos opcionales no deben impedir el éxito del onboarding
       
       // 9. Mostrar mensaje de éxito (solo si todo está bien)
-      console.log('🎉 Registro completado exitosamente');
+      logger.log('🎉 Registro completado exitosamente');
       const mensajeExito = perfilCreado 
         ? 'Tu taller mecánico ha sido registrado exitosamente.'
         : `Tu información de onboarding ha sido actualizada exitosamente.`;
@@ -594,7 +595,7 @@ export default function FinalizarOnboardingScreen() {
           {
             text: 'Entendido',
             onPress: () => {
-              console.log('🏠 Navegando al home...');
+              logger.log('🏠 Navegando al home...');
               // Navegar al index que manejará la lógica de navegación según el estado
               router.replace('/');
             }
@@ -603,8 +604,8 @@ export default function FinalizarOnboardingScreen() {
       );
 
     } catch (error: any) {
-      console.error(`❌ Error en paso ${pasoCompletado} de finalización:`, error);
-      console.error('📋 Detalles del error:', {
+      logger.error(`❌ Error en paso ${pasoCompletado} de finalización:`, error);
+      logger.error('📋 Detalles del error:', {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
@@ -636,19 +637,19 @@ export default function FinalizarOnboardingScreen() {
       
       if (error.response?.data?.codigo === 'MECANICO_DUPLICADO' || 
           error.response?.data?.codigo === 'TALLER_DUPLICADO') {
-        console.log('🔄 Perfil duplicado detectado, intentando actualización...');
+        logger.log('🔄 Perfil duplicado detectado, intentando actualización...');
         tituloError = 'Perfil Existente';
         mensajeError = 'Ya tienes un perfil registrado. Continuaremos con la actualización de tus documentos y especialidades.';
         
         // Si el perfil ya existe, intentar solo subir documentos y especialidades
         try {
-          console.log('📄 Subiendo documentos para perfil existente...');
+          logger.log('📄 Subiendo documentos para perfil existente...');
           const { documentosSubidos: subidos, documentosFallidos: fallidos } = await subirDocumentos();
-          console.log('🎯 Guardando especialidades para perfil existente...');
+          logger.log('🎯 Guardando especialidades para perfil existente...');
           await guardarEspecialidadesYMarcas();
-          console.log('🏁 Completando onboarding para perfil existente...');
+          logger.log('🏁 Completando onboarding para perfil existente...');
           await onboardingAPI.completarOnboarding();
-          console.log('🔄 Refrescando estado para perfil existente...');
+          logger.log('🔄 Refrescando estado para perfil existente...');
           await refrescarEstadoProveedor();
           
           showAlertButtons(
@@ -658,7 +659,7 @@ export default function FinalizarOnboardingScreen() {
           );
           return;
         } catch (updateError: any) {
-          console.error('❌ Error actualizando información:', updateError);
+          logger.error('❌ Error actualizando información:', updateError);
           mensajeError = 'Error actualizando tu información. Por favor, intenta nuevamente.';
         }
       } else if (error.message) {
@@ -675,7 +676,7 @@ export default function FinalizarOnboardingScreen() {
     } finally {
       setIsSubmitting(false);
       setProgresoSubida('');
-      console.log('🔚 Proceso de finalización terminado');
+      logger.log('🔚 Proceso de finalización terminado');
     }
   };
 

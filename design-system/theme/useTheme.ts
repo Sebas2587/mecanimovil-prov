@@ -7,6 +7,7 @@
 import { useContext } from 'react';
 import { DesignSystemThemeContext } from './DesignSystemThemeProvider';
 import { TOKENS } from '../tokens';
+import logger from '@/utils/logger';
 
 /**
  * Hook para acceder a los tokens del tema
@@ -25,7 +26,7 @@ export const useTheme = () => {
   try {
     context = useContext(DesignSystemThemeContext);
   } catch (e) {
-    console.warn('⚠️ Error accessing DesignSystemThemeContext:', e);
+    logger.warn('⚠️ Error accessing DesignSystemThemeContext:', e);
     context = null;
   }
 
@@ -35,11 +36,11 @@ export const useTheme = () => {
     theme = context || TOKENS;
     // Si theme sigue siendo undefined, usar fallback
     if (!theme || typeof theme !== 'object') {
-      console.warn('⚠️ Theme is not an object, using fallback');
+      logger.warn('⚠️ Theme is not an object, using fallback');
       theme = TOKENS || {};
     }
   } catch (e) {
-    console.error('❌ Error accessing theme context or TOKENS:', e);
+    logger.error('❌ Error accessing theme context or TOKENS:', e);
     theme = {};
   }
 
@@ -64,7 +65,7 @@ export const useTheme = () => {
   const hasValidSpacing = theme?.spacing && typeof theme.spacing === 'object' && typeof theme.spacing?.md !== 'undefined';
 
   if (!hasValidBorders || !hasValidTypography || !hasValidColors || !hasValidSpacing) {
-    console.warn('⚠️ Theme tokens not ready, using fallback values', {
+    logger.warn('⚠️ Theme tokens not ready, using fallback values', {
       hasValidBorders,
       hasValidTypography,
       hasValidColors,

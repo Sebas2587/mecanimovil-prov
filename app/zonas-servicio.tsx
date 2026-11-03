@@ -31,6 +31,7 @@ import {
   useZonasServicioQuery,
 } from '@/hooks/useZonasServicioQuery';
 import { MapPin } from 'lucide-react-native';
+import logger from '@/utils/logger';
 
 // Interfaces TypeScript
 
@@ -111,7 +112,7 @@ export default function ZonasServicioScreen() {
                 invalidateZonasServicioQueries(queryClient);
                 await refresh();
               } catch (error) {
-                console.error('Error actualizando zona:', error);
+                logger.error('Error actualizando zona:', error);
                 Alert.alert('Error', 'No se pudo actualizar la zona');
               }
             }
@@ -119,7 +120,7 @@ export default function ZonasServicioScreen() {
         ]
       );
     } catch (error) {
-      console.error('Error en toggle:', error);
+      logger.error('Error en toggle:', error);
     }
   };
 
@@ -145,7 +146,7 @@ export default function ZonasServicioScreen() {
 
               Alert.alert('Éxito', 'Zona eliminada correctamente');
             } catch (error) {
-              console.error('Error eliminando zona:', error);
+              logger.error('Error eliminando zona:', error);
               Alert.alert('Error', 'No se pudo eliminar la zona');
             }
           }

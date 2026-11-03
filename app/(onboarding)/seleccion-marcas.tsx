@@ -23,6 +23,7 @@ import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { buildOnboardingHref, mergeRouteParamsIntoDraft } from '@/utils/onboardingDraftParams';
 import { marcasIdsKeyFromParam, normalizeMarcasIds, readRouteParam } from '@/utils/extractApiList';
 import { showAlert } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const MAX_MARCAS = 5;
@@ -71,7 +72,7 @@ export default function SeleccionMarcasScreen() {
       const marcasData = await vehiculoAPI.obtenerMarcas();
       setMarcas(Array.isArray(marcasData) ? marcasData : []);
     } catch (error) {
-      console.error('Error cargando marcas:', error);
+      logger.error('Error cargando marcas:', error);
       showAlert(
         'No se pudieron cargar las marcas',
         'Verifica tu conexión e intenta de nuevo. Si el problema continúa, contacta a soporte.',

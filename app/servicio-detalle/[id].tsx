@@ -30,6 +30,7 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -75,21 +76,21 @@ export default function ServicioDetalleScreen() {
         ];
         
         if ((ordenData as any).oferta_proveedor_id && estadosConChecklist.includes(ordenData.estado)) {
-          console.log('🔄 Redirigiendo a oferta-detalle porque la orden tiene oferta asociada');
+          logger.log('🔄 Redirigiendo a oferta-detalle porque la orden tiene oferta asociada');
           router.replace(`/oferta-detalle/${(ordenData as any).oferta_proveedor_id}`);
           return;
         }
         
-        console.log('📋 lineas_detail completo:', JSON.stringify((ordenData as any).lineas_detail, null, 2));
+        logger.log('📋 lineas_detail completo:', JSON.stringify((ordenData as any).lineas_detail, null, 2));
         if ((ordenData as any).lineas_detail && (ordenData as any).lineas_detail.length > 0) {
-          console.log('🔧 Repuestos en primera línea:', JSON.stringify((ordenData as any).lineas_detail[0].oferta_servicio_detail?.repuestos_seleccionados, null, 2));
+          logger.log('🔧 Repuestos en primera línea:', JSON.stringify((ordenData as any).lineas_detail[0].oferta_servicio_detail?.repuestos_seleccionados, null, 2));
         }
         
         // Debug: Verificar foto_perfil del cliente
         const clienteDetail = (ordenData as any).cliente_detail;
-        console.log('👤 Cliente detail completo:', JSON.stringify(clienteDetail, null, 2));
-        console.log('📸 foto_perfil del cliente:', clienteDetail?.foto_perfil);
-        console.log('📸 Keys en cliente_detail:', clienteDetail ? Object.keys(clienteDetail) : 'null');
+        logger.log('👤 Cliente detail completo:', JSON.stringify(clienteDetail, null, 2));
+        logger.log('📸 foto_perfil del cliente:', clienteDetail?.foto_perfil);
+        logger.log('📸 Keys en cliente_detail:', clienteDetail ? Object.keys(clienteDetail) : 'null');
         
         setOrden(ordenData);
         
@@ -104,11 +105,11 @@ export default function ServicioDetalleScreen() {
             } else {
               // ✅ No hay checklist disponible - esto es normal, no es un error
               setChecklistInstance(null);
-              console.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
+              logger.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
             }
           } catch (error) {
             // ✅ Manejar error sin mostrar al usuario - simplemente no hay checklist
-            console.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
+            logger.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
             setChecklistInstance(null);
           }
         }
@@ -117,7 +118,7 @@ export default function ServicioDetalleScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error inesperado cargando servicio:', error);
+      logger.error('Error inesperado cargando servicio:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado');
       router.back();
     } finally {
@@ -177,7 +178,7 @@ export default function ServicioDetalleScreen() {
                 Alert.alert('Error', response.message || 'No se pudo aceptar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado aceptando servicio:', error);
+              logger.error('Error inesperado aceptando servicio:', error);
               Alert.alert('Error', 'Ocurrió un error inesperado');
             } finally {
               setProcesando(false);
@@ -213,7 +214,7 @@ export default function ServicioDetalleScreen() {
               Alert.alert('Error', response.message || 'No se pudo rechazar el servicio');
             }
           } catch (error) {
-            console.error('Error inesperado rechazando servicio:', error);
+            logger.error('Error inesperado rechazando servicio:', error);
             Alert.alert('Error', 'Ocurrió un error inesperado');
           } finally {
             setProcesando(false);
@@ -278,7 +279,7 @@ export default function ServicioDetalleScreen() {
                 Alert.alert('Error', resultado.message || 'No se pudo iniciar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado iniciando servicio:', error);
+              logger.error('Error inesperado iniciando servicio:', error);
               Alert.alert('Error', 'Error inesperado al iniciar el servicio');
             } finally {
               setProcesando(false);
@@ -319,7 +320,7 @@ export default function ServicioDetalleScreen() {
                 Alert.alert('Error', resultado.message || 'No se pudo finalizar el servicio');
               }
             } catch (error) {
-              console.error('Error inesperado finalizando servicio:', error);
+              logger.error('Error inesperado finalizando servicio:', error);
               Alert.alert('Error', 'Error inesperado al finalizar el servicio');
             } finally {
               setProcesando(false);
@@ -511,7 +512,7 @@ export default function ServicioDetalleScreen() {
                 source={{ uri: (orden.cliente_detail as any).foto_perfil }} 
                 style={styles.clientPhoto}
                 onError={(error) => {
-                  console.error('❌ Error cargando foto del cliente:', error);
+                  logger.error('❌ Error cargando foto del cliente:', error);
                 }}
               />
             ) : (

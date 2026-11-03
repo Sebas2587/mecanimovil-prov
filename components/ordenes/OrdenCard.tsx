@@ -31,6 +31,7 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -124,7 +125,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
     // ✅ CORRECCIÓN: Para "completado", SIEMPRE intentar cargar el checklist
     // Si existe, lo mostrará. Si no existe, no mostrará el botón.
     if (orden.estado === 'completado') {
-      console.log('📋 Orden completada - Intentando cargar checklist para orden:', orden.id);
+      logger.log('📋 Orden completada - Intentando cargar checklist para orden:', orden.id);
       return true; // Siempre intentar para órdenes completadas
     }
     
@@ -134,11 +135,11 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
   const cargarDatosChecklist = async () => {
     try {
       setLoading(true);
-      console.log('🔍 OrdenCard - Cargando datos checklist para orden:', orden.id, 'estado:', orden.estado);
+      logger.log('🔍 OrdenCard - Cargando datos checklist para orden:', orden.id, 'estado:', orden.estado);
       
       // Intentar obtener el checklist instance (cache integrado en el servicio)
       const checklistResult = await checklistService.getInstanceByOrder(orden.id);
-      console.log('📋 OrdenCard - Resultado checklist para orden', orden.id, ':', checklistResult.success ? 'SUCCESS' : 'FAIL');
+      logger.log('📋 OrdenCard - Resultado checklist para orden', orden.id, ':', checklistResult.success ? 'SUCCESS' : 'FAIL');
       
       // Determinar si requiere checklist
       const tienechecklistInstance = !!(checklistResult.success && checklistResult.data);
@@ -146,7 +147,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
         ['aceptada_por_proveedor', 'checklist_en_progreso', 'checklist_completado', 'en_proceso'].includes(orden.estado) ||
         tienechecklistInstance;
 
-      console.log('✅ OrdenCard - Checklist encontrado para orden', orden.id, '- ID:', checklistResult.data?.id, 'Estado:', checklistResult.data?.estado);
+      logger.log('✅ OrdenCard - Checklist encontrado para orden', orden.id, '- ID:', checklistResult.data?.id, 'Estado:', checklistResult.data?.estado);
 
       setOrdenConChecklist({
         ...orden,
@@ -154,7 +155,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
         requiere_checklist,
       });
     } catch (error) {
-      console.log('❌ OrdenCard - Error cargando checklist para orden', orden.id, ':', error);
+      logger.log('❌ OrdenCard - Error cargando checklist para orden', orden.id, ':', error);
       
       // Para cualquier error, marcar como no requiere checklist
       setOrdenConChecklist({
@@ -192,17 +193,17 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
   };
 
   const getBotonChecklist = () => {
-    console.log('🔍 OrdenCard - getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado, 'Checklist instance:', ordenConChecklist.checklist_instance?.estado);
+    logger.log('🔍 OrdenCard - getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado, 'Checklist instance:', ordenConChecklist.checklist_instance?.estado);
     
     // Si no se deben mostrar botones de checklist, no devolver ningún botón
     if (!showChecklistButtons) {
-      console.log('❌ OrdenCard - No mostrar botones checklist');
+      logger.log('❌ OrdenCard - No mostrar botones checklist');
       return null;
     }
 
     // Si tiene un checklist completado, SIEMPRE permitir verlo
     if (ordenConChecklist.checklist_instance && ordenConChecklist.checklist_instance.estado === 'COMPLETADO') {
-      console.log('✅ OrdenCard - Botón: Ver Checklist para orden', orden.id);
+      logger.log('✅ OrdenCard - Botón: Ver Checklist para orden', orden.id);
       return {
         texto: 'Ver Checklist',
         tone: 'success' as InstitutionalStatusTone,
@@ -213,13 +214,13 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
 
     // Para el resto de casos, verificar que requiera checklist
     if (!ordenConChecklist.requiere_checklist) {
-      console.log('⚠️ OrdenCard - No requiere checklist para orden', orden.id);
+      logger.log('⚠️ OrdenCard - No requiere checklist para orden', orden.id);
       return null;
     }
 
     // Si no tiene instancia o está pendiente
     if (!ordenConChecklist.checklist_instance || ordenConChecklist.checklist_instance.estado === 'PENDIENTE') {
-      console.log('✅ OrdenCard - Botón: Iniciar Checklist para orden', orden.id);
+      logger.log('✅ OrdenCard - Botón: Iniciar Checklist para orden', orden.id);
       return {
         texto: 'Iniciar Checklist',
         tone: 'primary' as InstitutionalStatusTone,
@@ -230,7 +231,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
 
     // Si está en progreso
     if (ordenConChecklist.checklist_instance.estado === 'EN_PROGRESO') {
-      console.log('✅ OrdenCard - Botón: Continuar Checklist para orden', orden.id);
+      logger.log('✅ OrdenCard - Botón: Continuar Checklist para orden', orden.id);
       return {
         texto: 'Continuar Checklist',
         tone: 'warning' as InstitutionalStatusTone,
@@ -239,7 +240,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
       };
     }
 
-    console.log('❌ OrdenCard - No se encontró botón apropiado para orden:', orden.id);
+    logger.log('❌ OrdenCard - No se encontró botón apropiado para orden:', orden.id);
     return null;
   };
 

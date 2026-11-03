@@ -34,6 +34,7 @@ import {
   parseMarcasMetaParam,
   readRouteParam,
 } from '@/utils/extractApiList';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -156,7 +157,7 @@ export default function CatalogoServiciosMarcasScreen() {
           );
         }
       } catch (e) {
-        console.error('Error cargando catálogo genérico:', e);
+        logger.error('Error cargando catálogo genérico:', e);
         if (!cancelled) {
           setServiciosGenericos([]);
           setLoadError('No se pudo cargar el catálogo de servicios.');
@@ -195,7 +196,7 @@ export default function CatalogoServiciosMarcasScreen() {
 
               return { marcaId, marcaNombre: nombreMarca(marcaId), servicios };
             } catch (e) {
-              console.warn('Error catálogo marca', marcaId, e);
+              logger.warn('Error catálogo marca', marcaId, e);
               return { marcaId, marcaNombre: nombreMarca(marcaId), servicios: [] as ServicioCatalogo[] };
             }
           }),
@@ -208,7 +209,7 @@ export default function CatalogoServiciosMarcasScreen() {
           setGrupos(resultados);
         }
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         if (!cancelled) {
           setGrupos([]);
           setLoadError('No se pudo cargar el catálogo de servicios. Intenta de nuevo.');
@@ -344,7 +345,7 @@ export default function CatalogoServiciosMarcasScreen() {
 
       router.push(buildOnboardingHref('/(onboarding)/finalizar-basico', nextDraft) as any);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       showAlert('Error', 'No se pudo continuar. Intenta nuevamente.');
     }
   };

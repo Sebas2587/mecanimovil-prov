@@ -19,6 +19,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -170,7 +171,7 @@ export function ModalAjusteBorrador({
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('Error guardando cotización:', error);
+      logger.error('Error guardando cotización:', error);
       showAlert('Error', error?.message || 'No se pudo guardar la cotización.');
     } finally {
       setSaving(false);

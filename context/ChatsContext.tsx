@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import solicitudesService from '@/services/solicitudesService';
 import websocketService from '@/app/services/websocketService';
 import { useAuth } from './AuthContext';
+import logger from '@/utils/logger';
 
 interface ChatsContextType {
   totalMensajesNoLeidos: number;
@@ -25,19 +26,19 @@ export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
       
-      console.log('📊 [CHATS CONTEXT PROVEEDOR] Cargando total de mensajes no leídos');
+      logger.log('📊 [CHATS CONTEXT PROVEEDOR] Cargando total de mensajes no leídos');
       const chats = await solicitudesService.obtenerListaChats();
       const total = chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0);
       setTotalMensajesNoLeidos(total);
-      console.log(`📊 [CHATS CONTEXT PROVEEDOR] Total mensajes no leídos: ${total}`);
+      logger.log(`📊 [CHATS CONTEXT PROVEEDOR] Total mensajes no leídos: ${total}`);
     } catch (error: any) {
       // Si es 401, no hay sesión - no es un error crítico
       if (error.response?.status === 401) {
-        console.log('⚠️ [CHATS CONTEXT PROVEEDOR] No autenticado, estableciendo total en 0');
+        logger.log('⚠️ [CHATS CONTEXT PROVEEDOR] No autenticado, estableciendo total en 0');
         setTotalMensajesNoLeidos(0);
         return;
       }
-      console.error('❌ [CHATS CONTEXT PROVEEDOR] Error cargando total de no leídos:', error);
+      logger.error('❌ [CHATS CONTEXT PROVEEDOR] Error cargando total de no leídos:', error);
       setTotalMensajesNoLeidos(0);
     }
   };
@@ -58,23 +59,23 @@ export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (!usuarioId || !onboardingListo) return;
 
-    console.log('📨 [CHATS CONTEXT PROVEEDOR] Suscribiendo a nuevo_mensaje_chat');
+    logger.log('📨 [CHATS CONTEXT PROVEEDOR] Suscribiendo a nuevo_mensaje_chat');
     
     const unsubscribe = websocketService.onNuevoMensajeChat((event) => {
-      console.log('📨 [CHATS CONTEXT PROVEEDOR] Nuevo mensaje recibido:', event);
+      logger.log('📨 [CHATS CONTEXT PROVEEDOR] Nuevo mensaje recibido:', event);
       
       // Si el mensaje es del cliente (no del proveedor), incrementar contador
       if (!event.es_proveedor) {
         setTotalMensajesNoLeidos(prev => {
           const nuevoTotal = prev + 1;
-          console.log(`📊 [CHATS CONTEXT PROVEEDOR] Total incrementado a: ${nuevoTotal}`);
+          logger.log(`📊 [CHATS CONTEXT PROVEEDOR] Total incrementado a: ${nuevoTotal}`);
           return nuevoTotal;
         });
       }
     });
 
     return () => {
-      console.log('📨 [CHATS CONTEXT PROVEEDOR] Desuscribiendo de nuevo_mensaje_chat');
+      logger.log('📨 [CHATS CONTEXT PROVEEDOR] Desuscribiendo de nuevo_mensaje_chat');
       unsubscribe();
     };
   }, [usuarioId, onboardingListo]);
@@ -82,19 +83,19 @@ export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Función para decrementar el contador (cuando se leen mensajes)
   const decrementarNoLeidos = (cantidad: number) => {
     setTotalMensajesNoLeidos(prev => Math.max(0, prev - cantidad));
-    console.log(`📊 [CHATS CONTEXT PROVEEDOR] Total decrementado en ${cantidad}`);
+    logger.log(`📊 [CHATS CONTEXT PROVEEDOR] Total decrementado en ${cantidad}`);
   };
 
   // Función para resetear el contador
   const resetearNoLeidos = () => {
     setTotalMensajesNoLeidos(0);
-    console.log('📊 [CHATS CONTEXT PROVEEDOR] Total reseteado');
+    logger.log('📊 [CHATS CONTEXT PROVEEDOR] Total reseteado');
   };
 
   // Función para actualizar manualmente el total
   const actualizarTotal = (nuevoTotal: number) => {
     setTotalMensajesNoLeidos(nuevoTotal);
-    console.log(`📊 [CHATS CONTEXT PROVEEDOR] Total actualizado a: ${nuevoTotal}`);
+    logger.log(`📊 [CHATS CONTEXT PROVEEDOR] Total actualizado a: ${nuevoTotal}`);
   };
 
   return (

@@ -41,6 +41,7 @@ import {
   SALUD_NIVEL_LABEL,
   I,
 } from '@/components/checklist/checklistItemStyles';
+import logger from '@/utils/logger';
 
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
@@ -323,7 +324,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
         setPhotos(merged);
       } catch (e) {
-        console.warn('⚠️ No se pudieron hidratar fotos offline:', e);
+        logger.warn('⚠️ No se pudieron hidratar fotos offline:', e);
       }
     };
 
@@ -332,10 +333,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
   // Inicializar valor desde la respuesta existente
   useEffect(() => {
-    console.log('🔄 Inicializando ChecklistItemRenderer para item:', item.id, 'con respuesta:', response);
+    logger.log('🔄 Inicializando ChecklistItemRenderer para item:', item.id, 'con respuesta:', response);
 
     if (response) {
-      console.log('📝 Cargando respuesta existente:', {
+      logger.log('📝 Cargando respuesta existente:', {
         texto: response.respuesta_texto,
         numero: response.respuesta_numero,
         booleana: response.respuesta_booleana,
@@ -352,7 +353,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         case 'DAMAGE_REPORT':
           if (response.respuesta_texto !== null && response.respuesta_texto !== undefined) {
             setInputValue(response.respuesta_texto);
-            console.log('✅ Valor texto cargado:', response.respuesta_texto);
+            logger.log('✅ Valor texto cargado:', response.respuesta_texto);
           }
           break;
 
@@ -360,14 +361,14 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         case 'KILOMETER_INPUT':
           if (response.respuesta_numero !== null && response.respuesta_numero !== undefined) {
             setInputValue(response.respuesta_numero.toString());
-            console.log('✅ Valor número cargado:', response.respuesta_numero);
+            logger.log('✅ Valor número cargado:', response.respuesta_numero);
           }
           break;
 
         case 'COMPONENT_HEALTH':
           if (response.respuesta_numero !== null && response.respuesta_numero !== undefined) {
             setInputValue(Number(response.respuesta_numero));
-            console.log('✅ Vida útil cargada:', response.respuesta_numero);
+            logger.log('✅ Vida útil cargada:', response.respuesta_numero);
           }
           break;
 
@@ -375,7 +376,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         case 'CLIENT_CONFIRMATION':
           if (response.respuesta_booleana !== null && response.respuesta_booleana !== undefined) {
             setInputValue(response.respuesta_booleana);
-            console.log('✅ Valor booleano cargado:', response.respuesta_booleana);
+            logger.log('✅ Valor booleano cargado:', response.respuesta_booleana);
           }
           break;
 
@@ -393,7 +394,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         case 'FLUID_LEVEL':
           if (response.respuesta_seleccion !== null && response.respuesta_seleccion !== undefined) {
             setInputValue(response.respuesta_seleccion);
-            console.log('✅ Valor selección cargado:', response.respuesta_seleccion);
+            logger.log('✅ Valor selección cargado:', response.respuesta_seleccion);
           }
           break;
 
@@ -403,26 +404,26 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           // todavía no se ha recargado la instancia completa desde la API.
           if (Array.isArray(response.fotos) && response.fotos.length > 0) {
             setPhotos(response.fotos);
-            console.log('✅ Fotos sincronizadas desde servidor:', response.fotos.length);
+            logger.log('✅ Fotos sincronizadas desde servidor:', response.fotos.length);
           }
           break;
 
         case 'DATETIME':
           if (response.respuesta_fecha) {
             setInputValue(response.respuesta_fecha);
-            console.log('✅ Fecha cargada:', response.respuesta_fecha);
+            logger.log('✅ Fecha cargada:', response.respuesta_fecha);
           }
           break;
 
         case 'RATING':
           if (response.respuesta_numero !== null && response.respuesta_numero !== undefined) {
             setInputValue(response.respuesta_numero);
-            console.log('✅ Rating cargado:', response.respuesta_numero);
+            logger.log('✅ Rating cargado:', response.respuesta_numero);
           }
           break;
       }
     } else {
-      console.log('🆕 No hay respuesta previa, inicializando valores por defecto');
+      logger.log('🆕 No hay respuesta previa, inicializando valores por defecto');
       switch (item.tipo_pregunta) {
         case 'BOOLEAN':
         case 'CLIENT_CONFIRMATION':
@@ -663,7 +664,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         respuesta_texto: `${updatedPhotos.length} foto(s) de evidencia`,
       }, { silent: true });
     } catch (error) {
-      console.error('❌ Error agregando foto local:', error);
+      logger.error('❌ Error agregando foto local:', error);
       showAlert('Error', 'No se pudo agregar la foto. Intenta de nuevo.');
     } finally {
       setPendingPhotoData(null);
@@ -767,7 +768,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         respuesta_texto: `${finalPhotos.length} foto(s) de evidencia`,
       });
     } catch (error) {
-      console.error('❌ Error guardando fotos:', error);
+      logger.error('❌ Error guardando fotos:', error);
       showAlert('Error', 'No se pudo guardar el ítem de fotos. Intenta de nuevo.');
     } finally {
       setUploadingPhoto(false);
@@ -789,7 +790,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           if (photo.id && deletePhoto) {
             const result = await deletePhoto(photo.id);
             if (!result.success) {
-              console.warn(
+              logger.warn(
                 '⚠️ No se pudo eliminar la foto en backend, se quita localmente:',
                 result.message,
               );
@@ -843,7 +844,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   // Función para manejar el resultado de la firma digital
   const handleSignatureComplete = async (firmaTecnico: string, firmaCliente: string, ubicacion: { lat: number; lng: number }) => {
     try {
-      console.log('✍️ Procesando firma(s) para item:', item.id, 'modo:', signatureMode);
+      logger.log('✍️ Procesando firma(s) para item:', item.id, 'modo:', signatureMode);
 
       await onSave({
         completado: true,
@@ -867,7 +868,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       Alert.alert('✍️ Firma(s) guardada(s)', msg, [{ text: 'Continuar' }]);
 
     } catch (error: any) {
-      console.error('❌ Error procesando firmas para item:', error);
+      logger.error('❌ Error procesando firmas para item:', error);
       Alert.alert(
         'Error al Guardar Firmas',
         `No se pudieron guardar las firmas para este paso:\n\n${error.message || 'Error desconocido'}\n\nPuedes intentar nuevamente.`,
@@ -880,7 +881,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   };
 
   const handleSignatureCancel = () => {
-    console.log('❌ Firma cancelada por el usuario');
+    logger.log('❌ Firma cancelada por el usuario');
     setShowSignatureModal(false);
   };
 
@@ -1054,7 +1055,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   };
 
   const renderItemComponent = () => {
-    console.log('🔄 Renderizando item tipo:', item.tipo_pregunta);
+    logger.log('🔄 Renderizando item tipo:', item.tipo_pregunta);
 
     const baseProps = {
       item,
@@ -1526,7 +1527,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   };
 
   const getDefaultValueForType = (tipoPregunta: string): any => {
-    console.log('🔧 Obteniendo valor por defecto para tipo:', tipoPregunta);
+    logger.log('🔧 Obteniendo valor por defecto para tipo:', tipoPregunta);
 
     switch (tipoPregunta) {
       case 'TEXT':
@@ -1565,14 +1566,14 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         return { ubicacion: undefined, completado: false };
 
       default:
-        console.log('⚠️ Tipo no reconocido, usando valor por defecto básico');
+        logger.log('⚠️ Tipo no reconocido, usando valor por defecto básico');
         return { texto: '', completado: false };
     }
   };
 
   const parseResponseValue = (respuesta: ChecklistItemResponse): any => {
     const tipoPregunta = item.tipo_pregunta;
-    console.log('📝 Parseando respuesta para tipo:', tipoPregunta, 'respuesta:', respuesta);
+    logger.log('📝 Parseando respuesta para tipo:', tipoPregunta, 'respuesta:', respuesta);
 
     switch (tipoPregunta) {
       case 'TEXT':
@@ -1596,7 +1597,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         try {
           return Array.isArray(respuesta.respuesta_seleccion) ? respuesta.respuesta_seleccion : [];
         } catch (e) {
-          console.log('Error parseando selección múltiple:', e);
+          logger.log('Error parseando selección múltiple:', e);
           return [];
         }
 
@@ -1616,7 +1617,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         return respuesta.respuesta_ubicacion;
 
       default:
-        console.log('⚠️ Tipo no reconocido en parseResponseValue:', tipoPregunta);
+        logger.log('⚠️ Tipo no reconocido en parseResponseValue:', tipoPregunta);
         return respuesta.respuesta_texto || '';
     }
   };

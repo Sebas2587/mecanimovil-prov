@@ -3,6 +3,7 @@ import {
   type ChecklistInstance,
   type ChecklistTemplate,
 } from '@/services/checklistService';
+import logger from '@/utils/logger';
 
 export interface ChecklistBundle {
   instance: ChecklistInstance | null;
@@ -188,7 +189,7 @@ export async function fetchChecklistBundle(ordenId: number): Promise<ChecklistBu
           return autoCreated;
         }
       } catch (autoCreateError) {
-        console.warn('⚠️ Error en creación automática de checklist:', autoCreateError);
+        logger.warn('⚠️ Error en creación automática de checklist:', autoCreateError);
       }
 
       return {
@@ -206,7 +207,7 @@ export async function fetchChecklistBundle(ordenId: number): Promise<ChecklistBu
       fetchError: instanceResponse.message || 'Error al cargar el checklist',
     };
   } catch (error) {
-    console.error('❌ Error inicializando checklist:', error);
+    logger.error('❌ Error inicializando checklist:', error);
     return {
       instance: null,
       template: null,

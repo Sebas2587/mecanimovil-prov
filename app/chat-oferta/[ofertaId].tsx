@@ -40,6 +40,7 @@ import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
 import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
 import { InstitutionalButton } from '@/app/design-system/components';
 import { useAgenteSesionQuery } from '@/hooks/useAgenteIaQueries';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -288,7 +289,7 @@ export default function ChatOfertaScreen() {
       await chatService.markRead(conversationId).catch(() => {});
       await solicitudesService.marcarMensajesComoLeidos(ofertaId).catch(() => {});
     } catch (error) {
-      console.error('Error cargando datos del chat:', error);
+      logger.error('Error cargando datos del chat:', error);
       Alert.alert('Error', 'No se pudo cargar el chat. Intenta de nuevo.');
     } finally {
       setLoading(false);

@@ -1,5 +1,6 @@
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import logger from '@/utils/logger';
 
 // ==================== TIPOS E INTERFACES ====================
 
@@ -321,15 +322,15 @@ class ChecklistCacheManager {
         // Verificar si el cache no ha expirado
         if (now - cache.timestamp < CACHE_EXPIRY) {
           this.ordenesSeChecklist = new Set(cache.ordenes);
-          console.log('📦 Cache de checklist inicializado:', this.ordenesSeChecklist.size, 'órdenes sin checklist');
+          logger.log('📦 Cache de checklist inicializado:', this.ordenesSeChecklist.size, 'órdenes sin checklist');
         } else {
-          console.log('🕐 Cache de checklist expirado, limpiando...');
+          logger.log('🕐 Cache de checklist expirado, limpiando...');
           await this.clearCache();
         }
       }
       this.cacheInitialized = true;
     } catch (error) {
-      console.error('❌ Error inicializando cache de checklist:', error);
+      logger.error('❌ Error inicializando cache de checklist:', error);
       this.cacheInitialized = true; // Continuar sin cache
     }
   }
@@ -340,7 +341,7 @@ class ChecklistCacheManager {
     if (!this.ordenesSeChecklist.has(ordenId)) {
       this.ordenesSeChecklist.add(ordenId);
       await this.saveCache();
-      console.log('➕ Orden', ordenId, 'agregada al cache (sin checklist)');
+      logger.log('➕ Orden', ordenId, 'agregada al cache (sin checklist)');
     }
   }
 
@@ -352,14 +353,14 @@ class ChecklistCacheManager {
   async removeFromCache(ordenId: number): Promise<void> {
     await this.initializeCache();
     
-    console.log('🧹 Intentando remover orden', ordenId, 'del cache. Cache actual tiene', this.ordenesSeChecklist.size, 'órdenes');
+    logger.log('🧹 Intentando remover orden', ordenId, 'del cache. Cache actual tiene', this.ordenesSeChecklist.size, 'órdenes');
     
     if (this.ordenesSeChecklist.has(ordenId)) {
       this.ordenesSeChecklist.delete(ordenId);
       await this.saveCache();
-      console.log('➖ Orden', ordenId, 'removida del cache (ahora tiene checklist). Cache restante:', this.ordenesSeChecklist.size, 'órdenes');
+      logger.log('➖ Orden', ordenId, 'removida del cache (ahora tiene checklist). Cache restante:', this.ordenesSeChecklist.size, 'órdenes');
     } else {
-      console.log('ℹ️ Orden', ordenId, 'no estaba en el cache para remover');
+      logger.log('ℹ️ Orden', ordenId, 'no estaba en el cache para remover');
     }
   }
 
@@ -371,7 +372,7 @@ class ChecklistCacheManager {
       };
       await AsyncStorage.setItem(CHECKLIST_CACHE_KEY, JSON.stringify(cache));
     } catch (error) {
-      console.error('❌ Error guardando cache de checklist:', error);
+      logger.error('❌ Error guardando cache de checklist:', error);
     }
   }
 
@@ -379,9 +380,9 @@ class ChecklistCacheManager {
     try {
       this.ordenesSeChecklist.clear();
       await AsyncStorage.removeItem(CHECKLIST_CACHE_KEY);
-      console.log('🧹 Cache de checklist limpiado');
+      logger.log('🧹 Cache de checklist limpiado');
     } catch (error) {
-      console.error('❌ Error limpiando cache de checklist:', error);
+      logger.error('❌ Error limpiando cache de checklist:', error);
     }
   }
 
@@ -500,7 +501,7 @@ class ChecklistOfflineManager {
   // Guardar instancia de checklist localmente
   async saveChecklistInstance(instance: ChecklistInstance): Promise<void> {
     try {
-      console.log('💾 saveChecklistInstance llamado con:', {
+      logger.log('💾 saveChecklistInstance llamado con:', {
         instanceType: typeof instance,
         instanceId: instance?.id,
         instanceEstado: instance?.estado,
@@ -509,27 +510,27 @@ class ChecklistOfflineManager {
       
       // Validar que la instancia tiene las propiedades básicas requeridas
       if (!instance || typeof instance !== 'object') {
-        console.error('❌ saveChecklistInstance: instance es null, undefined o no es un objeto');
-        console.error('❌ Instancia recibida:', instance);
+        logger.error('❌ saveChecklistInstance: instance es null, undefined o no es un objeto');
+        logger.error('❌ Instancia recibida:', instance);
         return;
       }
       
       if (!instance.id || typeof instance.id !== 'number') {
-        console.error('❌ saveChecklistInstance: instance.id es inválido:', instance.id);
-        console.error('❌ Instancia completa recibida:', JSON.stringify(instance, null, 2));
+        logger.error('❌ saveChecklistInstance: instance.id es inválido:', instance.id);
+        logger.error('❌ Instancia completa recibida:', JSON.stringify(instance, null, 2));
         return;
       }
       
       // Validaciones adicionales opcionales pero recomendadas
       if (!instance.orden) {
-        console.warn('⚠️ saveChecklistInstance: instance.orden está vacío');
+        logger.warn('⚠️ saveChecklistInstance: instance.orden está vacío');
       }
       
       if (!instance.estado) {
-        console.warn('⚠️ saveChecklistInstance: instance.estado está vacío');
+        logger.warn('⚠️ saveChecklistInstance: instance.estado está vacío');
       }
       
-      console.log('✅ Instancia válida, procediendo a guardar:', {
+      logger.log('✅ Instancia válida, procediendo a guardar:', {
         id: instance.id,
         estado: instance.estado,
         orden: instance.orden
@@ -541,22 +542,22 @@ class ChecklistOfflineManager {
       const existingIndex = instances.findIndex(i => i.id === instance.id);
       if (existingIndex >= 0) {
         instances[existingIndex] = instance;
-        console.log('📝 Checklist instance actualizada offline:', instance.id);
+        logger.log('📝 Checklist instance actualizada offline:', instance.id);
       } else {
         instances.push(instance);
-        console.log('➕ Checklist instance agregada offline:', instance.id);
+        logger.log('➕ Checklist instance agregada offline:', instance.id);
       }
       
       await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_INSTANCES, JSON.stringify(instances));
-      console.log('✅ Checklist instance saved offline:', {
+      logger.log('✅ Checklist instance saved offline:', {
         id: instance.id,
         estado: instance.estado,
         orden: instance.orden,
         totalInstances: instances.length
       });
     } catch (error) {
-      console.error('❌ Error saving checklist offline:', error);
-      console.error('❌ Instance data that failed:', {
+      logger.error('❌ Error saving checklist offline:', error);
+      logger.error('❌ Instance data that failed:', {
         instanceType: typeof instance,
         instanceId: instance?.id,
         instanceKeys: instance ? Object.keys(instance) : 'N/A'
@@ -575,7 +576,7 @@ class ChecklistOfflineManager {
       }
       return null;
     } catch (error) {
-      console.error('❌ Error getting checklist offline:', error);
+      logger.error('❌ Error getting checklist offline:', error);
       return null;
     }
   }
@@ -585,23 +586,23 @@ class ChecklistOfflineManager {
     try {
       // Validar que la respuesta tiene las propiedades básicas requeridas
       if (!response || typeof response !== 'object') {
-        console.error('❌ saveResponse: response es null, undefined o no es un objeto');
+        logger.error('❌ saveResponse: response es null, undefined o no es un objeto');
         return;
       }
       
       if (!response.item_template || typeof response.item_template !== 'number') {
-        console.error('❌ saveResponse: response.item_template es inválido:', response.item_template);
+        logger.error('❌ saveResponse: response.item_template es inválido:', response.item_template);
         return;
       }
       
       if (!instanceId || typeof instanceId !== 'number') {
-        console.error('❌ saveResponse: instanceId es inválido:', instanceId);
+        logger.error('❌ saveResponse: instanceId es inválido:', instanceId);
         return;
       }
       
       // Validación adicional de completado
       if (typeof response.completado !== 'boolean') {
-        console.warn('⚠️ saveResponse: response.completado no es boolean:', response.completado);
+        logger.warn('⚠️ saveResponse: response.completado no es boolean:', response.completado);
         response.completado = false; // Default seguro
       }
       
@@ -615,10 +616,10 @@ class ChecklistOfflineManager {
       
       if (existingIndex >= 0) {
         responses[existingIndex] = responseWithInstance;
-        console.log('📝 Response actualizada offline:', { instanceId, item_template: response.item_template });
+        logger.log('📝 Response actualizada offline:', { instanceId, item_template: response.item_template });
       } else {
         responses.push(responseWithInstance);
-        console.log('➕ Response agregada offline:', { instanceId, item_template: response.item_template });
+        logger.log('➕ Response agregada offline:', { instanceId, item_template: response.item_template });
       }
       
       await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_RESPONSES, JSON.stringify(responses));
@@ -626,15 +627,15 @@ class ChecklistOfflineManager {
       // Marcar como pendiente de sincronización
       await this.markPendingSync(instanceId);
       
-      console.log('✅ Response saved offline:', {
+      logger.log('✅ Response saved offline:', {
         instanceId,
         item_template: response.item_template,
         completado: response.completado,
         totalResponses: responses.length
       });
     } catch (error) {
-      console.error('❌ Error saving response offline:', error);
-      console.error('❌ Response data that failed:', {
+      logger.error('❌ Error saving response offline:', error);
+      logger.error('❌ Response data that failed:', {
         responseType: typeof response,
         item_template: response?.item_template,
         instanceId,
@@ -653,7 +654,7 @@ class ChecklistOfflineManager {
       }
       return [];
     } catch (error) {
-      console.error('❌ Error getting responses offline:', error);
+      logger.error('❌ Error getting responses offline:', error);
       return [];
     }
   }
@@ -674,7 +675,7 @@ class ChecklistOfflineManager {
 
       await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(photos));
     } catch (error) {
-      console.error('❌ Error saving offline photo:', error);
+      logger.error('❌ Error saving offline photo:', error);
     }
   }
 
@@ -684,7 +685,7 @@ class ChecklistOfflineManager {
       const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
       return photos.filter(p => p.responseId === responseId);
     } catch (error) {
-      console.error('❌ Error getting offline photos:', error);
+      logger.error('❌ Error getting offline photos:', error);
       return [];
     }
   }
@@ -696,7 +697,7 @@ class ChecklistOfflineManager {
       const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
       return photos.filter(p => p.instanceId === instanceId);
     } catch (error) {
-      console.error('❌ Error getting offline photos by instance:', error);
+      logger.error('❌ Error getting offline photos by instance:', error);
       return [];
     }
   }
@@ -708,7 +709,7 @@ class ChecklistOfflineManager {
       const filtered = photos.filter(p => p.local_id !== localId);
       await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(filtered));
     } catch (error) {
-      console.error('❌ Error removing offline photo:', error);
+      logger.error('❌ Error removing offline photo:', error);
     }
   }
 
@@ -727,7 +728,7 @@ class ChecklistOfflineManager {
         await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(photos));
       }
     } catch (error) {
-      console.error('❌ Error marking offline photo synced:', error);
+      logger.error('❌ Error marking offline photo synced:', error);
     }
   }
 
@@ -742,7 +743,7 @@ class ChecklistOfflineManager {
         await AsyncStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(pending));
       }
     } catch (error) {
-      console.error('❌ Error marking pending sync:', error);
+      logger.error('❌ Error marking pending sync:', error);
     }
   }
 
@@ -752,7 +753,7 @@ class ChecklistOfflineManager {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_SYNC);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('❌ Error getting pending sync:', error);
+      logger.error('❌ Error getting pending sync:', error);
       return [];
     }
   }
@@ -767,7 +768,7 @@ class ChecklistOfflineManager {
         await AsyncStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(filtered));
       }
     } catch (error) {
-      console.error('❌ Error clearing synced data:', error);
+      logger.error('❌ Error clearing synced data:', error);
     }
   }
 
@@ -780,7 +781,7 @@ class ChecklistOfflineManager {
       await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_VERSION, newVersion.toString());
       return newVersion;
     } catch (error) {
-      console.error('❌ Error incrementing offline version:', error);
+      logger.error('❌ Error incrementing offline version:', error);
       return 1;
     }
   }
@@ -795,7 +796,7 @@ class ChecklistService {
 
   // Manejo de errores
   private handleServiceError(error: any, context: string): ServiceResponse<any> {
-    console.error(`❌ Error en ${context}:`, error);
+    logger.error(`❌ Error en ${context}:`, error);
     
     if (error.response) {
       const status = error.response.status;
@@ -857,14 +858,14 @@ class ChecklistService {
       const response = await api.get(`${this.baseUrl}/templates/${templateId}/`);
       const template = response.data;
       
-      console.log('📝 Respuesta getTemplate:', { data: template, success: true });
+      logger.log('📝 Respuesta getTemplate:', { data: template, success: true });
       
       return {
         success: true,
         data: template
       };
     } catch (error: any) {
-      console.error('❌ Error en getTemplate:', error);
+      logger.error('❌ Error en getTemplate:', error);
       return this.handleServiceError(error, 'obtener template');
     }
   }
@@ -925,7 +926,7 @@ class ChecklistService {
       };
     } catch (error) {
       // Si falla online, intentar offline
-      console.log('⚠️ Falling back to offline data...');
+      logger.log('⚠️ Falling back to offline data...');
       const offlineInstance = await this.offlineManager.getChecklistInstance(instanceId);
       
       if (offlineInstance) {
@@ -942,14 +943,14 @@ class ChecklistService {
 
   async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      console.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
+      logger.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
       
       // ✅ NUEVA LÓGICA: NO MÁS CACHE PROBLEMÁTICO
       // Hacer siempre llamada HTTP fresca para órdenes en estados que pueden tener checklist
-      console.log('🌐 Haciendo llamada HTTP directa para orden:', ordenId);
+      logger.log('🌐 Haciendo llamada HTTP directa para orden:', ordenId);
       
       const response = await api.get(`/checklists/instances/by_order/${ordenId}/`);
-      console.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.id);
+      logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.id);
       
       return {
         success: true,
@@ -959,7 +960,7 @@ class ChecklistService {
       };
       
     } catch (error: any) {
-      console.log('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
+      logger.log('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
       
       // No contaminar cache en casos de 404 temporal durante creación
       return {
@@ -982,7 +983,7 @@ class ChecklistService {
       };
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
-      console.log('❌ Error obteniendo checklist para cita:', citaId, '- Error:', status);
+      logger.log('❌ Error obteniendo checklist para cita:', citaId, '- Error:', status);
       return {
         success: false,
         data: null as any,
@@ -994,11 +995,11 @@ class ChecklistService {
 
   async startInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      console.log('🚀 startInstance llamado para ID:', instanceId);
+      logger.log('🚀 startInstance llamado para ID:', instanceId);
       const response = await api.post(`${this.baseUrl}/instances/${instanceId}/start/`);
       const instance = response.data;
       
-      console.log('✅ Respuesta del backend startInstance:', {
+      logger.log('✅ Respuesta del backend startInstance:', {
         id: instance?.id,
         estado: instance?.estado,
         orden: instance?.orden,
@@ -1007,12 +1008,12 @@ class ChecklistService {
       
       // Si el backend solo devuelve un mensaje, recuperar la instancia actualizada
       if (!instance || !instance.id) {
-        console.warn('⚠️ startInstance: backend no devolvió instancia, intentando obtenerla por GET...');
+        logger.warn('⚠️ startInstance: backend no devolvió instancia, intentando obtenerla por GET...');
         try {
           const getResp = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
           const fetched = getResp.data;
           if (!fetched || !fetched.id) {
-            console.error('❌ startInstance: GET posterior tampoco devolvió instancia válida:', fetched);
+            logger.error('❌ startInstance: GET posterior tampoco devolvió instancia válida:', fetched);
             return {
               success: false,
               data: null as any,
@@ -1026,7 +1027,7 @@ class ChecklistService {
             data: fetched
           };
         } catch (followUpError) {
-          console.error('❌ startInstance: error al recuperar instancia después de iniciar:', followUpError);
+          logger.error('❌ startInstance: error al recuperar instancia después de iniciar:', followUpError);
           return {
             success: false,
             data: null as any,
@@ -1043,7 +1044,7 @@ class ChecklistService {
         data: instance
       };
     } catch (error) {
-      console.error('❌ Error en startInstance:', error);
+      logger.error('❌ Error en startInstance:', error);
       return this.handleServiceError(error, 'iniciar checklist');
     }
   }
@@ -1084,11 +1085,11 @@ class ChecklistService {
 
   async finalizeInstance(instanceId: number, finalizationData: ChecklistFinalizationData): Promise<ServiceResponse<{ message: string; checklist: ChecklistInstance }>> {
     try {
-      console.log('🏁 Finalizando instancia de checklist:', { instanceId, finalizationData });
+      logger.log('🏁 Finalizando instancia de checklist:', { instanceId, finalizationData });
       
       const response = await api.post(`${this.baseUrl}/instances/${instanceId}/finalize/`, finalizationData);
       
-      console.log('✅ Respuesta del backend para finalización:', response.data);
+      logger.log('✅ Respuesta del backend para finalización:', response.data);
       
       // El backend devuelve solo { message: "..." }, no incluye el checklist completo
       // Necesitamos obtener la instancia actualizada por separado
@@ -1097,15 +1098,15 @@ class ChecklistService {
       try {
         const instanceResponse = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
         updatedInstance = instanceResponse.data;
-        console.log('✅ Instancia actualizada obtenida:', updatedInstance);
+        logger.log('✅ Instancia actualizada obtenida:', updatedInstance);
         
         // Guardar offline la instancia actualizada
         if (updatedInstance) {
           await this.offlineManager.saveChecklistInstance(updatedInstance);
-          console.log('✅ Instancia guardada offline exitosamente');
+          logger.log('✅ Instancia guardada offline exitosamente');
         }
       } catch (getInstanceError) {
-        console.warn('⚠️ No se pudo obtener la instancia actualizada:', getInstanceError);
+        logger.warn('⚠️ No se pudo obtener la instancia actualizada:', getInstanceError);
       }
       
       // Limpiar datos pendientes de sincronización
@@ -1122,7 +1123,7 @@ class ChecklistService {
         },
       };
     } catch (error) {
-      console.error('❌ Error finalizando instancia:', error);
+      logger.error('❌ Error finalizando instancia:', error);
       return this.handleServiceError(error, 'finalizar checklist');
     }
   }
@@ -1196,7 +1197,7 @@ class ChecklistService {
         let apiResponse;
         if (response.id) {
           // Ya existe: actualizar con PATCH para evitar error de unicidad
-          console.log('🔄 Actualizando respuesta existente ID:', response.id);
+          logger.log('🔄 Actualizando respuesta existente ID:', response.id);
           const { id, ...updateData } = response;
           apiResponse = await api.patch(`${this.baseUrl}/responses/${id}/`, {
             checklist_instance: instanceId,
@@ -1210,7 +1211,7 @@ class ChecklistService {
           });
         }
         
-        console.log('✅ Response saved online');
+        logger.log('✅ Response saved online');
         return {
           success: true,
           data: apiResponse.data
@@ -1250,7 +1251,7 @@ class ChecklistService {
           };
         }
 
-        console.log('⚠️ Saved offline only, will sync later');
+        logger.log('⚠️ Saved offline only, will sync later');
         return {
           success: true,
           data: response,
@@ -1271,13 +1272,13 @@ class ChecklistService {
       try {
         const apiResponse = await api.put(`${this.baseUrl}/responses/${responseId}/`, response);
         
-        console.log('✅ Response updated online');
+        logger.log('✅ Response updated online');
         return {
           success: true,
           data: apiResponse.data
         };
       } catch (onlineError) {
-        console.log('⚠️ Updated offline only, will sync later');
+        logger.log('⚠️ Updated offline only, will sync later');
         return {
           success: true,
           data: response,
@@ -1366,12 +1367,12 @@ class ChecklistService {
           if (syncResponse.status === 200) {
             await this.offlineManager.clearSyncedData(instanceId);
             synced++;
-            console.log(`✅ Synced instance ${instanceId}`);
+            logger.log(`✅ Synced instance ${instanceId}`);
           } else {
             failed++;
           }
         } catch (syncError) {
-          console.error(`❌ Failed to sync instance ${instanceId}:`, syncError);
+          logger.error(`❌ Failed to sync instance ${instanceId}:`, syncError);
           failed++;
         }
       }
@@ -1389,7 +1390,7 @@ class ChecklistService {
   // ==================== UTILIDADES DE CACHE ====================
 
   async clearChecklistCache(): Promise<void> {
-    console.log('🧹 Limpiando cache de checklist (simplificado)');
+    logger.log('🧹 Limpiando cache de checklist (simplificado)');
     // Ya no necesitamos cache complejo, solo notificar que se limpió
   }
 
@@ -1402,7 +1403,7 @@ class ChecklistService {
   }
 
   async forceRefreshChecklist(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
-    console.log('🔄 Forzando refresh de checklist para orden:', ordenId);
+    logger.log('🔄 Forzando refresh de checklist para orden:', ordenId);
     
     // ✅ NUEVA LÓGICA SIMPLE: Solo hacer llamada HTTP directa
     return this.getInstanceByOrder(ordenId);
@@ -1465,7 +1466,7 @@ class ChecklistService {
     ubicacion: { lat: number; lng: number }
   ): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      console.log('🏁 Finalizando checklist con firmas digitales:', {
+      logger.log('🏁 Finalizando checklist con firmas digitales:', {
         instanceId,
         firmaTecnico: firmaTecnico.substring(0, 20) + '...',
         firmaCliente: firmaCliente
@@ -1484,17 +1485,17 @@ class ChecklistService {
         },
       );
 
-      console.log('✅ Respuesta del backend para finalización:', response.data);
+      logger.log('✅ Respuesta del backend para finalización:', response.data);
 
       // El backend devuelve solo { message: "..." }, no incluye el checklist completo
       // Necesitamos obtener la instancia actualizada por separado
       let updatedInstance: ChecklistInstance | null = null;
       
       try {
-        console.log('🔄 Obteniendo instancia actualizada...');
+        logger.log('🔄 Obteniendo instancia actualizada...');
         const instanceResponse = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
         updatedInstance = instanceResponse.data;
-        console.log('✅ Instancia actualizada obtenida:', {
+        logger.log('✅ Instancia actualizada obtenida:', {
           id: updatedInstance?.id,
           estado: updatedInstance?.estado,
           progreso: updatedInstance?.progreso_porcentaje
@@ -1503,12 +1504,12 @@ class ChecklistService {
         // Guardar offline la instancia actualizada
         if (updatedInstance && updatedInstance.id) {
           await this.offlineManager.saveChecklistInstance(updatedInstance);
-          console.log('✅ Instancia guardada offline exitosamente');
+          logger.log('✅ Instancia guardada offline exitosamente');
         } else {
-          console.warn('⚠️ La instancia actualizada no tiene ID válido');
+          logger.warn('⚠️ La instancia actualizada no tiene ID válido');
         }
       } catch (getInstanceError) {
-        console.error('❌ Error obteniendo instancia actualizada:', getInstanceError);
+        logger.error('❌ Error obteniendo instancia actualizada:', getInstanceError);
         // No fallar completamente, solo advertir
       }
 
@@ -1521,7 +1522,7 @@ class ChecklistService {
         message: response.data.message || 'Checklist finalizado correctamente'
       };
     } catch (error: any) {
-      console.error('❌ Error finalizando checklist:', error);
+      logger.error('❌ Error finalizando checklist:', error);
       return this.handleServiceError(error, 'finalizar checklist');
     }
   }
@@ -1588,12 +1589,12 @@ class ChecklistService {
     }>; 
   }>> {
     try {
-      console.log('📞 Obteniendo información de orden:', ordenId);
+      logger.log('📞 Obteniendo información de orden:', ordenId);
       
       // Usar el endpoint de órdenes del proveedor que ya está configurado
       const response = await api.get(`/ordenes/proveedor-ordenes/${ordenId}/`);
       
-      console.log('📋 Respuesta de orden:', response.data);
+      logger.log('📋 Respuesta de orden:', response.data);
       
       // Extraer la información que necesitamos
       const orden = response.data;
@@ -1605,18 +1606,18 @@ class ChecklistService {
         // Ruta 1: servicio_info.id (estructura actual del serializer)
         if (linea.oferta_servicio_detail?.servicio_info?.id) {
           servicioId = linea.oferta_servicio_detail.servicio_info.id;
-          console.log('✅ servicio_id encontrado via servicio_info:', servicioId);
+          logger.log('✅ servicio_id encontrado via servicio_info:', servicioId);
         }
         // Ruta 2: servicio (ID directo)
         else if (linea.oferta_servicio_detail?.servicio) {
           servicioId = typeof linea.oferta_servicio_detail.servicio === 'number' 
             ? linea.oferta_servicio_detail.servicio 
             : linea.oferta_servicio_detail.servicio.id;
-          console.log('✅ servicio_id encontrado via servicio:', servicioId);
+          logger.log('✅ servicio_id encontrado via servicio:', servicioId);
         }
         // Ruta 3: Buscar en oferta_servicio_detail directamente
         else if (linea.oferta_servicio_detail && linea.oferta_servicio_detail.id) {
-          console.log('⚠️ No se encontró servicio_id, usando estructura completa para debug:', 
+          logger.log('⚠️ No se encontró servicio_id, usando estructura completa para debug:', 
             JSON.stringify(linea.oferta_servicio_detail, null, 2));
         }
         
@@ -1626,7 +1627,7 @@ class ChecklistService {
         };
       }) || [];
       
-      console.log('🔍 Líneas procesadas:', lineasConServicioId);
+      logger.log('🔍 Líneas procesadas:', lineasConServicioId);
       
       return {
         success: true,
@@ -1636,7 +1637,7 @@ class ChecklistService {
         }
       };
     } catch (error) {
-      console.error('❌ Error obteniendo información de orden:', error);
+      logger.error('❌ Error obteniendo información de orden:', error);
       return this.handleServiceError(error, 'obtener información de orden');
     }
   }
@@ -1644,18 +1645,18 @@ class ChecklistService {
   // ==================== UTILIDADES DE DEBUG ====================
 
   async debugChecklistStatus(ordenId: number): Promise<void> {
-    console.log('🔍 DEBUG: Estado completo del checklist para orden:', ordenId);
+    logger.log('🔍 DEBUG: Estado completo del checklist para orden:', ordenId);
     
     try {
       // 1. Verificar cache
       const isInCache = await this.cacheManager.isInCache(ordenId);
-      console.log('📋 En cache de "sin checklist":', isInCache);
+      logger.log('📋 En cache de "sin checklist":', isInCache);
       
       // 2. Verificar offline
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_INSTANCES);
       const instances: ChecklistInstance[] = stored ? JSON.parse(stored) : [];
       const offlineInstance = instances.find(i => i.orden === ordenId);
-      console.log('💾 Instancia offline:', offlineInstance ? {
+      logger.log('💾 Instancia offline:', offlineInstance ? {
         id: offlineInstance.id,
         estado: offlineInstance.estado,
         orden: offlineInstance.orden
@@ -1664,22 +1665,22 @@ class ChecklistService {
       // 3. Verificar online
       try {
         const onlineResponse = await api.get(`/checklists/instances/by_order/${ordenId}/`);
-        console.log('🌐 Instancia online:', {
+        logger.log('🌐 Instancia online:', {
           id: onlineResponse.data?.id,
           estado: onlineResponse.data?.estado,
           orden: onlineResponse.data?.orden
         });
       } catch (onlineError: any) {
-        console.log('🌐 No hay instancia online:', onlineError.response?.status);
+        logger.log('🌐 No hay instancia online:', onlineError.response?.status);
       }
       
     } catch (error) {
-      console.error('❌ Error en debug:', error);
+      logger.error('❌ Error en debug:', error);
     }
   }
 
   async clearOfflineData(): Promise<void> {
-    console.log('🧹 Limpiando todos los datos offline del checklist...');
+    logger.log('🧹 Limpiando todos los datos offline del checklist...');
     
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.CHECKLIST_INSTANCES);
@@ -1691,9 +1692,9 @@ class ChecklistService {
       // También limpiar cache
       await this.cacheManager.clearCache();
       
-      console.log('✅ Datos offline limpiados exitosamente');
+      logger.log('✅ Datos offline limpiados exitosamente');
     } catch (error) {
-      console.error('❌ Error limpiando datos offline:', error);
+      logger.error('❌ Error limpiando datos offline:', error);
     }
   }
 }

@@ -70,6 +70,7 @@ import {
   type CalidadRepuesto,
   type RepuestoOfertaConfig,
 } from '@/utils/repuestoOferta';
+import logger from '@/utils/logger';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
@@ -547,12 +548,12 @@ const CrearServicioScreen = () => {
   // Pre-cargar datos en modo edición (OPTIMIZADO - evita bucle infinito)
   useEffect(() => {
     if (isEditMode && servicioExistente && !datosPreCargados) {
-      console.log('🔧 Modo edición detectado, pre-cargando datos del servicio:', {
+      logger.log('🔧 Modo edición detectado, pre-cargando datos del servicio:', {
         id: servicioExistente.id,
         tipo: servicioExistente.tipo_servicio,
         servicio: servicioExistente.servicio
       });
-      console.log('📦 servicioExistente COMPLETO recibido:', JSON.stringify(servicioExistente, null, 2));
+      logger.log('📦 servicioExistente COMPLETO recibido:', JSON.stringify(servicioExistente, null, 2));
 
 
       const catalogoServicioId =
@@ -608,12 +609,12 @@ const CrearServicioScreen = () => {
       // Pre-cargar fotos - asegurar que sea un array
       const fotosExistentes = servicioExistente.fotos_urls || [];
       setFotos(Array.isArray(fotosExistentes) ? fotosExistentes : []);
-      console.log('📸 Fotos pre-cargadas:', fotosExistentes.length);
+      logger.log('📸 Fotos pre-cargadas:', fotosExistentes.length);
 
       // Marca(s) si no vinieron en el grupo (oferta individual)
       if (ofertasGrupoInicial.length === 0) {
         if (servicioExistente.marca_vehiculo_seleccionada) {
-          console.log('🚗 Pre-cargando marca:', servicioExistente.marca_vehiculo_info?.nombre);
+          logger.log('🚗 Pre-cargando marca:', servicioExistente.marca_vehiculo_info?.nombre);
           const modeloId = servicioExistente.modelo_vehiculo_seleccionado ?? null;
           setMarcasSeleccionadas([servicioExistente.marca_vehiculo_seleccionada]);
           setOfertasPorClave(
@@ -656,7 +657,7 @@ const CrearServicioScreen = () => {
 
       // PRIMERO: Procesar repuestos_seleccionados que contiene los precios personalizados del proveedor
       if (servicioExistente.repuestos_seleccionados && Array.isArray(servicioExistente.repuestos_seleccionados) && servicioExistente.repuestos_seleccionados.length > 0) {
-        console.log('🔩 Procesando repuestos_seleccionados:', servicioExistente.repuestos_seleccionados);
+        logger.log('🔩 Procesando repuestos_seleccionados:', servicioExistente.repuestos_seleccionados);
         servicioExistente.repuestos_seleccionados.forEach((r: any) => {
           // Manejar tanto objetos como IDs simples
           let id: number | null = null;
@@ -667,7 +668,7 @@ const CrearServicioScreen = () => {
           }
 
           if (id && typeof id === 'number') {
-            console.log(`  ✅ Agregando repuesto ID ${id} a la selección`);
+            logger.log(`  ✅ Agregando repuesto ID ${id} a la selección`);
             repuestosIds.add(id);
             if (typeof r === 'object') {
               cargarConfigRepuesto(id, r);
@@ -676,18 +677,18 @@ const CrearServicioScreen = () => {
             // Cargar el precio incluso si es 0, para mantener la consistencia
             if (typeof r === 'object' && r.precio !== undefined && r.precio !== null && r.precio > 0) {
               preciosMap.set(id, formatMontoForInput(r.precio));
-              console.log(`    💰 Precio cargado para repuesto ${id}: ${r.precio}`);
+              logger.log(`    💰 Precio cargado para repuesto ${id}: ${r.precio}`);
             } else {
               // Si no hay precio guardado o es 0, dejar vacío para que el proveedor lo ingrese
               preciosMap.set(id, '');
-              console.log(`    ⚠️ Sin precio válido para repuesto ${id}, se dejará vacío`);
+              logger.log(`    ⚠️ Sin precio válido para repuesto ${id}, se dejará vacío`);
             }
           } else {
-            console.warn(`  ⚠️ Repuesto inválido ignorado:`, r);
+            logger.warn(`  ⚠️ Repuesto inválido ignorado:`, r);
           }
         });
       } else {
-        console.log('⚠️ No hay repuestos_seleccionados o está vacío:', servicioExistente.repuestos_seleccionados);
+        logger.log('⚠️ No hay repuestos_seleccionados o está vacío:', servicioExistente.repuestos_seleccionados);
       }
 
       // SEGUNDO: Procesar repuestos_info_detallado que también puede tener precios personalizados
@@ -730,10 +731,10 @@ const CrearServicioScreen = () => {
         });
       }
       // SIEMPRE establecer los repuestos seleccionados, incluso si está vacío (para limpiar selección previa)
-      console.log('🔩 Pre-cargando repuestos seleccionados:', Array.from(repuestosIds));
-      console.log('🔩 Precios pre-cargados:', Array.from(preciosMap.entries()));
-      console.log('🔩 servicioExistente.repuestos_seleccionados:', JSON.stringify(servicioExistente.repuestos_seleccionados, null, 2));
-      console.log('🔩 servicioExistente.repuestos_info:', JSON.stringify(servicioExistente.repuestos_info, null, 2));
+      logger.log('🔩 Pre-cargando repuestos seleccionados:', Array.from(repuestosIds));
+      logger.log('🔩 Precios pre-cargados:', Array.from(preciosMap.entries()));
+      logger.log('🔩 servicioExistente.repuestos_seleccionados:', JSON.stringify(servicioExistente.repuestos_seleccionados, null, 2));
+      logger.log('🔩 servicioExistente.repuestos_info:', JSON.stringify(servicioExistente.repuestos_info, null, 2));
       setRepuestosSeleccionados(repuestosIds);
       setPreciosRepuestos(preciosMap);
       setConfigRepuestos(configMap);
@@ -749,12 +750,12 @@ const CrearServicioScreen = () => {
       // automáticamente cuando servicioSeleccionado y datosPreCargados estén listos
       // El setTimeout causaba race conditions con closures desactualizados
       if (servicioExistente.servicio) {
-        console.log('🔩 Repuestos disponibles se cargarán automáticamente por el efecto');
+        logger.log('🔩 Repuestos disponibles se cargarán automáticamente por el efecto');
       }
 
       // Marcar como pre-cargado para evitar re-ejecución
       setDatosPreCargados(true);
-      console.log('✅ Datos pre-cargados para edición');
+      logger.log('✅ Datos pre-cargados para edición');
     }
   }, [isEditMode, servicioId, datosPreCargados, ofertasGrupoInicial.length]);
 
@@ -772,7 +773,7 @@ const CrearServicioScreen = () => {
           setFotos(urls);
         }
       } catch (error) {
-        console.warn('⚠️ No se pudieron cargar fotos del servicio:', error);
+        logger.warn('⚠️ No se pudieron cargar fotos del servicio:', error);
       }
     })();
 
@@ -783,7 +784,7 @@ const CrearServicioScreen = () => {
 
   // Cargar marcas al montar (y si cambia cobertura multimarca)
   useEffect(() => {
-    console.log('🎬 CrearServicioScreen - Iniciando carga de marcas...');
+    logger.log('🎬 CrearServicioScreen - Iniciando carga de marcas...');
     cargarMarcas();
 
     if (!isEditMode) {
@@ -794,8 +795,8 @@ const CrearServicioScreen = () => {
 
   // Debug: Monitorear cambios en el estado de marcas
   useEffect(() => {
-    console.log('📊 Estado actualizado - Marcas:', marcas.length);
-    console.log('📊 Marcas cargadas:', marcas.map(m => `${m.id}: ${m.nombre}`).join(', '));
+    logger.log('📊 Estado actualizado - Marcas:', marcas.length);
+    logger.log('📊 Marcas cargadas:', marcas.map(m => `${m.id}: ${m.nombre}`).join(', '));
   }, [marcas]);
 
   // Efecto especial para pre-cargar marca en modo edición basado en servicios disponibles
@@ -809,7 +810,7 @@ const CrearServicioScreen = () => {
       marcas.length > 0 &&
       !tieneSeleccionMarca
     ) {
-      console.log('🔧 Modo edición: Determinando marca automáticamente para servicio ID:', servicioSeleccionado);
+      logger.log('🔧 Modo edición: Determinando marca automáticamente para servicio ID:', servicioSeleccionado);
       determinarMarcaDelServicio();
     }
   }, [isEditMode, servicioSeleccionado, tipoServicio, datosPreCargados, marcas.length, tieneSeleccionMarca]);
@@ -825,18 +826,18 @@ const CrearServicioScreen = () => {
           continue;
         }
         try {
-          console.log(`🔍 Probando marca: ${marca.nombre} (ID: ${marca.id})`);
+          logger.log(`🔍 Probando marca: ${marca.nombre} (ID: ${marca.id})`);
           const response = await serviciosAPI.obtenerServiciosPorMarca(marca.id);
           const serviciosDeEstaMarca = response.data || [];
 
-          console.log(`📋 Servicios encontrados en ${marca.nombre}:`, serviciosDeEstaMarca.length);
-          console.log(`📋 IDs de servicios en ${marca.nombre}:`, serviciosDeEstaMarca.map((s: any) => s.id));
+          logger.log(`📋 Servicios encontrados en ${marca.nombre}:`, serviciosDeEstaMarca.length);
+          logger.log(`📋 IDs de servicios en ${marca.nombre}:`, serviciosDeEstaMarca.map((s: any) => s.id));
 
           const servicioEncontrado = serviciosDeEstaMarca.find((s: any) => s.id === servicioSeleccionado);
 
           if (servicioEncontrado) {
-            console.log(`✅ ¡Servicio encontrado en marca: ${marca.nombre}!`);
-            console.log(`📋 Servicio: ${servicioEncontrado.nombre}`);
+            logger.log(`✅ ¡Servicio encontrado en marca: ${marca.nombre}!`);
+            logger.log(`📋 Servicio: ${servicioEncontrado.nombre}`);
 
             // Pre-seleccionar esta marca
             setMarcasSeleccionadas([marca.id]);
@@ -844,45 +845,45 @@ const CrearServicioScreen = () => {
             // Cargar todos los servicios de esta marca
             setServicios(serviciosDeEstaMarca);
 
-            console.log('✅ Marca y servicios configurados automáticamente para edición');
+            logger.log('✅ Marca y servicios configurados automáticamente para edición');
             return; // Salir del loop una vez encontrado
           }
         } catch (error) {
-          console.warn(`⚠️ Error probando marca ${marca.nombre}:`, error);
+          logger.warn(`⚠️ Error probando marca ${marca.nombre}:`, error);
         }
       }
 
-      console.warn('⚠️ No se encontró el servicio en ninguna marca disponible');
-      console.warn('📊 DIAGNÓSTICO:');
-      console.warn('  - Servicio buscado ID:', servicioSeleccionado);
-      console.warn('  - Total marcas probadas:', marcas.length);
-      console.warn('  - Nombres de marcas:', marcas.map(m => m.nombre).join(', '));
+      logger.warn('⚠️ No se encontró el servicio en ninguna marca disponible');
+      logger.warn('📊 DIAGNÓSTICO:');
+      logger.warn('  - Servicio buscado ID:', servicioSeleccionado);
+      logger.warn('  - Total marcas probadas:', marcas.length);
+      logger.warn('  - Nombres de marcas:', marcas.map(m => m.nombre).join(', '));
     } catch (error) {
-      console.error('❌ Error determinando marca del servicio:', error);
+      logger.error('❌ Error determinando marca del servicio:', error);
     }
   };
 
   // Debug: Monitorear cambios en el estado de servicios
   useEffect(() => {
-    console.log('📊 Estado actualizado - Servicios:', servicios.length);
-    console.log('📊 Servicios cargados:', servicios.map(s => `${s.id}: ${s.nombre}`).join(', '));
+    logger.log('📊 Estado actualizado - Servicios:', servicios.length);
+    logger.log('📊 Servicios cargados:', servicios.map(s => `${s.id}: ${s.nombre}`).join(', '));
   }, [servicios]);
 
   // Debug: Monitorear selecciones
   useEffect(() => {
-    console.log('🎯 Selecciones actuales:');
-    console.log('  - Tipo servicio:', tipoServicio);
-    console.log('  - Marcas seleccionadas:', marcasSeleccionadas);
-    console.log('  - Servicio seleccionado:', servicioSeleccionado);
-    console.log('  - Servicio original (edición):', servicioOriginal);
-    console.log('  - Repuestos seleccionados:', Array.from(repuestosSeleccionados));
-    console.log('  - Fotos:', fotos.length);
+    logger.log('🎯 Selecciones actuales:');
+    logger.log('  - Tipo servicio:', tipoServicio);
+    logger.log('  - Marcas seleccionadas:', marcasSeleccionadas);
+    logger.log('  - Servicio seleccionado:', servicioSeleccionado);
+    logger.log('  - Servicio original (edición):', servicioOriginal);
+    logger.log('  - Repuestos seleccionados:', Array.from(repuestosSeleccionados));
+    logger.log('  - Fotos:', fotos.length);
   }, [tipoServicio, marcasSeleccionadasKey, servicioSeleccionado, servicioOriginal, repuestosSeleccionados, fotos.length]);
 
   // Efecto para restaurar servicio cuando se vuelve a "con repuestos" en modo edición
   useEffect(() => {
     if (isEditMode && tipoServicio === 'con_repuestos' && servicioOriginal && !servicioSeleccionado && tieneSeleccionMarca && datosPreCargados) {
-      console.log('🔄 Restaurando servicio original después de cambiar tipo:', servicioOriginal);
+      logger.log('🔄 Restaurando servicio original después de cambiar tipo:', servicioOriginal);
       // Esperar un momento para que los servicios se carguen primero
       setTimeout(() => {
         setServicioSeleccionado(servicioOriginal);
@@ -894,7 +895,7 @@ const CrearServicioScreen = () => {
   useEffect(() => {
     if (tieneSeleccionMarca) {
       if (!isEditMode || datosPreCargados) {
-        console.log('⚙️ Cargando servicios para marcas:', marcasSeleccionadas);
+        logger.log('⚙️ Cargando servicios para marcas:', marcasSeleccionadas);
         cargarServicios();
       }
     } else {
@@ -914,7 +915,7 @@ const CrearServicioScreen = () => {
       if (!isEditMode || datosPreCargados) {
         cargarRepuestos();
       } else {
-        console.log('⏳ Esperando datosPreCargados antes de cargar repuestos...');
+        logger.log('⏳ Esperando datosPreCargados antes de cargar repuestos...');
       }
     } else if (!servicioSeleccionado) {
       setRepuestos([]);
@@ -938,10 +939,10 @@ const CrearServicioScreen = () => {
 
       // Solo sincronizar si hay diferencias
       if (idsValidos.length !== idsSeleccionados.length) {
-        console.log('🔧 Sincronizando repuestos seleccionados con repuestos cargados');
-        console.log('  - IDs seleccionados:', idsSeleccionados);
-        console.log('  - IDs cargados:', Array.from(repuestosIdsCargados));
-        console.log('  - IDs válidos:', idsValidos);
+        logger.log('🔧 Sincronizando repuestos seleccionados con repuestos cargados');
+        logger.log('  - IDs seleccionados:', idsSeleccionados);
+        logger.log('  - IDs cargados:', Array.from(repuestosIdsCargados));
+        logger.log('  - IDs válidos:', idsValidos);
 
         // Actualizar repuestos seleccionados solo con los válidos
         setRepuestosSeleccionados(new Set(idsValidos));
@@ -964,7 +965,7 @@ const CrearServicioScreen = () => {
         });
 
         if (huboCambios) {
-          console.log('  - Precios actualizados:', Array.from(nuevosPrecios.entries()));
+          logger.log('  - Precios actualizados:', Array.from(nuevosPrecios.entries()));
           setPreciosRepuestosVersion(v => v + 1);
           return nuevosPrecios;
         }
@@ -1023,7 +1024,7 @@ const CrearServicioScreen = () => {
           return prev;
         }
         if (prev !== nuevoTotal) {
-          console.log(`💰 Actualizando costoRepuestos: ${prev} -> ${nuevoTotal}`);
+          logger.log(`💰 Actualizando costoRepuestos: ${prev} -> ${nuevoTotal}`);
           return nuevoTotal;
         }
         return prev;
@@ -1051,7 +1052,7 @@ const CrearServicioScreen = () => {
         setCalculos(response.data);
       }
     } catch (error) {
-      console.error('❌ Error calculando precios:', error);
+      logger.error('❌ Error calculando precios:', error);
     }
   }, [costoManoObra, costoRepuestos]);
 
@@ -1078,12 +1079,12 @@ const CrearServicioScreen = () => {
   // Funciones de carga de datos
   const cargarMarcas = async () => {
     try {
-      console.log('🚗 Cargando marcas del proveedor...');
+      logger.log('🚗 Cargando marcas del proveedor...');
       const { serviciosAPI } = await import('@/services/api');
 
       // Verificar que la función existe antes de usarla
       if (!serviciosAPI || !serviciosAPI.obtenerMisMarcas) {
-        console.error('❌ serviciosAPI.obtenerMisMarcas no está disponible');
+        logger.error('❌ serviciosAPI.obtenerMisMarcas no está disponible');
         // Fallback: usar endpoint directo
         const { get } = await import('@/services/api');
         const response = await get('/servicios/proveedor/mis-servicios/mis_marcas/');
@@ -1097,7 +1098,7 @@ const CrearServicioScreen = () => {
 
       const response = await serviciosAPI.obtenerMisMarcas();
       const parsed = parseMisMarcasResponse(response?.data ?? response);
-      console.log(
+      logger.log(
         '✅ Marcas cargadas:',
         parsed.marcas.length,
         proveedorEsMultimarca ? '(multimarca)' : '(especialista)',
@@ -1112,7 +1113,7 @@ const CrearServicioScreen = () => {
         ...parsed.marcas,
       ]);
     } catch (error) {
-      console.error('❌ Error cargando marcas del proveedor:', error);
+      logger.error('❌ Error cargando marcas del proveedor:', error);
       Alert.alert('Error', 'No se pudieron cargar las marcas de vehículos que usted atiende');
     } finally {
       setLoadingMarcas(false);
@@ -1166,7 +1167,7 @@ const CrearServicioScreen = () => {
           }
         }
       } catch (error) {
-        console.error('❌ Error cargando modelos por marca:', error);
+        logger.error('❌ Error cargando modelos por marca:', error);
       }
     })();
 
@@ -1180,7 +1181,7 @@ const CrearServicioScreen = () => {
 
     setLoadingServicios(true);
     try {
-      console.log('⚙️ Cargando catálogo para marcas:', marcasSeleccionadas);
+      logger.log('⚙️ Cargando catálogo para marcas:', marcasSeleccionadas);
       const { serviciosAPI } = await import('@/services/api');
 
       let serviciosCargados: ServicioCatalogoRow[] = [];
@@ -1195,7 +1196,7 @@ const CrearServicioScreen = () => {
           );
           serviciosCargados = normalizarListaServiciosCatalogo(response.data);
         } catch (comunesErr) {
-          console.warn('⚠️ servicios_comunes_por_marcas falló, intersectando en cliente:', comunesErr);
+          logger.warn('⚠️ servicios_comunes_por_marcas falló, intersectando en cliente:', comunesErr);
           const porMarca = await Promise.all(
             marcasRealesSeleccionadas.map(async (marcaId) => {
               const response = await serviciosAPI.obtenerServiciosPorMarca(marcaId);
@@ -1239,10 +1240,10 @@ const CrearServicioScreen = () => {
         setServicioSeleccionado(catalogoId);
       }
 
-      console.log('✅ Servicios cargados:', serviciosCargados.length);
+      logger.log('✅ Servicios cargados:', serviciosCargados.length);
       setServicios(serviciosCargados as Servicio[]);
     } catch (error) {
-      console.error('❌ Error cargando servicios del proveedor:', error);
+      logger.error('❌ Error cargando servicios del proveedor:', error);
       Alert.alert('Error', 'No se pudieron cargar los servicios que usted ofrece para esta marca');
     } finally {
       setLoadingServicios(false);
@@ -1251,18 +1252,18 @@ const CrearServicioScreen = () => {
 
   const cargarRepuestos = async () => {
     if (!servicioSeleccionado) {
-      console.log('⚠️ No hay servicio seleccionado, no se pueden cargar repuestos');
+      logger.log('⚠️ No hay servicio seleccionado, no se pueden cargar repuestos');
       return;
     }
 
     setLoadingRepuestos(true);
     try {
-      console.log('🔩 Cargando repuestos para servicio:', servicioSeleccionado);
+      logger.log('🔩 Cargando repuestos para servicio:', servicioSeleccionado);
       const { serviciosAPI } = await import('@/services/api');
       const response = await serviciosAPI.obtenerRepuestosPorServicio(servicioSeleccionado);
       const repuestosCargados = response.data || [];
-      console.log('✅ Repuestos cargados:', repuestosCargados.length);
-      console.log('🔩 Repuestos seleccionados actuales:', Array.from(repuestosSeleccionados));
+      logger.log('✅ Repuestos cargados:', repuestosCargados.length);
+      logger.log('🔩 Repuestos seleccionados actuales:', Array.from(repuestosSeleccionados));
 
       setRepuestos(repuestosCargados);
 
@@ -1271,15 +1272,15 @@ const CrearServicioScreen = () => {
         const repuestosIdsCargados = new Set(repuestosCargados.map((r: any) => r.id));
         const repuestosValidos = Array.from(repuestosSeleccionados).filter(id => repuestosIdsCargados.has(id));
         if (repuestosValidos.length !== repuestosSeleccionados.size) {
-          console.warn('⚠️ Algunos repuestos seleccionados no están en la lista cargada');
-          console.warn('  - Repuestos seleccionados:', Array.from(repuestosSeleccionados));
-          console.warn('  - Repuestos disponibles:', Array.from(repuestosIdsCargados));
+          logger.warn('⚠️ Algunos repuestos seleccionados no están en la lista cargada');
+          logger.warn('  - Repuestos seleccionados:', Array.from(repuestosSeleccionados));
+          logger.warn('  - Repuestos disponibles:', Array.from(repuestosIdsCargados));
         } else {
-          console.log('✅ Todos los repuestos seleccionados están en la lista cargada');
+          logger.log('✅ Todos los repuestos seleccionados están en la lista cargada');
         }
       }
     } catch (error) {
-      console.error('❌ Error cargando repuestos:', error);
+      logger.error('❌ Error cargando repuestos:', error);
       Alert.alert('Error', 'No se pudieron cargar los repuestos');
     } finally {
       setLoadingRepuestos(false);
@@ -1325,7 +1326,7 @@ const CrearServicioScreen = () => {
 
   // Función para actualizar precio de un repuesto - optimizada y robusta
   const actualizarPrecioRepuesto = useCallback((repuestoId: number, precio: string) => {
-    console.log(`💰 actualizarPrecioRepuesto: repuestoId=${repuestoId}, precio="${precio}"`);
+    logger.log(`💰 actualizarPrecioRepuesto: repuestoId=${repuestoId}, precio="${precio}"`);
 
     setPreciosRepuestos(prev => {
       const nuevosPrecios = new Map(prev);
@@ -1388,7 +1389,7 @@ const CrearServicioScreen = () => {
       });
 
       if (!resultado.canceled && resultado.assets[0]) {
-        console.log('📸 Foto seleccionada:', resultado.assets[0].uri);
+        logger.log('📸 Foto seleccionada:', resultado.assets[0].uri);
 
         // Redimensionar imagen para optimizar
         const imagenOptimizada = await ImageManipulator.manipulateAsync(
@@ -1398,10 +1399,10 @@ const CrearServicioScreen = () => {
         );
 
         setFotos(prev => [...prev, imagenOptimizada.uri]);
-        console.log('✅ Foto agregada, total:', fotos.length + 1);
+        logger.log('✅ Foto agregada, total:', fotos.length + 1);
       }
     } catch (error) {
-      console.error('❌ Error seleccionando foto:', error);
+      logger.error('❌ Error seleccionando foto:', error);
       Alert.alert('Error', 'No se pudo seleccionar la foto');
     }
   };
@@ -1417,7 +1418,7 @@ const CrearServicioScreen = () => {
           style: 'destructive',
           onPress: () => {
             setFotos(prev => prev.filter((_, i) => i !== index));
-            console.log('🗑️ Foto eliminada, total:', fotos.length - 1);
+            logger.log('🗑️ Foto eliminada, total:', fotos.length - 1);
           }
         }
       ]
@@ -1431,11 +1432,11 @@ const CrearServicioScreen = () => {
   ) => {
     const fotosLocales = (urisLocales ?? fotos).filter(esFotoLocalParaSubir);
     if (fotosLocales.length === 0) {
-      console.log('📸 No hay fotos nuevas para subir');
+      logger.log('📸 No hay fotos nuevas para subir');
       return { subidas: 0, urls: [] as string[] };
     }
 
-    console.log(`📸 Subiendo ${fotosLocales.length} foto(s) nueva(s) para oferta ${ofertaId}...`);
+    logger.log(`📸 Subiendo ${fotosLocales.length} foto(s) nueva(s) para oferta ${ofertaId}...`);
     const { fotosServiciosAPI } = await import('@/services/api');
 
     const archivos = fotosLocales.map((uri, index) => ({
@@ -1446,7 +1447,7 @@ const CrearServicioScreen = () => {
 
     const response = await fotosServiciosAPI.subirMultiplesFotos(ofertaId, archivos);
     const subidas = response.fotos?.length ?? 0;
-    console.log('✅ Fotos subidas exitosamente:', subidas);
+    logger.log('✅ Fotos subidas exitosamente:', subidas);
 
     const urlsServidor =
       (response.fotos_urls as string[] | undefined) ??
@@ -1692,7 +1693,7 @@ const CrearServicioScreen = () => {
     );
     try {
       const accion = isEditMode ? 'Actualizando' : 'Publicando';
-      console.log(`🚀 ${accion} servicio...`);
+      logger.log(`🚀 ${accion} servicio...`);
       const { serviciosAPI } = await import('@/services/api');
 
       // Construir datos del servicio (SIN fotos por ahora)
@@ -1702,9 +1703,9 @@ const CrearServicioScreen = () => {
         ? Array.from(repuestosSeleccionados).map(id => {
           // Leer del Map usando el ref para asegurar el estado más actualizado
           const precioStr = preciosRepuestosRef.current.get(id);
-          console.log(`🔍 Construyendo repuesto ${id}: precioStr="${precioStr}"`);
-          console.log(`🔍 Precios actuales en ref:`, Array.from(preciosRepuestosRef.current.entries()));
-          console.log(`🔍 Precios actuales en estado:`, Array.from(preciosRepuestos.entries()));
+          logger.log(`🔍 Construyendo repuesto ${id}: precioStr="${precioStr}"`);
+          logger.log(`🔍 Precios actuales en ref:`, Array.from(preciosRepuestosRef.current.entries()));
+          logger.log(`🔍 Precios actuales en estado:`, Array.from(preciosRepuestos.entries()));
 
 
           let precio: number | undefined = undefined;
@@ -1729,11 +1730,11 @@ const CrearServicioScreen = () => {
           // Incluir precio solo si el proveedor ingresó un valor válido (> 0)
           if (precio !== undefined && !isNaN(precio) && precio > 0) {
             repuestoObj.precio = precio;
-            console.log(`✅ Agregando repuesto ${id} con precio ${precio}`);
+            logger.log(`✅ Agregando repuesto ${id} con precio ${precio}`);
           } else {
             // IMPORTANTE: Si no hay precio válido, igualmente guardar el repuesto (sin precio)
             // Esto asegura que el repuesto aparezca seleccionado cuando se edite el servicio
-            console.log(`⚠️ Repuesto ${id} sin precio válido (precioStr: "${precioStr}"), se guardará sin precio pero seleccionado`);
+            logger.log(`⚠️ Repuesto ${id} sin precio válido (precioStr: "${precioStr}"), se guardará sin precio pero seleccionado`);
           }
           // SIEMPRE retornar el objeto con id, incluso sin precio
           // Esto asegura que el repuesto quede guardado y se pueda ver al editar
@@ -1741,7 +1742,7 @@ const CrearServicioScreen = () => {
         })
         : [];
 
-      console.log('📦 repuestosArray final:', JSON.stringify(repuestosArray, null, 2));
+      logger.log('📦 repuestosArray final:', JSON.stringify(repuestosArray, null, 2));
 
       // No enviar servicio cuando es null: la API rechaza "este campo no puede ser nulo".
       // En PATCH, si no se envía servicio, se conserva el valor actual de la oferta.
@@ -1766,8 +1767,8 @@ const CrearServicioScreen = () => {
         return;
       }
 
-      console.log('📤 Datos base del servicio:', datosBase);
-      console.log('📤 Publicaciones destino:', publicaciones);
+      logger.log('📤 Datos base del servicio:', datosBase);
+      logger.log('📤 Publicaciones destino:', publicaciones);
 
       let tituloExito = isEditMode ? '¡Servicio Actualizado!' : '¡Servicio Publicado!';
       let mensajeExito = isEditMode
@@ -1971,14 +1972,14 @@ const CrearServicioScreen = () => {
       const mensajeError = extraerMensajeErrorApi(error, fallback);
 
       if (__DEV__) {
-        console.error(`❌ Error ${accionError} servicio:`, {
+        logger.error(`❌ Error ${accionError} servicio:`, {
           message: error?.message,
           status: error?.response?.status,
           data: error?.response?.data,
           mensajeMostrado: mensajeError,
         });
       } else {
-        console.error(`❌ Error ${accionError} servicio:`, mensajeError);
+        logger.error(`❌ Error ${accionError} servicio:`, mensajeError);
       }
 
       setSaveStatus('error');
@@ -2012,7 +2013,7 @@ const CrearServicioScreen = () => {
   const TipoServicioSelector = () => {
     const handleChangeTipoServicio = (nuevoTipo: 'con_repuestos' | 'sin_repuestos') => {
       // Permitir cambio de tipo de servicio en edición (el usuario puede necesitar cambiar)
-      console.log('🔄 Cambiando tipo de servicio a:', nuevoTipo);
+      logger.log('🔄 Cambiando tipo de servicio a:', nuevoTipo);
       setTipoServicio(nuevoTipo);
 
       // Resetear selecciones dependientes pero MANTENER marca (requerida para todos los servicios)
@@ -2029,7 +2030,7 @@ const CrearServicioScreen = () => {
       } else if (nuevoTipo === 'con_repuestos') {
         // Restaurar servicio original si existe y no hay uno seleccionado
         if (servicioOriginal && !servicioSeleccionado) {
-          console.log('🔄 Restaurando servicio original:', servicioOriginal);
+          logger.log('🔄 Restaurando servicio original:', servicioOriginal);
           setServicioSeleccionado(servicioOriginal);
         }
         // Cargar repuestos si hay servicio seleccionado
@@ -2691,10 +2692,10 @@ const CrearServicioScreen = () => {
     if (!tieneSeleccionMarca) return null;
 
     const handleSelectServicio = (servicioId: number, servicioNombre: string) => {
-      console.log('⚙️ Servicio seleccionado:', servicioId, servicioNombre);
+      logger.log('⚙️ Servicio seleccionado:', servicioId, servicioNombre);
 
       if (servicioId === servicioSeleccionado) {
-        console.log('⚙️ Mismo servicio, ignorando');
+        logger.log('⚙️ Mismo servicio, ignorando');
         return;
       }
 

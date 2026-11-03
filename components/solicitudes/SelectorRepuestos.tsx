@@ -15,6 +15,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SHADOWS } from '@/app/design-system/tokens';
 import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -56,7 +57,7 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
 
       setRepuestos(datos);
     } catch (error) {
-      console.error('Error cargando repuestos:', error);
+      logger.error('Error cargando repuestos:', error);
       Alert.alert('Error', 'No se pudieron cargar los repuestos');
     } finally {
       setLoading(false);

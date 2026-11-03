@@ -1,4 +1,5 @@
 import api from './api';
+import logger from '@/utils/logger';
 
 // Tipos para información protegida del cliente
 export interface ClienteProtegido {
@@ -180,7 +181,7 @@ class OrdenesProveedorService {
 
     if (isTimeout) {
       if (__DEV__) {
-        console.warn(`⏱️ Timeout en ${action}:`, error.config?.url || '', error.message);
+        logger.warn(`⏱️ Timeout en ${action}:`, error.config?.url || '', error.message);
       }
       return {
         success: false,
@@ -189,7 +190,7 @@ class OrdenesProveedorService {
       };
     }
 
-    console.error(`Error en ${action}:`, error);
+    logger.error(`Error en ${action}:`, error);
 
     if (error.response) {
       return {
@@ -326,7 +327,7 @@ class OrdenesProveedorService {
         data: this.extractDataFromResponse(response.data)
       };
     } catch (error) {
-      console.log('❌ Error obteniendo órdenes pendientes:', error);
+      logger.log('❌ Error obteniendo órdenes pendientes:', error);
       return this.handleServiceError(error, 'obtener órdenes pendientes');
     }
   }
@@ -340,7 +341,7 @@ class OrdenesProveedorService {
         data: this.extractDataFromResponse(response.data)
       };
     } catch (error) {
-      console.log('❌ Error obteniendo órdenes activas:', error);
+      logger.log('❌ Error obteniendo órdenes activas:', error);
       return this.handleServiceError(error, 'obtener órdenes activas');
     }
   }
@@ -396,7 +397,7 @@ class OrdenesProveedorService {
 
   async actualizarEstado(id: number, nuevoEstado: string): Promise<ServiceResponse<{ message: string; orden: Orden }>> {
     try {
-      console.log(`🔄 Actualizando estado de orden ${id} a: ${nuevoEstado}`);
+      logger.log(`🔄 Actualizando estado de orden ${id} a: ${nuevoEstado}`);
       const response = await api.post(`${this.baseUrl}/${id}/actualizar_estado/`, {
         estado: nuevoEstado
       });
@@ -406,14 +407,14 @@ class OrdenesProveedorService {
         data: response.data
       };
     } catch (error) {
-      console.error(`❌ Error actualizando estado de orden ${id}:`, error);
+      logger.error(`❌ Error actualizando estado de orden ${id}:`, error);
       return this.handleServiceError(error, 'actualizar estado de orden');
     }
   }
 
   async iniciarServicio(id: number): Promise<ServiceResponse<{ message: string; orden: Orden }>> {
     try {
-      console.log(`🚀 Iniciando servicio para orden ${id}`);
+      logger.log(`🚀 Iniciando servicio para orden ${id}`);
       const response = await api.post(`${this.baseUrl}/${id}/iniciar_servicio/`);
       
       return {
@@ -421,14 +422,14 @@ class OrdenesProveedorService {
         data: response.data
       };
     } catch (error) {
-      console.error(`❌ Error iniciando servicio para orden ${id}:`, error);
+      logger.error(`❌ Error iniciando servicio para orden ${id}:`, error);
       return this.handleServiceError(error, 'iniciar servicio');
     }
   }
 
   async finalizarServicio(id: number, data?: { notas?: string }): Promise<ServiceResponse<{ message: string; orden: Orden }>> {
     try {
-      console.log(`✅ Finalizando servicio para orden ${id}`);
+      logger.log(`✅ Finalizando servicio para orden ${id}`);
       const response = await api.post(`${this.baseUrl}/${id}/finalizar_servicio/`, data || {});
       
       return {
@@ -436,7 +437,7 @@ class OrdenesProveedorService {
         data: response.data
       };
     } catch (error) {
-      console.error(`❌ Error finalizando servicio para orden ${id}:`, error);
+      logger.error(`❌ Error finalizando servicio para orden ${id}:`, error);
       return this.handleServiceError(error, 'finalizar servicio');
     }
   }
@@ -450,7 +451,7 @@ class OrdenesProveedorService {
         data: response.data
       };
     } catch (error) {
-      console.log('❌ Error obteniendo estadísticas:', error);
+      logger.log('❌ Error obteniendo estadísticas:', error);
       return this.handleServiceError(error, 'obtener estadísticas');
     }
   }

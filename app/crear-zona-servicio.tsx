@@ -29,6 +29,7 @@ import {
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const infoStatus = institutionalStatusColors('info');
@@ -82,7 +83,7 @@ export default function CrearZonaServicioScreen() {
       const response = await serviceAreasApi.getRegions();
       setRegions(response || []);
     } catch (error) {
-      console.error('Error cargando regiones:', error);
+      logger.error('Error cargando regiones:', error);
       setRegions([]);
     }
   };
@@ -94,7 +95,7 @@ export default function CrearZonaServicioScreen() {
       const response = await serviceAreasApi.getCommunes();
       setAvailableCommunes(response || []);
     } catch (error) {
-      console.error('Error cargando comunas:', error);
+      logger.error('Error cargando comunas:', error);
       setAvailableCommunes([]);
     } finally {
       setLoadingCommunes(false);
@@ -188,7 +189,7 @@ export default function CrearZonaServicioScreen() {
         is_active: true,
       };
 
-      console.log('Guardando zona de servicio:', serviceAreaData);
+      logger.log('Guardando zona de servicio:', serviceAreaData);
 
       const response = await serviceAreasApi.createServiceArea(serviceAreaData);
 
@@ -204,7 +205,7 @@ export default function CrearZonaServicioScreen() {
       );
 
     } catch (error) {
-      console.error('Error guardando zona:', error);
+      logger.error('Error guardando zona:', error);
       Alert.alert('Error', 'No se pudo guardar la zona de servicio');
     } finally {
       setLoading(false);

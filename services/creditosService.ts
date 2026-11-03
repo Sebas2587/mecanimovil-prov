@@ -1,4 +1,5 @@
 import api from './api';
+import logger from '@/utils/logger';
 
 // Tipos para créditos
 export interface PaqueteCreditos {
@@ -143,7 +144,7 @@ export const obtenerSaldo = async (): Promise<ApiResponse<CreditoProveedor>> => 
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo saldo de créditos:', error);
+    logger.error('Error obteniendo saldo de créditos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener saldo de créditos'
@@ -171,7 +172,7 @@ export const obtenerPaquetes = async (): Promise<ApiResponse<PaqueteCreditos[]>>
       data: paquetes
     };
   } catch (error: any) {
-    console.error('Error obteniendo paquetes de créditos:', error);
+    logger.error('Error obteniendo paquetes de créditos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener paquetes de créditos'
@@ -197,7 +198,7 @@ export const comprarCreditos = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error comprando créditos:', error);
+    logger.error('Error comprando créditos:', error);
 
     let errorMessage = 'Error al comprar créditos';
     if (error.response?.data) {
@@ -246,7 +247,7 @@ export const confirmarPago = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error confirmando pago:', error);
+    logger.error('Error confirmando pago:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al confirmar pago'
@@ -265,7 +266,7 @@ export const cancelarCompra = async (compraId: number): Promise<ApiResponse<Comp
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error cancelando compra:', error);
+    logger.error('Error cancelando compra:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al cancelar compra'
@@ -284,7 +285,7 @@ export const obtenerEstadisticas = async (): Promise<ApiResponse<EstadisticasCre
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo estadísticas de créditos:', error);
+    logger.error('Error obteniendo estadísticas de créditos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener estadísticas'
@@ -347,7 +348,7 @@ export const obtenerTablaServiciosCreditos = async (): Promise<ApiResponse<Servi
       throw first;
     }
   } catch (error: any) {
-    console.error('Error obteniendo tabla servicios-créditos:', error);
+    logger.error('Error obteniendo tabla servicios-créditos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener la tabla de servicios',
@@ -366,7 +367,7 @@ export const obtenerHistorialConsumos = async (limit: number = 50): Promise<ApiR
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo historial de consumos:', error);
+    logger.error('Error obteniendo historial de consumos:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener historial de consumos'
@@ -385,7 +386,7 @@ export const obtenerHistorialCompras = async (limit: number = 50): Promise<ApiRe
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo historial de compras:', error);
+    logger.error('Error obteniendo historial de compras:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener historial de compras'
@@ -434,7 +435,7 @@ export const verificarCreditosOferta = async (
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error verificando créditos para oferta:', error);
+    logger.error('Error verificando créditos para oferta:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al verificar créditos'
@@ -453,7 +454,7 @@ export const obtenerDatosBancarios = async (): Promise<ApiResponse<DatosBancario
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo datos bancarios:', error);
+    logger.error('Error obteniendo datos bancarios:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener datos bancarios'
@@ -485,7 +486,7 @@ export const verificarPago = async (compraId: number): Promise<ApiResponse<Verif
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error verificando pago:', error);
+    logger.error('Error verificando pago:', error);
 
     // Si la compra no existe (404), indicarlo específicamente
     const isNotFound = error.response?.status === 404;
@@ -520,7 +521,7 @@ export const obtenerComprasPendientes = async (): Promise<ApiResponse<ComprasPen
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error obteniendo compras pendientes:', error);
+    logger.error('Error obteniendo compras pendientes:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener compras pendientes'
@@ -539,7 +540,7 @@ export const reintentarPago = async (compraId: number): Promise<ApiResponse<Comp
       data: response.data
     };
   } catch (error: any) {
-    console.error('Error reintentando pago:', error);
+    logger.error('Error reintentando pago:', error);
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al reintentar pago'

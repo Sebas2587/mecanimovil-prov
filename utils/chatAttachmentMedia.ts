@@ -3,6 +3,7 @@
  */
 
 import { Platform } from 'react-native';
+import logger from '@/utils/logger';
 
 export function normalizeMessageText(value: unknown): string {
   if (value == null) return '';
@@ -233,7 +234,7 @@ export async function appendChatFileToFormData(
       formData.append(fieldName, webFile);
       return formData;
     } catch (e) {
-      console.warn('appendChatFileToFormData web fallback', e);
+      logger.warn('appendChatFileToFormData web fallback', e);
     }
   }
 

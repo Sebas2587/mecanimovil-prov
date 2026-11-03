@@ -24,6 +24,7 @@ import { COLORS } from '@/app/design-system/tokens';
 import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -52,7 +53,7 @@ export default function DocumentacionScreen() {
         const documentosGuardados = JSON.parse(documentosParam);
         setDocumentos(documentosGuardados);
       } catch (error) {
-        console.error('Error parseando documentos:', error);
+        logger.error('Error parseando documentos:', error);
       }
     }
   }, []);
@@ -62,11 +63,11 @@ export default function DocumentacionScreen() {
       setIsLoadingTipos(true);
       const tiposData = await documentosAPI.obtenerTiposDocumento();
       
-      console.log('Tipos de documento cargados:', tiposData);
+      logger.log('Tipos de documento cargados:', tiposData);
       setTiposDocumento(tiposData.tipos_documento || []);
       
     } catch (error) {
-      console.error('Error cargando tipos de documento:', error);
+      logger.error('Error cargando tipos de documento:', error);
       showAlert('Error', 'No se pudieron cargar los tipos de documento');
     } finally {
       setIsLoadingTipos(false);
@@ -235,12 +236,12 @@ export default function DocumentacionScreen() {
         const documentosJson = JSON.stringify(documentos);
         // Usar base64 para evitar problemas con caracteres especiales
         const documentosBase64 = Buffer.from(documentosJson, 'utf-8').toString('base64');
-        console.log('Documentos a enviar:', Object.keys(documentos));
-        console.log('Documentos codificados en base64 (longitud):', documentosBase64.length);
+        logger.log('Documentos a enviar:', Object.keys(documentos));
+        logger.log('Documentos codificados en base64 (longitud):', documentosBase64.length);
         params.append('documentos', documentosBase64);
       } catch (error) {
-        console.error('Error serializando documentos:', error);
-        console.log('Documentos:', documentos);
+        logger.error('Error serializando documentos:', error);
+        logger.log('Documentos:', documentos);
         
         // Mostrar alerta si falla la serialización
         showAlert(

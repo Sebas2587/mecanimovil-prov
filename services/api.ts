@@ -10,6 +10,7 @@ import {
 import { clearEstadoProveedorCache } from '@/utils/auth/estadoProveedorCache';
 import { fetchAllPaginated } from '@/utils/fetchPaginated';
 import ServerConfig from './serverConfig';
+import logger from '@/utils/logger';
 
 // Configuración dinámica del servidor
 const serverConfig = ServerConfig.getInstance();
@@ -40,12 +41,12 @@ async function ensureInitialized(): Promise<void> {
     isInitialized = true;
     // Log solo en desarrollo (__DEV__), nunca en producción (APK)
     if (__DEV__) {
-      console.log('✅ Configuración del servidor inicializada correctamente');
+      logger.log('✅ Configuración del servidor inicializada correctamente');
     }
   } catch (error) {
     // Log solo en desarrollo
     if (__DEV__) {
-      console.error('❌ Error en inicialización del servidor (detalles solo en desarrollo):', error);
+      logger.error('❌ Error en inicialización del servidor (detalles solo en desarrollo):', error);
     }
     // Continuar con configuración fallback
     isInitialized = true;
@@ -60,7 +61,7 @@ const getBaseURL = async (): Promise<string> => {
   const baseURL = await serverConfig.getBaseURL();
   // Log solo en desarrollo
   if (__DEV__) {
-    console.log(`🌐 Configurando API con URL: ${baseURL}`);
+    logger.log(`🌐 Configurando API con URL: ${baseURL}`);
   }
   return baseURL;
 };
@@ -75,7 +76,7 @@ const getMediaBaseURL = async (): Promise<string> => {
 const createAPIInstance = async () => {
   const baseURL = await getBaseURL();
   if (__DEV__) {
-    console.log(`🌐 Configurando API con URL: ${baseURL}`);
+    logger.log(`🌐 Configurando API con URL: ${baseURL}`);
   }
 
   return axios.create({
@@ -94,7 +95,7 @@ const getAPI = async () => {
     const baseURL = await getBaseURL();
     // El log ya se hace en getBaseURL, no duplicar aquí - solo si es necesario en desarrollo
     if (__DEV__) {
-      console.log(`🌐 Instancia de API creada con URL: ${baseURL}`);
+      logger.log(`🌐 Instancia de API creada con URL: ${baseURL}`);
     }
 
     apiInstance = axios.create({
@@ -168,7 +169,7 @@ const setupInterceptors = (api: any) => {
           }
           // Log solo en desarrollo
           if (__DEV__) {
-            console.log('❌ Error obteniendo token (detalles solo en desarrollo):', error);
+            logger.error('❌ Error obteniendo token (detalles solo en desarrollo):', error);
           }
         }
       }
@@ -178,7 +179,7 @@ const setupInterceptors = (api: any) => {
     (error: any) => {
       // Log solo en desarrollo - este error se manejará apropiadamente en los callers
       if (__DEV__) {
-        console.log('❌ Error en request interceptor (detalles solo en desarrollo):', error);
+        logger.log('❌ Error en request interceptor (detalles solo en desarrollo):', error);
       }
       return Promise.reject(error);
     }
@@ -201,7 +202,7 @@ const setupInterceptors = (api: any) => {
           cfg[k] = n + 1;
           const delayMs = 400 * (n + 1);
           if (__DEV__) {
-            console.log(`🔁 Reintento ${n + 1}/2 tras 503 (GET) ${cfg.url} — ${delayMs}ms`);
+            logger.log(`🔁 Reintento ${n + 1}/2 tras 503 (GET) ${cfg.url} — ${delayMs}ms`);
           }
           await new Promise<void>((r) => setTimeout(r, delayMs));
           return api.request(cfg);
@@ -215,7 +216,7 @@ const setupInterceptors = (api: any) => {
           if (!token) {
             // No hay token, no es un error crítico - solo log informativo (solo en desarrollo)
             if (__DEV__) {
-              console.log('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
+              logger.warn('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
             }
             // Retornar error silenciosamente para que el caller lo maneje
             return Promise.reject(error);
@@ -223,27 +224,27 @@ const setupInterceptors = (api: any) => {
         } catch (tokenError) {
           // Error obteniendo token, asumir que no hay sesión
           if (__DEV__) {
-            console.log('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
+            logger.warn('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
           }
           return Promise.reject(error);
         }
         // Hay token pero expiró - limpiar tokens inmediatamente
         // Log solo en desarrollo
         if (__DEV__) {
-          console.log('❌ Error 401 detectado con token existente en:', error.config?.url);
-          console.log('🧹 Limpiando tokens expirados...');
+          logger.warn('❌ Error 401 detectado con token existente en:', error.config?.url);
+          logger.log('🧹 Limpiando tokens expirados...');
         }
         try {
           await clearAuthTokenCache();
           await deleteItem('userData');
           await clearEstadoProveedorCache();
           if (__DEV__) {
-            console.log('✅ Tokens limpiados correctamente');
+            logger.log('✅ Tokens limpiados correctamente');
           }
         } catch (cleanupError) {
           // Log solo en desarrollo
           if (__DEV__) {
-            console.error('❌ Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
+            logger.error('❌ Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
           }
         }
         // El AuthContext detectará el cambio y limpiará el estado
@@ -252,11 +253,11 @@ const setupInterceptors = (api: any) => {
         (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'))
       ) {
         if (__DEV__) {
-          console.log('⏱️ Timeout de solicitud HTTP:', error.config?.url, '—', error.message);
+          logger.log('⏱️ Timeout de solicitud HTTP:', error.config?.url, '—', error.message);
         }
       } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         if (__DEV__) {
-          console.log('🔄 Error de red en:', error.config?.url, '—', error.code || error.message);
+          logger.log('🔄 Error de red en:', error.config?.url, '—', error.code || error.message);
         }
         const isProductionUrl = error.config?.baseURL?.includes('onrender.com') ||
           error.config?.baseURL?.includes('render.com');
@@ -265,18 +266,18 @@ const setupInterceptors = (api: any) => {
             await serverConfig.recheckConnection();
             apiInstance = null;
             if (__DEV__) {
-              console.log('✅ Configuración del servidor actualizada (desarrollo)');
+              logger.log('✅ Configuración del servidor actualizada (desarrollo)');
             }
           } catch (recheckError) {
             if (__DEV__) {
-              console.error('❌ Error al verificar reconexión:', recheckError);
+              logger.error('❌ Error al verificar reconexión:', recheckError);
             }
           }
         }
       } else {
         // Log solo en desarrollo - estos errores se manejarán apropiadamente en los callers
         if (__DEV__) {
-          console.log('❌ Error en respuesta (detalles solo en desarrollo):', {
+          logger.log('❌ Error en respuesta (detalles solo en desarrollo):', {
             status: error.response?.status,
             url: error.config?.url,
             message: error.message
@@ -420,21 +421,21 @@ export const authAPI = {
 
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('📝 Enviando registro a:', '/usuarios/usuarios/');
-        console.log('📝 Datos de registro:', { ...datos, password: '***' });
+        logger.log('📝 Enviando registro a:', '/usuarios/usuarios/');
+        logger.log('📝 Datos de registro:', { ...datos, password: '***' });
       }
 
       const response = await api.post('/usuarios/usuarios/', datos);
 
       if (__DEV__) {
-        console.log('✅ Registro exitoso:', response.status);
+        logger.log('✅ Registro exitoso:', response.status);
       }
 
       return response.data;
     } catch (error: any) {
       // Log detallado solo en desarrollo
       if (__DEV__) {
-        console.error('❌ Error en registro API:', {
+        logger.error('❌ Error en registro API:', {
           message: error.message,
           status: error.response?.status,
           code: error.code,
@@ -450,7 +451,7 @@ export const authAPI = {
   // Login - Usa fetch() directo para máxima compatibilidad con iOS
   login: async (credenciales: LoginCredentials) => {
     if (__DEV__) {
-      console.log('🚀 Iniciando login proveedor:', credenciales.username);
+      logger.log('🚀 Iniciando login proveedor:', credenciales.username);
     }
 
     const baseURL = await getBaseURL();
@@ -458,7 +459,7 @@ export const authAPI = {
 
     // Diagnóstico de conectividad (solo dev nativo)
     if (__DEV__ && Platform.OS !== 'web') {
-      console.log('🩺 Diagnóstico de red antes de login...');
+      logger.log('🩺 Diagnóstico de red antes de login...');
       const probes = [
         { label: 'Google HTTPS', url: 'https://www.google.com/generate_204' },
         { label: 'Render GET', url: `${baseURL.replace(/\/$/, '')}/hello/` },
@@ -475,9 +476,9 @@ export const authAPI = {
             mode: 'no-cors',
           });
           clearTimeout(tm);
-          console.log(`  ✅ ${probe.label}: HTTP ${r.status} (${Date.now() - t0}ms)`);
+          logger.log(`  ✅ ${probe.label}: HTTP ${r.status} (${Date.now() - t0}ms)`);
         } catch (e: any) {
-          console.log(`  ❌ ${probe.label}: ${e.name} ${e.message} (${Date.now() - t0}ms)`);
+          logger.log(`  ❌ ${probe.label}: ${e.name} ${e.message} (${Date.now() - t0}ms)`);
         }
       }
     }
@@ -489,7 +490,7 @@ export const authAPI = {
       if (attempt > 1) {
         const delay = attempt * 2000;
         if (__DEV__) {
-          console.log(`🔁 Reintento login ${attempt}/${maxAttempts} en ${delay}ms...`);
+          logger.log(`🔁 Reintento login ${attempt}/${maxAttempts} en ${delay}ms...`);
         }
         await new Promise(r => setTimeout(r, delay));
       }
@@ -499,7 +500,7 @@ export const authAPI = {
 
       try {
         if (__DEV__) {
-          console.log(`📡 [Intento ${attempt}] POST ${loginUrl}`);
+          logger.log(`📡 [Intento ${attempt}] POST ${loginUrl}`);
         }
 
         const response = await fetch(loginUrl, {
@@ -516,7 +517,7 @@ export const authAPI = {
         const data = await response.json();
 
         if (__DEV__) {
-          console.log(`📡 [Intento ${attempt}] HTTP ${response.status}`);
+          logger.log(`📡 [Intento ${attempt}] HTTP ${response.status}`);
         }
 
         if (!response.ok) {
@@ -535,7 +536,7 @@ export const authAPI = {
           await persistAuthToken(data.token);
           await setItem('userData', JSON.stringify(data.user));
           if (__DEV__) {
-            console.log('✅ Login exitoso - Credenciales guardadas');
+            logger.log('✅ Login exitoso - Credenciales guardadas');
           }
         } else {
           throw new Error('No se recibió un token válido del servidor.');
@@ -548,13 +549,13 @@ export const authAPI = {
 
         if (error.response?.status) {
           if (__DEV__) {
-            console.error('❌ Error del servidor:', error.response.status, error.message);
+            logger.error('❌ Error del servidor:', error.response.status, error.message);
           }
           throw error;
         }
 
         if (__DEV__) {
-          console.warn(`⚠️ [Intento ${attempt}/${maxAttempts}] Red:`, error.name, error.message);
+          logger.warn(`⚠️ [Intento ${attempt}/${maxAttempts}] Red:`, error.name, error.message);
         }
 
         if (attempt >= maxAttempts) {
@@ -575,7 +576,7 @@ export const authAPI = {
   logout: async () => {
     // Log solo en desarrollo
     if (__DEV__) {
-      console.log('🚪 Cerrando sesión...');
+      logger.log('🚪 Cerrando sesión...');
     }
 
     try {
@@ -583,12 +584,12 @@ export const authAPI = {
       await deleteItem('userData');
 
       if (__DEV__) {
-        console.log('✅ Sesión cerrada correctamente');
+        logger.log('✅ Sesión cerrada correctamente');
       }
     } catch (error) {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.error('❌ Error cerrando sesión (detalles solo en desarrollo):', error);
+        logger.error('❌ Error cerrando sesión (detalles solo en desarrollo):', error);
       }
       throw error;
     }
@@ -598,13 +599,11 @@ export const authAPI = {
   isAuthenticated: async () => {
     try {
       const token = await getItem('authToken');
-      console.log('🔑 isAuthenticated - Token encontrado:', !!token);
-      if (token) {
-        console.log('🔑 Token preview:', token.substring(0, 10) + '...');
-      }
+      logger.log('🔑 isAuthenticated - Token encontrado:', !!token);
+      // NUNCA loggear el token completo o preview - riesgo de seguridad
       return !!token;
     } catch (error) {
-      console.error('❌ Error verificando autenticación:', error);
+      logger.error('❌ Error verificando autenticación:', error);
       return false;
     }
   },
@@ -613,18 +612,18 @@ export const authAPI = {
   getUserData: async () => {
     try {
       const userData = await getItem('userData');
-      console.log('👤 getUserData - Datos encontrados:', !!userData);
+      logger.log('👤 getUserData - Datos encontrados:', !!userData);
 
       if (userData) {
         const parsedData = JSON.parse(userData);
-        console.log('👤 Usuario:', parsedData.username, 'ID:', parsedData.id);
+        logger.log('👤 Usuario:', parsedData.username, 'ID:', parsedData.id);
         return parsedData;
       }
 
-      console.log('👤 No hay datos de usuario en storage');
+      logger.log('👤 No hay datos de usuario en storage');
       return null;
     } catch (error) {
-      console.error('❌ Error obteniendo datos del usuario:', error);
+      logger.error('❌ Error obteniendo datos del usuario:', error);
       return null;
     }
   },
@@ -634,7 +633,7 @@ export const authAPI = {
     // Verificar autenticación antes de hacer la llamada
     const token = await getItem('authToken');
     if (!token) {
-      console.log('⚠️ [AUTH API] No hay token, no se puede obtener estado del proveedor');
+      logger.warn('⚠️ [AUTH API] No hay token, no se puede obtener estado del proveedor');
       throw new Error('No autenticado');
     }
 
@@ -648,7 +647,7 @@ export const authAPI = {
     // Verificar autenticación antes de hacer la llamada
     const token = await getItem('authToken');
     if (!token) {
-      console.log('⚠️ [AUTH API] No hay token, no se pueden obtener datos del usuario');
+      logger.warn('⚠️ [AUTH API] No hay token, no se pueden obtener datos del usuario');
       throw new Error('No autenticado');
     }
 
@@ -702,7 +701,7 @@ export const authAPI = {
     } catch {
       /* no crítico */
     }
-    console.log('✅ Storage limpiado completamente');
+    logger.log('✅ Storage limpiado completamente');
   },
 
 };
@@ -903,7 +902,7 @@ const subirArchivoDirecto = async (formData: FormData, token: string) => {
   const uploadURL = `${baseURL}/usuarios/documentos-onboarding/`;
 
   if (__DEV__) {
-    console.log('📤 Subiendo archivo a:', uploadURL);
+    logger.log('📤 Subiendo archivo a:', uploadURL);
   }
 
   const response = await fetch(uploadURL, {
@@ -941,7 +940,7 @@ const subirArchivoDirecto = async (formData: FormData, token: string) => {
   }
 
   if (__DEV__) {
-    console.log('✅ Archivo subido exitosamente (fetch):', payload);
+    logger.log('✅ Archivo subido exitosamente (fetch):', payload);
   }
   return payload;
 };
@@ -964,13 +963,13 @@ export const documentosAPI = {
       }
 
       if (__DEV__) {
-        console.log('📤 Subiendo documento:', tipoDocumento, Platform.OS);
+        logger.log('📤 Subiendo documento:', tipoDocumento, Platform.OS);
       }
 
       const formData = await buildDocumentoFormData(archivo, tipoDocumento);
       return await subirArchivoDirecto(formData, token);
     } catch (error: any) {
-      console.error('❌ Error subiendo documento:', error);
+      logger.error('❌ Error subiendo documento:', error);
       if (error.message === 'Network Error') {
         throw new Error(
           `Error de conexión al subir ${tipoDocumento}. Verifica tu internet y que el servidor esté disponible.`,
@@ -1001,14 +1000,14 @@ export const especialidadesAPI = {
   obtenerCategorias: async (): Promise<CategoriaServicio[]> => {
     try {
       const api = await getAPI();
-      console.log('📋 Obteniendo categorías de servicios...');
+      logger.log('📋 Obteniendo categorías de servicios...');
       // Usar el endpoint de categorías principales que sabemos que funciona
       const response = await api.get('/servicios/categorias/principales/');
-      console.log('✅ Categorías obtenidas:', response.data?.length || (response.data?.results?.length || 0));
+      logger.log('✅ Categorías obtenidas:', response.data?.length || (response.data?.results?.length || 0));
       const data = response.data;
       return Array.isArray(data) ? data : (data?.results || []);
     } catch (error) {
-      console.error('❌ Error obteniendo categorías:', error);
+      logger.error('❌ Error obteniendo categorías:', error);
       // Retornar categorías de ejemplo en caso de error
       return [
         { id: 1, nombre: 'Mecánica General', descripcion: 'Servicios básicos de mecánica automotriz' },
@@ -1038,7 +1037,7 @@ export const proveedorVerificadoAPI = {
   // Obtener datos completos del proveedor (MEJORADO para ser más robusto)
   obtenerDatosCompletos: async () => {
     try {
-      console.log('📊 Obteniendo datos completos del proveedor...');
+      logger.log('📊 Obteniendo datos completos del proveedor...');
 
       // Validación inicial
       const api = await getAPI();
@@ -1054,27 +1053,27 @@ export const proveedorVerificadoAPI = {
       }
 
       const estadoData = estadoResponse.data;
-      console.log('✅ Estado del proveedor obtenido:', estadoData);
+      logger.log('✅ Estado del proveedor obtenido:', estadoData);
 
       // Validar que el estado del proveedor tenga la información mínima necesaria
       if (!estadoData.tipo_proveedor) {
-        console.warn('⚠️ Estado del proveedor sin tipo_proveedor definido');
+        logger.warn('⚠️ Estado del proveedor sin tipo_proveedor definido');
         return { data: estadoData, tipo: 'unknown' };
       }
 
       if (estadoData.tipo_proveedor === 'taller') {
         // Para talleres, obtener datos adicionales del ViewSet
         try {
-          console.log('🏗️ Obteniendo datos adicionales del taller...');
+          logger.log('🏗️ Obteniendo datos adicionales del taller...');
           const talleresResponse = await api.get('/usuarios/talleres/');
 
           if (!talleresResponse || !talleresResponse.data) {
-            console.warn('⚠️ Respuesta inválida de talleres');
+            logger.warn('⚠️ Respuesta inválida de talleres');
             return { data: estadoData, tipo: 'taller' };
           }
 
           const talleres = Array.isArray(talleresResponse.data) ? talleresResponse.data : talleresResponse.data.results || [];
-          console.log('🏗️ Talleres obtenidos:', talleres.length);
+          logger.log('🏗️ Talleres obtenidos:', talleres.length);
 
           // Buscar el taller del usuario actual con múltiples criterios
           let miTaller = null;
@@ -1083,7 +1082,7 @@ export const proveedorVerificadoAPI = {
           if (estadoData.id && typeof estadoData.id === 'number') {
             miTaller = talleres.find((t: any) => t.usuario?.id === estadoData.id);
             if (miTaller) {
-              console.log('✅ Taller encontrado por usuario ID:', miTaller.nombre);
+              logger.log('✅ Taller encontrado por usuario ID:', miTaller.nombre);
             }
           }
 
@@ -1091,7 +1090,7 @@ export const proveedorVerificadoAPI = {
           if (!miTaller && estadoData.nombre && typeof estadoData.nombre === 'string') {
             miTaller = talleres.find((t: any) => t.nombre === estadoData.nombre);
             if (miTaller) {
-              console.log('✅ Taller encontrado por nombre exacto:', miTaller.nombre);
+              logger.log('✅ Taller encontrado por nombre exacto:', miTaller.nombre);
             }
           }
 
@@ -1099,19 +1098,19 @@ export const proveedorVerificadoAPI = {
           if (!miTaller && estadoData.usuario?.username && typeof estadoData.usuario.username === 'string') {
             miTaller = talleres.find((t: any) => t.usuario?.username === estadoData.usuario.username);
             if (miTaller) {
-              console.log('✅ Taller encontrado por username:', miTaller.nombre);
+              logger.log('✅ Taller encontrado por username:', miTaller.nombre);
             }
           }
 
           // Criterio 4: Si solo hay un taller, asumir que es el correcto
           if (!miTaller && talleres.length === 1) {
             miTaller = talleres[0];
-            console.log('✅ Taller encontrado (único taller disponible):', miTaller.nombre);
+            logger.log('✅ Taller encontrado (único taller disponible):', miTaller.nombre);
           }
 
           if (miTaller) {
-            console.log('🔧 Especialidades del taller:', miTaller.especialidades?.length || 0);
-            console.log('🚗 Marcas atendidas del taller:', miTaller.marcas_atendidas?.length || 0);
+            logger.log('🔧 Especialidades del taller:', miTaller.especialidades?.length || 0);
+            logger.log('🚗 Marcas atendidas del taller:', miTaller.marcas_atendidas?.length || 0);
 
             return {
               data: {
@@ -1125,26 +1124,26 @@ export const proveedorVerificadoAPI = {
               tipo: 'taller'
             };
           } else {
-            console.warn('⚠️ No se encontró el taller específico del usuario');
+            logger.warn('⚠️ No se encontró el taller específico del usuario');
             return { data: estadoData, tipo: 'taller' };
           }
         } catch (tallerError) {
-          console.warn('❌ Error obteniendo datos adicionales del taller:', tallerError);
+          logger.warn('❌ Error obteniendo datos adicionales del taller:', tallerError);
           return { data: estadoData, tipo: 'taller' };
         }
       } else if (estadoData.tipo_proveedor === 'mecanico') {
         // Para mecánicos, obtener datos adicionales del ViewSet
         try {
-          console.log('🔧 Obteniendo datos adicionales del mecánico...');
+          logger.log('🔧 Obteniendo datos adicionales del mecánico...');
           const mecanicosResponse = await api.get('/usuarios/mecanicos-domicilio/');
 
           if (!mecanicosResponse || !mecanicosResponse.data) {
-            console.warn('⚠️ Respuesta inválida de mecánicos');
+            logger.warn('⚠️ Respuesta inválida de mecánicos');
             return { data: estadoData, tipo: 'mecanico' };
           }
 
           const mecanicos = Array.isArray(mecanicosResponse.data) ? mecanicosResponse.data : mecanicosResponse.data.results || [];
-          console.log('🔧 Mecánicos obtenidos:', mecanicos.length);
+          logger.log('🔧 Mecánicos obtenidos:', mecanicos.length);
 
           // Buscar el mecánico del usuario actual con múltiples criterios
           let miMecanico = null;
@@ -1153,7 +1152,7 @@ export const proveedorVerificadoAPI = {
           if (estadoData.id && typeof estadoData.id === 'number') {
             miMecanico = mecanicos.find((m: any) => m.usuario?.id === estadoData.id);
             if (miMecanico) {
-              console.log('✅ Mecánico encontrado por usuario ID:', miMecanico.nombre);
+              logger.log('✅ Mecánico encontrado por usuario ID:', miMecanico.nombre);
             }
           }
 
@@ -1161,7 +1160,7 @@ export const proveedorVerificadoAPI = {
           if (!miMecanico && estadoData.nombre && typeof estadoData.nombre === 'string') {
             miMecanico = mecanicos.find((m: any) => m.nombre === estadoData.nombre);
             if (miMecanico) {
-              console.log('✅ Mecánico encontrado por nombre exacto:', miMecanico.nombre);
+              logger.log('✅ Mecánico encontrado por nombre exacto:', miMecanico.nombre);
             }
           }
 
@@ -1169,19 +1168,19 @@ export const proveedorVerificadoAPI = {
           if (!miMecanico && estadoData.usuario?.username && typeof estadoData.usuario.username === 'string') {
             miMecanico = mecanicos.find((m: any) => m.usuario?.username === estadoData.usuario.username);
             if (miMecanico) {
-              console.log('✅ Mecánico encontrado por username:', miMecanico.nombre);
+              logger.log('✅ Mecánico encontrado por username:', miMecanico.nombre);
             }
           }
 
           // Criterio 4: Si solo hay un mecánico, asumir que es el correcto
           if (!miMecanico && mecanicos.length === 1) {
             miMecanico = mecanicos[0];
-            console.log('✅ Mecánico encontrado (único mecánico disponible):', miMecanico.nombre);
+            logger.log('✅ Mecánico encontrado (único mecánico disponible):', miMecanico.nombre);
           }
 
           if (miMecanico) {
-            console.log('🔧 Especialidades del mecánico:', miMecanico.especialidades?.length || 0);
-            console.log('🚗 Marcas atendidas del mecánico:', miMecanico.marcas_atendidas?.length || 0);
+            logger.log('🔧 Especialidades del mecánico:', miMecanico.especialidades?.length || 0);
+            logger.log('🚗 Marcas atendidas del mecánico:', miMecanico.marcas_atendidas?.length || 0);
 
             return {
               data: {
@@ -1195,21 +1194,21 @@ export const proveedorVerificadoAPI = {
               tipo: 'mecanico'
             };
           } else {
-            console.warn('⚠️ No se encontró el mecánico específico del usuario');
+            logger.warn('⚠️ No se encontró el mecánico específico del usuario');
             return { data: estadoData, tipo: 'mecanico' };
           }
         } catch (mecanicoError) {
-          console.warn('❌ Error obteniendo datos adicionales del mecánico:', mecanicoError);
+          logger.warn('❌ Error obteniendo datos adicionales del mecánico:', mecanicoError);
           return { data: estadoData, tipo: 'mecanico' };
         }
       }
 
       // Si no es taller ni mecánico, retornar solo el estado
-      console.log('ℹ️ Proveedor no es taller ni mecánico, retornando solo estado');
+      logger.log('ℹ️ Proveedor no es taller ni mecánico, retornando solo estado');
       return { data: estadoData, tipo: 'unknown' };
 
     } catch (error) {
-      console.error('❌ Error obteniendo datos del proveedor:', error);
+      logger.error('❌ Error obteniendo datos del proveedor:', error);
 
       // Retornar estructura por defecto en caso de error crítico
       return {
@@ -1402,7 +1401,7 @@ export const horariosAPI = {
       });
     }
 
-    console.log('📤 Enviando configuración de horarios (formato corregido):', payload);
+    logger.log('📤 Enviando configuración de horarios (formato corregido):', payload);
 
     // URL CORREGIDA: debe ser 'configurar_semana_completa' no 'configurar-semana'
     const response = await api.post('/usuarios/horarios-proveedor/configurar_semana_completa/', payload);
@@ -1431,8 +1430,8 @@ export const perfilAPI = {
     try {
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('📷 Iniciando subida de foto de perfil...');
-        console.log('📋 Datos del archivo:', {
+        logger.log('📷 Iniciando subida de foto de perfil...');
+        logger.log('📋 Datos del archivo:', {
           uri: archivo.uri,
           type: archivo.type,
           name: archivo.name,
@@ -1515,8 +1514,8 @@ export const perfilAPI = {
 
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('📤 FormData creado, enviando petición a:', uploadURL);
-        console.log('📋 Headers:', {
+        logger.log('📤 FormData creado, enviando petición a:', uploadURL);
+        logger.log('📋 Headers:', {
           'Authorization': `Token ${token.substring(0, 10)}...`,
           'Content-Type': 'multipart/form-data (automático)'
         });
@@ -1573,7 +1572,7 @@ export const perfilAPI = {
 
         // Log solo en desarrollo
         if (__DEV__) {
-          console.error('❌ Error en respuesta HTTP:', {
+          logger.error('❌ Error en respuesta HTTP:', {
             status: response.status,
             statusText: response.statusText,
             errorData
@@ -1600,13 +1599,13 @@ export const perfilAPI = {
       const data = await response.json();
       // Log solo en desarrollo
       if (__DEV__) {
-        console.log('✅ Foto de perfil actualizada exitosamente:', data);
+        logger.log('✅ Foto de perfil actualizada exitosamente:', data);
       }
       return data;
     } catch (error: any) {
       // Log detallado solo en desarrollo para debugging
       if (__DEV__) {
-        console.error('❌ Error subiendo foto de perfil (detalles solo en desarrollo):', {
+        logger.error('❌ Error subiendo foto de perfil (detalles solo en desarrollo):', {
           message: error.message,
           code: error.code,
           name: error.name,
@@ -1664,8 +1663,8 @@ export const perfilAPI = {
   // Actualizar documento existente (CORREGIDO PARA REACT NATIVE)
   actualizarDocumento: async (documentoId: number, archivo: any) => {
     try {
-      console.log('📄 Iniciando actualización de documento...');
-      console.log('📋 Datos del archivo:', {
+      logger.log('📄 Iniciando actualización de documento...');
+      logger.log('📋 Datos del archivo:', {
         uri: archivo.uri,
         type: archivo.type,
         name: archivo.name,
@@ -1679,7 +1678,7 @@ export const perfilAPI = {
         name: archivo.name
       } as any);
 
-      console.log('📤 FormData creado, enviando petición...');
+      logger.log('📤 FormData creado, enviando petición...');
 
       // CORREGIDO: NO incluir Content-Type manual - React Native lo maneja automáticamente
       const api = await getAPI();
@@ -1688,10 +1687,10 @@ export const perfilAPI = {
         // React Native configura el Content-Type automáticamente
       });
 
-      console.log('✅ Documento actualizado exitosamente:', response.data);
+      logger.log('✅ Documento actualizado exitosamente:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error actualizando documento:', {
+      logger.error('❌ Error actualizando documento:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status
@@ -1709,7 +1708,7 @@ export const perfilAPI = {
       const estadoResponse = await api.get('/usuarios/estado-proveedor/');
       const estadoData = estadoResponse.data;
 
-      console.log('📊 Actualizando datos del proveedor:', estadoData.tipo_proveedor);
+      logger.log('📊 Actualizando datos del proveedor:', estadoData.tipo_proveedor);
 
       let response;
 
@@ -1723,10 +1722,10 @@ export const perfilAPI = {
         throw new Error(`Tipo de proveedor no soportado: ${estadoData.tipo_proveedor}`);
       }
 
-      console.log('✅ Datos del proveedor actualizados:', response.data);
+      logger.log('✅ Datos del proveedor actualizados:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error actualizando datos del proveedor:', error);
+      logger.error('❌ Error actualizando datos del proveedor:', error);
       throw error;
     }
   },
@@ -1913,7 +1912,7 @@ export const fotosServiciosAPI = {
   // Subir una foto de servicio (usando fetch nativo para mejor compatibilidad)
   subirFoto: async (ofertaId: number, archivo: ArchivoImagenInput, descripcion?: string) => {
     try {
-      console.log('📸 Subiendo foto de servicio para oferta:', ofertaId);
+      logger.log('📸 Subiendo foto de servicio para oferta:', ofertaId);
 
       // Obtener token y baseURL
       const token = await getItem('authToken');
@@ -1932,7 +1931,7 @@ export const fotosServiciosAPI = {
         formData.append('descripcion', descripcion);
       }
 
-      console.log('📤 Enviando FormData a:', uploadURL);
+      logger.log('📤 Enviando FormData a:', uploadURL);
 
       // Usar fetch nativo en lugar de axios para mejor compatibilidad con FormData
       const response = await fetch(uploadURL, {
@@ -1950,10 +1949,10 @@ export const fotosServiciosAPI = {
       }
 
       const data = await response.json();
-      console.log('✅ Foto de servicio subida exitosamente:', data);
+      logger.log('✅ Foto de servicio subida exitosamente:', data);
       return data;
     } catch (error: any) {
-      console.error('❌ Error subiendo foto de servicio:', error);
+      logger.error('❌ Error subiendo foto de servicio:', error);
       throw error;
     }
   },
@@ -1961,7 +1960,7 @@ export const fotosServiciosAPI = {
   // Subir múltiples fotos de servicio (usando fetch nativo para mejor compatibilidad)
   subirMultiplesFotos: async (ofertaId: number, archivos: ArchivoImagenInput[]) => {
     try {
-      console.log('📸 Subiendo múltiples fotos de servicio para oferta:', ofertaId);
+      logger.log('📸 Subiendo múltiples fotos de servicio para oferta:', ofertaId);
 
       if (!archivos?.length) {
         throw new Error('No hay archivos para subir');
@@ -1989,8 +1988,8 @@ export const fotosServiciosAPI = {
         });
       }
 
-      console.log('📤 Enviando FormData a:', uploadURL);
-      console.log('📋 Número de fotos:', archivos.length);
+      logger.log('📤 Enviando FormData a:', uploadURL);
+      logger.log('📋 Número de fotos:', archivos.length);
 
       // Usar fetch nativo en lugar de axios para mejor compatibilidad con FormData
       const response = await fetch(uploadURL, {
@@ -2008,10 +2007,10 @@ export const fotosServiciosAPI = {
       }
 
       const data = await response.json();
-      console.log('✅ Múltiples fotos de servicio subidas exitosamente:', data);
+      logger.log('✅ Múltiples fotos de servicio subidas exitosamente:', data);
       return data;
     } catch (error: any) {
-      console.error('❌ Error subiendo múltiples fotos de servicio:', error);
+      logger.error('❌ Error subiendo múltiples fotos de servicio:', error);
       throw error;
     }
   },
@@ -2023,7 +2022,7 @@ export const fotosServiciosAPI = {
       const response = await api.get(`/servicios/fotos-servicios/?oferta_servicio=${ofertaId}`);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error obteniendo fotos de oferta:', error);
+      logger.error('❌ Error obteniendo fotos de oferta:', error);
       throw error;
     }
   },
@@ -2033,10 +2032,10 @@ export const fotosServiciosAPI = {
     try {
       const api = await getAPI();
       const response = await api.delete(`/servicios/fotos-servicios/${fotoId}/`);
-      console.log('✅ Foto de servicio eliminada exitosamente');
+      logger.log('✅ Foto de servicio eliminada exitosamente');
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error eliminando foto de servicio:', error);
+      logger.error('❌ Error eliminando foto de servicio:', error);
       throw error;
     }
   }

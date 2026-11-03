@@ -25,6 +25,7 @@ import creditosService, { type VerificacionCreditosOferta } from '@/services/cre
 import { ModalCreditosInsuficientes } from '@/components/creditos';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -103,7 +104,7 @@ export default function CrearOfertaSecundariaScreen() {
       const solicitudIdParaCargar = oferta.solicitud || solicitudId;
       const resultSolicitud = await solicitudesService.obtenerDetalleSolicitud(solicitudIdParaCargar);
       if (!resultSolicitud.success || !resultSolicitud.data) {
-        console.error('Error obteniendo detalle de solicitud:', resultSolicitud.error);
+        logger.error('Error obteniendo detalle de solicitud:', resultSolicitud.error);
         // No bloquear si no se puede cargar la solicitud, pero mostrar advertencia
         Alert.alert(
           'Advertencia', 
@@ -116,7 +117,7 @@ export default function CrearOfertaSecundariaScreen() {
         await verificarCreditosParaSolicitud(resultSolicitud.data);
       }
     } catch (error) {
-      console.error('Error cargando datos:', error);
+      logger.error('Error cargando datos:', error);
       Alert.alert('Error', 'No se pudo cargar la información');
       router.back();
     } finally {
@@ -141,11 +142,11 @@ export default function CrearOfertaSecundariaScreen() {
           setMostrarModalCreditos(true);
         }
       } else {
-        console.error('Error verificando créditos:', result.error);
+        logger.error('Error verificando créditos:', result.error);
         setVerificacionCreditos(null);
       }
     } catch (error) {
-      console.error('Error verificando créditos:', error);
+      logger.error('Error verificando créditos:', error);
       setVerificacionCreditos(null);
     } finally {
       setVerificandoCreditos(false);
@@ -235,7 +236,7 @@ export default function CrearOfertaSecundariaScreen() {
         );
       }
     } catch (error: any) {
-      console.error('Error enviando oferta secundaria:', error);
+      logger.error('Error enviando oferta secundaria:', error);
       Alert.alert('Error', 'No se pudo enviar la oferta. Por favor, intenta nuevamente.');
     } finally {
       setEnviando(false);

@@ -8,6 +8,7 @@ import {
 } from '@/services/api';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
 import { emptyList, emptyRecord } from '@/hooks/stableEmpty';
+import logger from '@/utils/logger';
 
 export type EspecialidadesMarcasData = {
   todasMarcas: MarcaVehiculo[];
@@ -54,7 +55,7 @@ async function fetchEspecialidadesMarcas(): Promise<EspecialidadesMarcasData> {
       }
     }
   } catch (error) {
-    console.warn('⚠️ No se pudieron cargar datos actuales del proveedor:', error);
+    logger.warn('⚠️ No se pudieron cargar datos actuales del proveedor:', error);
   }
 
   return {

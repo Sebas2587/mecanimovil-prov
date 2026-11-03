@@ -24,6 +24,7 @@ import {
 import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import { checklistService } from '@/services/checklistService';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -143,7 +144,7 @@ export default function ChecklistItemDetailScreen() {
           setLocalResponse(result.data);
         } else {
           photoResponseInitKeyRef.current = null;
-          console.error(
+          logger.error(
             '❌ No se pudo inicializar respuesta para item PHOTO:',
             result.message,
           );

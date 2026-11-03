@@ -20,6 +20,7 @@ import {
   resolveProveedorRoute,
   shouldSkipTipoCuenta,
 } from '@/utils/auth/resolveProveedorRoute';
+import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
 
@@ -72,7 +73,7 @@ export default function TipoCuentaScreen() {
           const maxAge = 5 * 60 * 1000; // 5 minutos
           if (Date.now() - credentials.timestamp < maxAge) {
             if (__DEV__) {
-              console.log('🔐 Credenciales pendientes encontradas, haciendo login automático...');
+              logger.log('🔐 Credenciales pendientes encontradas, haciendo login automático...');
             }
             
             try {
@@ -100,12 +101,12 @@ export default function TipoCuentaScreen() {
                 } catch (estadoError: any) {
                   // No crítico si falla, el estado se establecerá como usuario sin perfil
                   if (__DEV__) {
-                    console.log('ℹ️ Estado del proveedor se establecerá automáticamente');
+                    logger.log('ℹ️ Estado del proveedor se establecerá automáticamente');
                   }
                 }
                 
                 if (__DEV__) {
-                  console.log('✅ Login automático exitoso después del registro');
+                  logger.log('✅ Login automático exitoso después del registro');
                 }
                 
                 // Limpiar credenciales pendientes
@@ -113,7 +114,7 @@ export default function TipoCuentaScreen() {
               }
             } catch (loginError: any) {
               if (__DEV__) {
-                console.warn('⚠️ Error en login automático (continuando sin autenticación):', loginError.message);
+                logger.warn('⚠️ Error en login automático (continuando sin autenticación):', loginError.message);
               }
               // Limpiar credenciales pendientes incluso si falla el login
               await deleteItem('pendingRegistration');
@@ -121,14 +122,14 @@ export default function TipoCuentaScreen() {
           } else {
             // Credenciales muy antiguas, limpiarlas
             if (__DEV__) {
-              console.log('⏰ Credenciales pendientes expiradas, limpiando...');
+              logger.log('⏰ Credenciales pendientes expiradas, limpiando...');
             }
             await deleteItem('pendingRegistration');
           }
         }
       } catch (error) {
         if (__DEV__) {
-          console.warn('⚠️ Error verificando credenciales pendientes:', error);
+          logger.warn('⚠️ Error verificando credenciales pendientes:', error);
         }
       } finally {
         setIsCheckingCredentials(false);
@@ -155,7 +156,7 @@ export default function TipoCuentaScreen() {
         if (pendingData) {
           const credentials = JSON.parse(pendingData);
           if (__DEV__) {
-            console.log('🔐 Intentando login con credenciales pendientes...');
+            logger.log('🔐 Intentando login con credenciales pendientes...');
           }
           
           // Usar el endpoint de login normal para usuarios recién registrados
@@ -181,13 +182,13 @@ export default function TipoCuentaScreen() {
             } catch (estadoError: any) {
               // No crítico si falla, el estado se establecerá como usuario sin perfil
               if (__DEV__) {
-                console.log('ℹ️ Estado del proveedor se establecerá automáticamente');
+                logger.log('ℹ️ Estado del proveedor se establecerá automáticamente');
               }
             }
             
             await deleteItem('pendingRegistration');
             if (__DEV__) {
-              console.log('✅ Login exitoso con credenciales pendientes');
+              logger.log('✅ Login exitoso con credenciales pendientes');
             }
           }
         } else {
@@ -198,7 +199,7 @@ export default function TipoCuentaScreen() {
         }
       } catch (loginError: any) {
         if (__DEV__) {
-          console.error('❌ Error en login con credenciales pendientes:', loginError);
+          logger.error('❌ Error en login con credenciales pendientes:', loginError);
         }
         showConfirm('Error de autenticación', 'No se pudo iniciar sesión. ¿Intentar de nuevo?', {
           confirmText: 'Intentar de nuevo',
@@ -213,14 +214,14 @@ export default function TipoCuentaScreen() {
     try {
       // Inicializar el onboarding en el backend
       if (__DEV__) {
-        console.log('Inicializando onboarding para tipo:', tipoSeleccionado);
+        logger.log('Inicializando onboarding para tipo:', tipoSeleccionado);
       }
       const response = await authAPI.inicializarOnboarding({
         tipo_proveedor: tipoSeleccionado,
         modalidad_atencion: modalidadSeleccionada,
       });
       if (__DEV__) {
-        console.log('Onboarding inicializado:', response);
+        logger.log('Onboarding inicializado:', response);
       }
       
       patchDraft({ tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada });
@@ -230,7 +231,7 @@ export default function TipoCuentaScreen() {
       });
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error inicializando onboarding:', error);
+        logger.error('Error inicializando onboarding:', error);
       }
       
       // Obtener mensaje de error más descriptivo
@@ -249,7 +250,7 @@ export default function TipoCuentaScreen() {
           (error.response?.data?.codigo === 'TALLER_DUPLICADO' || 
            error.response?.data?.codigo === 'MECANICO_DUPLICADO')) {
         if (__DEV__) {
-          console.log('Perfil ya existe, continuando con información básica');
+          logger.log('Perfil ya existe, continuando con información básica');
         }
         patchDraft({ tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada });
         router.push({

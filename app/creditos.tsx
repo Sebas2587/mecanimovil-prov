@@ -85,6 +85,7 @@ import {
   useSaldoCreditosQuery,
   useSuscripcionProveedorQuery,
 } from '@/hooks/useCreditosQueries';
+import logger from '@/utils/logger';
 
 const I_TAB = COLORS.institutional;
 const PAPER = COLORS.background.paper;
@@ -808,7 +809,7 @@ export default function CreditosScreen() {
     setCargandoSincronizar(true);
     try {
       const resultado = await suscripcionesService.sincronizarSuscripcion();
-      console.log('[handleSincronizarSuscripcion] Resultado:', JSON.stringify(resultado, null, 2));
+      logger.log('[handleSincronizarSuscripcion] Resultado:', JSON.stringify(resultado, null, 2));
 
       if (resultado.success && resultado.sincronizado) {
         // Verificar si se acreditaron cobros
@@ -848,7 +849,7 @@ export default function CreditosScreen() {
         Alert.alert('No encontrado', resultado.error || 'No se encontró una suscripción autorizada en Mercado Pago para tu cuenta.');
       }
     } catch (error) {
-      console.error('[handleSincronizarSuscripcion] Error:', error);
+      logger.error('[handleSincronizarSuscripcion] Error:', error);
       Alert.alert('Error', 'Ocurrió un error al verificar. Intenta nuevamente.');
     } finally {
       setCargandoSincronizar(false);
