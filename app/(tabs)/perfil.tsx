@@ -212,7 +212,7 @@ export default function PerfilScreen() {
         }
         const miembros = await equipoTallerService.listar({ rol: 'mecanico' });
         const propio =
-          miembros.find((m) => m.usuario === usuario?.id)
+          miembros.find((m: MiembroTaller) => m.usuario === usuario?.id)
           ?? miembros[0];
         if (propio) {
           setMiembroEquipo(propio);
@@ -222,7 +222,7 @@ export default function PerfilScreen() {
       }
       if (esSupervisor && usuario?.id) {
         const miembros = await equipoTallerService.listar({ rol: 'supervisor' });
-        const propio = miembros.find((m) => m.usuario === usuario.id);
+        const propio = miembros.find((m: MiembroTaller) => m.usuario === usuario.id);
         if (propio) setMiembroEquipo(propio);
       }
     } catch {

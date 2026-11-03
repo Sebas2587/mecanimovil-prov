@@ -123,7 +123,7 @@ export default function AgregarServicioAdicionalScreen() {
 
   const serviciosDisponibles = useMemo(() => {
     const rows = catalogo?.servicios ?? [];
-    return rows.filter((s) => s.disponible);
+    return rows.filter((s: ServicioOfertaRow) => s.disponible);
   }, [catalogo?.servicios]);
 
   useFocusEffect(useCallback(() => {
@@ -403,7 +403,7 @@ export default function AgregarServicioAdicionalScreen() {
                 ) : serviciosDisponibles.length === 0 ? (
                   <Text style={styles.hint}>No hay servicios publicados en tu catálogo.</Text>
                 ) : (
-                  serviciosDisponibles.map((oferta, index) => {
+                  serviciosDisponibles.map((oferta: ServicioOfertaRow, index: number) => {
                     const selected = Boolean(seleccionados[oferta.id]);
                     const nombre = oferta.servicio_info?.nombre || 'Servicio';
                     const precio =
