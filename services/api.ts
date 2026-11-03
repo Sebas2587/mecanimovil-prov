@@ -10,6 +10,7 @@ import {
 import { clearEstadoProveedorCache } from '@/utils/auth/estadoProveedorCache';
 import { fetchAllPaginated } from '@/utils/fetchPaginated';
 import ServerConfig from './serverConfig';
+import logger from '@/utils/logger';
 
 // Configuración dinámica del servidor
 const serverConfig = ServerConfig.getInstance();
@@ -168,7 +169,7 @@ const setupInterceptors = (api: any) => {
           }
           // Log solo en desarrollo
           if (__DEV__) {
-            console.log('❌ Error obteniendo token (detalles solo en desarrollo):', error);
+            logger.error('❌ Error obteniendo token (detalles solo en desarrollo):', error);
           }
         }
       }
@@ -215,7 +216,7 @@ const setupInterceptors = (api: any) => {
           if (!token) {
             // No hay token, no es un error crítico - solo log informativo (solo en desarrollo)
             if (__DEV__) {
-              console.log('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
+              logger.warn('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
             }
             // Retornar error silenciosamente para que el caller lo maneje
             return Promise.reject(error);
@@ -223,27 +224,27 @@ const setupInterceptors = (api: any) => {
         } catch (tokenError) {
           // Error obteniendo token, asumir que no hay sesión
           if (__DEV__) {
-            console.log('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
+            logger.warn('⚠️ Error 401 sin token en:', error.config?.url, '- No hay sesión activa');
           }
           return Promise.reject(error);
         }
         // Hay token pero expiró - limpiar tokens inmediatamente
         // Log solo en desarrollo
         if (__DEV__) {
-          console.log('❌ Error 401 detectado con token existente en:', error.config?.url);
-          console.log('🧹 Limpiando tokens expirados...');
+          logger.warn('❌ Error 401 detectado con token existente en:', error.config?.url);
+          logger.log('🧹 Limpiando tokens expirados...');
         }
         try {
           await clearAuthTokenCache();
           await deleteItem('userData');
           await clearEstadoProveedorCache();
           if (__DEV__) {
-            console.log('✅ Tokens limpiados correctamente');
+            logger.log('✅ Tokens limpiados correctamente');
           }
         } catch (cleanupError) {
           // Log solo en desarrollo
           if (__DEV__) {
-            console.error('❌ Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
+            logger.error('❌ Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
           }
         }
         // El AuthContext detectará el cambio y limpiará el estado
@@ -598,13 +599,11 @@ export const authAPI = {
   isAuthenticated: async () => {
     try {
       const token = await getItem('authToken');
-      console.log('🔑 isAuthenticated - Token encontrado:', !!token);
-      if (token) {
-        console.log('🔑 Token preview:', token.substring(0, 10) + '...');
-      }
+      logger.log('🔑 isAuthenticated - Token encontrado:', !!token);
+      // NUNCA loggear el token completo o preview - riesgo de seguridad
       return !!token;
     } catch (error) {
-      console.error('❌ Error verificando autenticación:', error);
+      logger.error('❌ Error verificando autenticación:', error);
       return false;
     }
   },
@@ -634,7 +633,7 @@ export const authAPI = {
     // Verificar autenticación antes de hacer la llamada
     const token = await getItem('authToken');
     if (!token) {
-      console.log('⚠️ [AUTH API] No hay token, no se puede obtener estado del proveedor');
+      logger.warn('⚠️ [AUTH API] No hay token, no se puede obtener estado del proveedor');
       throw new Error('No autenticado');
     }
 
@@ -648,7 +647,7 @@ export const authAPI = {
     // Verificar autenticación antes de hacer la llamada
     const token = await getItem('authToken');
     if (!token) {
-      console.log('⚠️ [AUTH API] No hay token, no se pueden obtener datos del usuario');
+      logger.warn('⚠️ [AUTH API] No hay token, no se pueden obtener datos del usuario');
       throw new Error('No autenticado');
     }
 

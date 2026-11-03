@@ -1,90 +1,37 @@
-// CRÍTICO: Deshabilitar LogBox/RedBox/YellowBox COMPLETAMENTE
-// Esta configuración debe ejecutarse lo antes posible para evitar que errores aparezcan visualmente
+// Configuración de LogBox: Ignorar solo warnings específicos ruidosos
 import { useEffect } from 'react';
 import { ActivityIndicator, LogBox as RNLogBox, Text, TextInput, View } from 'react-native';
 import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
 
-// CRÍTICO: Deshabilitar LogBox COMPLETAMENTE después de importar React Native
-// Esto debe ejecutarse INMEDIATAMENTE después de importar para que funcione correctamente
-// Esta es la configuración PRINCIPAL que deshabilita LogBox completamente
+// Configurar LogBox para ignorar solo warnings conocidos y ruidosos
+// Mantener LogBox habilitado para detectar errores reales durante desarrollo
 if (typeof RNLogBox !== 'undefined') {
   try {
-    // PASO 1: Ignorar TODOS los logs y errores para que NO aparezcan en la UI
-    // Esto es la configuración más importante y debe estar primero
-    RNLogBox.ignoreAllLogs(true);
-
-    // PASO 2: Configuración adicional para ignorar errores específicos
-    // NOTA: LogBox.ignoreLogs() solo acepta strings, no regex
-    // Esta es una capa adicional de protección en caso de que ignoreAllLogs no funcione completamente
+    // Ignorar solo warnings específicos que son ruidosos pero no críticos
     RNLogBox.ignoreLogs([
-      // Errores de React Navigation
+      // React Navigation: Serialización de state (warning conocido con Expo Router)
       'Non-serializable values were found in the navigation state',
+      
+      // Debugging: No afecta producción
       'Remote debugger',
+      
+      // VirtualizedLists: Warning común pero no crítico en la mayoría de casos
       'VirtualizedLists should never be nested',
-
-      // Errores de API/Red (strings comunes que aparecen en errores)
-      'Error en POST',
-      'Error en GET',
-      'Error en PUT',
-      'Error en PATCH',
-      'Error en DELETE',
-      'Error en login',
-      'Error en proceso de login',
-      'Error de respuesta detallado',
-      'Error capturado',
-      'Error global',
-      'network',
-      'Network',
-      'ERR_',
-      'ECONN',
-      'ETIMEDOUT',
-      'ENOTFOUND',
-      'status',
-      'Status',
-      'HTTP',
-      'axios',
-      'Error en POST a',
-      'Error en GET a',
-      'Error en PUT a',
-      'Error en PATCH a',
-      'Error en DELETE a',
-
-      // Errores de autenticación
-      'credenciales',
-      'Credenciales',
-      'autenticación',
-      'token',
-      'Token',
-      '401',
-      '400',
-      'credenciales inválidas',
-      'Credenciales inválidas',
-      'No puede iniciar sesión',
-      'No se pudo iniciar sesión',
-
-      // Patrones generales de errores técnicos
-      'ERROR',
-      'Error en',
-      'Error:',
-      '❌',
-      'authService',
-      'AuthContext',
-      'Error en proceso de',
-      'Error al',
-      'Request failed with status code',
-      'AxiosError',
-      'Network Error',
+      
+      // Animated: Warning de compatibilidad
+      'Animated: `useNativeDriver` was not specified',
     ]);
   } catch (e) {
-    // Si LogBox no está disponible o hay algún error, ignorarlo silenciosamente
-    // No mostrar ningún error aquí para evitar que aparezca en la UI
+    // Si LogBox no está disponible, continuar sin configuración
+    if (__DEV__) {
+      console.warn('[LogBox] No se pudo configurar LogBox:', e);
+    }
   }
 }
 
-// NOTA IMPORTANTE:
-// - Los logs técnicos seguirán apareciendo en el TERMINAL (no en la UI) para debugging en desarrollo (con __DEV__)
-// - Los errores NUNCA aparecerán visualmente en la interfaz (ni RedBox, ni LogBox, ni YellowBox)
-// - El usuario solo verá Alert.alert con mensajes amigables cuando sea necesario
+// NOTA: LogBox ahora está habilitado y mostrará errores reales.
+// Los logs técnicos solo aparecen en desarrollo (__DEV__).
+// Los errores de red, autenticación, etc. se manejan en los servicios sin mostrar LogBox.
 
 import { useFonts } from 'expo-font';
 import {

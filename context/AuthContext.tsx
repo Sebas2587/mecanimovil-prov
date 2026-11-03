@@ -16,6 +16,7 @@ import {
   loadEstadoProveedorCache,
   saveEstadoProveedorCache,
 } from '@/utils/auth/estadoProveedorCache';
+import logger from '@/utils/logger';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -615,10 +616,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Logs solo en desarrollo (__DEV__), nunca en producción (APK)
       if (__DEV__) {
-        console.log('🎯 AuthContext.login iniciado');
-        console.log('Username recibido:', username);
-        console.log('Password length:', password.length);
-        console.log('manageLoading:', manageLoading);
+        logger.log('🎯 AuthContext.login iniciado');
+        logger.log('Username recibido:', username);
+        // NUNCA loggear passwords o información relacionada por seguridad
+        logger.log('manageLoading:', manageLoading);
       }
       
       if (manageLoading) {
