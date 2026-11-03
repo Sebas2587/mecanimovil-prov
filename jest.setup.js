@@ -1,6 +1,5 @@
 // Jest setup file
 // Note: @testing-library/react-native v12.4+ includes matchers natively
-// No need to import extend-expect separately
 
 // Polyfill for React Native setup-env (missing in RN 0.86)
 global.setImmediate = global.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
@@ -39,8 +38,6 @@ jest.mock('react-native-reanimated', () => {
   Reanimated.default.call = () => {};
   return Reanimated;
 });
-
-// NativeAnimatedHelper is mocked by jest-expo preset automatically
 
 // Mock expo modules that might not be available in test environment
 jest.mock('expo-constants', () => ({

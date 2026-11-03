@@ -14,17 +14,23 @@
     "deploy:vercel:hook": "curl -fsS -X POST https://api.vercel.com/v1/integrations/deploy/prj_p5ArLTR43TKeYVxNtrNBd3RDEXRW/ncckJ5aige -H 'Content-Type: application/json'",
     "deploy:vercel:cli": "npx vercel@53.2.0 deploy --prod --yes",
     "lint": "expo lint",
-    "test": "jest",
+    "test": "jest --maxWorkers=1 --forceExit",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage --forceExit"
   },
   "jest": {
     "preset": "jest-expo",
+    "testEnvironment": "node",
+    "testTimeout": 10000,
+    "bail": false,
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native)"
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup-after-env.js"
     ],
     "collectCoverageFrom": [
       "**/*.{ts,tsx}",
@@ -115,7 +121,6 @@
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@react-native/jest-preset": "^0.88.1",
-    "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.2.4",
@@ -124,6 +129,7 @@
     "expo-modules-core": "^58.0.29",
     "jest": "^30.5.2",
     "jest-expo": "^58.0.14",
+    "react-test-renderer": "19.2.3",
     "typescript": "~5.6.3"
   },
   "private": true
