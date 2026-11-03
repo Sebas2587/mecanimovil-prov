@@ -166,6 +166,11 @@ export function nombreFuente(f: FuenteRepuesto): string {
 
 /** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */
 export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
+  // Priorizar la casa seleccionada por el nuevo motor de consolidación
+  if (rep.casa_repuesto_nombre) {
+    return rep.casa_repuesto_nombre;
+  }
+  
   const certeza = certezaDe(rep);
   const tienda = (rep.proveedor_nombre || rep.tienda_ml || '').trim();
   // Precio escrito a mano (asumido) sin casa elegida: no inventar un chip.
@@ -175,6 +180,30 @@ export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
   return fuentes.length > 1
     ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
     : nombreFuente(fuentes[0]);
+}
+
+/**
+ * Motivo de selección de la casa de repuestos (nuevo motor de consolidación).
+ * Explica por qué se eligió esta casa: precio, disponibilidad, consolidación, etc.
+ */
+export function motivoSeleccionCasa(rep: RepuestoCotizacion): string | null {
+  const motivo = (rep.motivo_seleccion || '').trim();
+  if (!motivo) return null;
+  
+  // Capitalizar primera letra
+  return motivo.charAt(0).toUpperCase() + motivo.slice(1);
+}
+
+/**
+ * Badge que indica si este repuesto es parte de una consolidación.
+ * Retorna texto del badge o null si no aplica.
+ */
+export function badgeConsolidacion(rep: RepuestoCotizacion): string | null {
+  const motivo = (rep.motivo_seleccion || '').toLowerCase();
+  if (motivo.includes('consolidación') || motivo.includes('consolidacion')) {
+    return '📦 Consolidado';
+  }
+  return null;
 }
 
 /** Meta sin la casa: variante, marca y antigüedad. */

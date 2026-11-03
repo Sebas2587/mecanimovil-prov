@@ -187,6 +187,14 @@ export interface RepuestoCotizacion {
   seleccion_cliente_en?: string;
   imagen_url?: string;
   opciones?: OpcionRepuesto[];
+  /** ID de la casa de repuestos seleccionada (nueva lógica de consolidación). */
+  casa_repuesto_id?: string;
+  /** Nombre de la casa de repuestos seleccionada. */
+  casa_repuesto_nombre?: string;
+  /** Motivo explicado de por qué se eligió esta casa (precio, disponibilidad, etc.). */
+  motivo_seleccion?: string;
+  /** Cuántas alternativas había disponibles. */
+  alternativas_descartadas?: number;
 }
 
 export type CanalCotizacion =

@@ -29,6 +29,7 @@ import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
 import {
+  badgeConsolidacion,
   casaRepuestosLabel,
   certezaDe,
   estadoLinea,
@@ -38,6 +39,7 @@ import {
   labelFamilia,
   metaLineaTexto,
   montosFichaYTecho,
+  motivoSeleccionCasa,
   motivoSinPrecio,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
@@ -191,6 +193,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const metaTexto = metaLineaTexto(rep);
   const casaLabel = casaRepuestosLabel(rep);
   const motivo = motivoSinPrecio(rep);
+  const motivoSeleccion = motivoSeleccionCasa(rep);
+  const consolidacionBadge = badgeConsolidacion(rep);
   const nombreGuardado = (rep.nombre || '').trim();
 
   const [nombreFocused, setNombreFocused] = useState(false);
@@ -246,6 +250,14 @@ const RepuestoRow = React.memo(function RepuestoRow({
 
       <View style={styles.estadoRow}>
         <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
+        {consolidacionBadge ? (
+          <InstitutionalTag
+            label={consolidacionBadge}
+            variant="info"
+            size="sm"
+            uppercase={false}
+          />
+        ) : null}
         {metaTexto ? (
           <InstitutionalText
             role="caption"
@@ -291,6 +303,18 @@ const RepuestoRow = React.memo(function RepuestoRow({
           )
         ) : null}
       </View>
+
+      {motivoSeleccion ? (
+        <View style={styles.motivoSeleccionRow}>
+          <InstitutionalText
+            role="caption"
+            color="muted"
+            style={styles.motivoSeleccionTexto}
+          >
+            💡 {motivoSeleccion}
+          </InstitutionalText>
+        </View>
+      ) : null}
 
       <View style={styles.repuestoGrid}>
         <View style={styles.gridColCant}>
@@ -2054,6 +2078,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: SPACING.fixed.xs,
+  },
+  motivoSeleccionRow: {
+    marginTop: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.accentBlue, 0.05),
+    borderRadius: BORDERS.radius.sm,
+  },
+  motivoSeleccionTexto: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   metaTexto: { flexShrink: 1, minWidth: 0 },
   precioMetaRow: {
