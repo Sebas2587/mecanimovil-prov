@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
