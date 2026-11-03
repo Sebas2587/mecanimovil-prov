@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { COLORS, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
+import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;

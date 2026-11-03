@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     } as ViewStyle),
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   scrimWeb: {
     cursor: 'pointer',

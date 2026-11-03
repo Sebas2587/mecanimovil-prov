@@ -18,6 +18,8 @@ Aplicación móvil para proveedores/mecánicos del servicio MecaniMóvil, constr
 npm install
 ```
 
+**Nota:** El proyecto usa `.npmrc` configurado con `legacy-peer-deps=true` para resolver conflictos de peer dependencies entre paquetes de Expo/React Native. Esto permite que `npm install` funcione sin flags adicionales.
+
 ### 2. Configurar variables de entorno
 
 Crea un archivo `.env` en la raíz del proyecto (nunca commitear este archivo):

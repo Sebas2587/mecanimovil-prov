@@ -1198,6 +1198,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     return total;
   };
 
+  const calcularGestionCompra = (): number => {
+    const hasRepuestos = serviciosOferta.some(s => s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0);
+    return hasRepuestos ? parseFloat(costoGestionCompra || '0') : 0;
+  };
+
   // Calcular tiempo total estimado (en horas)
   const calcularTiempoTotal = (): string => {
     const totalHoras = serviciosOferta.reduce((total, s) => {
@@ -2298,11 +2303,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                     </Text>
                   </View>
 
-                  {gestionCompraValor > 0 && (
+                  {calcularGestionCompra() > 0 && (
                     <View style={styles.resumenRow}>
                       <Text style={styles.resumenLabel}>🚚 Gestión de compra (sin IVA)</Text>
                       <Text style={styles.resumenValue}>
-                        {formatearMontoCLP(gestionCompraValor)}
+                        {formatearMontoCLP(calcularGestionCompra())}
                       </Text>
                     </View>
                   )}
@@ -2310,7 +2315,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   <View style={[styles.resumenRow, styles.resumenRowDivider]}>
                     <Text style={[styles.resumenLabel, { fontWeight: '600' }]}>Subtotal (sin IVA)</Text>
                     <Text style={[styles.resumenValue, { fontWeight: '600' }]}>
-                      {formatearMontoCLP(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor)}
+                      {formatearMontoCLP(calcularCostoRepuestos() + calcularCostoManoObra() + calcularGestionCompra())}
                     </Text>
                   </View>
 
@@ -2318,7 +2323,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                     <Text style={styles.resumenLabel}>📋 IVA (19%)</Text>
                     <Text style={styles.resumenValue}>
                       {/* IVA derivado como (total − subtotal) para que subtotal + IVA = total exacto en pesos enteros */}
-                      {formatearMontoCLP(redondearCLP(precioTotal) - redondearCLP(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor))}
+                      {formatearMontoCLP(redondearCLP(precioTotal) - redondearCLP(calcularCostoRepuestos() + calcularCostoManoObra() + calcularGestionCompra()))}
                     </Text>
                   </View>
 

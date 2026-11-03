@@ -719,7 +719,7 @@ export default function SolicitudDetalleScreen() {
   const detallesOfertaPorServicio = useMemo(() => {
     const map = new Map<number, DetalleServicioOferta>();
     const lineas = miOferta?.detalles_servicios_detail ?? miOferta?.detalles_servicios ?? [];
-    lineas.forEach((detalle) => {
+    lineas.forEach((detalle: DetalleServicioOferta) => {
       if (detalle.servicio != null) {
         map.set(Number(detalle.servicio), detalle);
       }

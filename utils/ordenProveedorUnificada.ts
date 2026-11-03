@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import { router as expoRouter } from 'expo-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { Orden } from '@/services/ordenesProveedor';
 import type { OfertaProveedor } from '@/services/solicitudesService';
@@ -196,7 +196,7 @@ export function buildMarketplaceItems(
 }
 
 export function navigateToOrdenActiva(
-  router: Router,
+  router: typeof expoRouter,
   queryClient: QueryClient,
   item: OrdenActivaItem,
 ): void {

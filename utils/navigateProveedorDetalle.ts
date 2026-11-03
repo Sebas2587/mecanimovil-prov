@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import { router as expoRouter } from 'expo-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { CitaAgendaPersonal } from '@/services/agendaProveedorService';
 import type { OfertaProveedor, SolicitudPublica } from '@/services/solicitudesService';
@@ -10,7 +10,7 @@ import {
 import { prefetchCitaPersonal } from '@/hooks/useCitaPersonalQuery';
 
 export function openSolicitudDetalle(
-  router: Router,
+  router: typeof expoRouter,
   queryClient: QueryClient,
   solicitudId: string,
   seed?: { solicitud?: SolicitudPublica; oferta?: OfertaProveedor },
@@ -32,7 +32,7 @@ export function openSolicitudDetalle(
 }
 
 export function openCitaPersonalDetalle(
-  router: Router,
+  router: typeof expoRouter,
   queryClient: QueryClient,
   citaId: number,
   seed?: CitaAgendaPersonal,
@@ -42,7 +42,7 @@ export function openCitaPersonalDetalle(
 }
 
 export function openOfertaDetalle(
-  router: Router,
+  router: typeof expoRouter,
   queryClient: QueryClient,
   ofertaId: string,
   oferta?: OfertaProveedor,

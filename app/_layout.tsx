@@ -137,7 +137,6 @@ export default function RootLayout() {
                   <Stack
                     screenOptions={{
                       // iOS: evita el texto "(tabs)" junto a la flecha al abrir pantallas fuera del grupo tabs
-                      headerBackTitleVisible: false,
                       headerBackTitle: '',
                       // SDK 57: sin esto, iOS/Android presentan pushes como hoja flotante (formSheet).
                       presentation: 'card',
@@ -181,7 +180,6 @@ export default function RootLayout() {
                     name="oferta-detalle/[id]"
                     options={{
                       headerBackTitle: '',
-                      headerBackTitleVisible: false,
                     }}
                   />
                   <Stack.Screen name="checklist-item/[ordenId]/[itemId]" options={{ headerShown: false }} />
@@ -190,7 +188,6 @@ export default function RootLayout() {
                     name="cita-agenda-personal/[id]"
                     options={{
                       headerBackTitle: '',
-                      headerBackTitleVisible: false,
                     }}
                   />
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />

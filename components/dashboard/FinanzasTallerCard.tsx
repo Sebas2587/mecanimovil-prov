@@ -261,7 +261,7 @@ export function FinanzasTallerCard({
             accessibilityRole="button"
             accessibilityLabel="Recargar créditos"
           >
-            <PrimaryGradientFill style={StyleSheet.absoluteFillObject} />
+            <PrimaryGradientFill style={StyleSheet.absoluteFill} />
             <Text style={styles.recargaBtnText}>Recargar</Text>
           </Pressable>
         ) : null}

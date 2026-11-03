@@ -3,7 +3,6 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   CarFront,
   ChevronRight,
-  Instagram,
   Link2,
   MessageCircle,
   MessagesSquare,
@@ -38,7 +37,7 @@ function CanalIcon({ canal }: { canal: string }) {
     case 'whatsapp':
       return <MessageCircle {...props} />;
     case 'instagram':
-      return <Instagram {...props} />;
+      return <MessageCircle {...props} />;
     case 'messenger':
       return <MessagesSquare {...props} />;
     case 'directo':

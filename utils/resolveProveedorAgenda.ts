@@ -22,7 +22,7 @@ export async function resolveProveedorAgendaIds(
   const preferido = tipoProveedor ?? 'taller';
 
   try {
-    const estadoRes = await api.get<EstadoProveedor>('/usuarios/estado-proveedor/');
+    const estadoRes = await api.get('/usuarios/estado-proveedor/');
     const estado = estadoRes.data;
     if (estado?.tiene_perfil && typeof estado.proveedor_id === 'number') {
       const tipo = estado.tipo_proveedor === 'mecanico' ? 'mecanico' : 'taller';

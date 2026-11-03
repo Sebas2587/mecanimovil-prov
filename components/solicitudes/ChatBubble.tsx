@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: withOpacity(I.ink, 0.06),

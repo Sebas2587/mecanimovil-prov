@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(T.captionBold.fontSize * T.captionBold.lineHeight),
   },
   deletingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.75)',
     borderRadius: BORDERS.radius.lg,
     justifyContent: 'center',

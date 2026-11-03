@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import { router as expoRouter } from 'expo-router';
 import type { EstadoProveedor } from '@/services/api';
 import { applyProveedorRoute, resolveProveedorRoute } from './resolveProveedorRoute';
 
@@ -7,7 +7,7 @@ import { applyProveedorRoute, resolveProveedorRoute } from './resolveProveedorRo
  * @returns false si no navegó (estado null — el caller debe mostrar error/reintentar)
  */
 export function navigateAfterLogin(
-  router: Router,
+  router: typeof expoRouter,
   estadoActual: EstadoProveedor | null | undefined,
 ): boolean {
   const route = resolveProveedorRoute(estadoActual, { authenticated: true });

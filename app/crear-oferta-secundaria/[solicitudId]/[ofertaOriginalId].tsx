@@ -250,7 +250,6 @@ export default function CrearOfertaSecundariaScreen() {
           options={{
             title: 'Servicio Adicional',
             headerBackTitle: '',
-            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: I.canvas },
             headerTintColor: I.ink,
           }}
@@ -272,7 +271,6 @@ export default function CrearOfertaSecundariaScreen() {
           options={{
             title: 'Servicio Adicional',
             headerBackTitle: '',
-            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: I.canvas },
             headerTintColor: I.ink,
           }}
@@ -292,7 +290,6 @@ export default function CrearOfertaSecundariaScreen() {
         options={{
           title: 'Servicio Adicional',
           headerBackTitle: '',
-          headerBackTitleVisible: false,
           headerStyle: { backgroundColor: I.canvas },
           headerTintColor: I.ink,
         }}

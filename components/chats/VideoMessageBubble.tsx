@@ -49,7 +49,7 @@ export function VideoMessageBubble({ uri, esPropio }: Props) {
 const styles = StyleSheet.create({
   thumbWrap: { borderRadius: BORDERS.radius.md, overflow: 'hidden', width: 200, height: 140, backgroundColor: I.surfaceStrong },
   thumbPlaceholder: { width: '100%', height: '100%', backgroundColor: I.surfaceStrong },
-  playOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: withOpacity(I.ink, 0.25) },
+  playOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: withOpacity(I.ink, 0.25) },
   playCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   playCircleOwn: { backgroundColor: withOpacity(I.onPrimary, 0.3) },
   playCircleOther: { backgroundColor: withOpacity(I.canvas, 0.9) },
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   labelOwn: { color: I.onPrimary },
   labelOther: { color: I.ink },
   modalRoot: { flex: 1, backgroundColor: withOpacity(I.ink, 0.95), justifyContent: 'center' },
-  backdrop: { ...StyleSheet.absoluteFillObject },
+  backdrop: { ...StyleSheet.absoluteFill },
   closeBtn: { position: 'absolute', right: 16, zIndex: 10, padding: 8, backgroundColor: withOpacity(I.canvas, 0.15), borderRadius: 20 },
   video: { width: '100%', height: 280 },
 });
