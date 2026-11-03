@@ -19,7 +19,6 @@ import {
   ChevronRight,
   FileText,
   Inbox,
-  Instagram,
   Link2,
   MessageCircle,
   MessagesSquare,
@@ -169,7 +168,7 @@ function OrigenIcon({ origen, tipo }: { origen: string; tipo?: string }) {
     case 'whatsapp':
       return <MessageCircle {...props} />;
     case 'instagram':
-      return <Instagram {...props} />;
+      return <MessageCircle {...props} />;
     case 'messenger':
       return <MessagesSquare {...props} />;
     case 'directo':
