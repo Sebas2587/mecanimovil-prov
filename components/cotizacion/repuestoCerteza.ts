@@ -147,21 +147,15 @@ export function fuentesDe(rep: RepuestoCotizacion): FuenteRepuesto[] {
   }];
 }
 
-function raizDominio(dominio: string): string {
-  const partes = dominio.replace(/^www\./, '').split('.').filter(Boolean);
-  return (partes.length >= 2 ? partes[partes.length - 2] : partes[0] || '').toLowerCase();
-}
-
-/** Nombre de tienda para mostrar; suma el dominio solo si dice algo nuevo. */
+/**
+ * Nombre humano de la tienda. `dominio` es slug crudo (todoautochile.cl,
+ * Comercialramirezspa) y no se concatena al nombre que manda el backend.
+ */
 export function nombreFuente(f: FuenteRepuesto): string {
   const tienda = (f.tienda || '').trim();
+  if (tienda) return tienda;
   const dominio = (f.dominio || '').trim();
-  const generico = ETIQUETA_FUENTE[f.fuente || ''] || 'Referencia';
-  if (!dominio) return tienda || generico;
-  const raiz = raizDominio(dominio);
-  const tiendaNorm = tienda.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (!tienda || (raiz && tiendaNorm.includes(raiz))) return tienda || dominio;
-  return `${tienda} · ${dominio}`;
+  return dominio || ETIQUETA_FUENTE[f.fuente || ''] || 'Referencia';
 }
 
 /** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */

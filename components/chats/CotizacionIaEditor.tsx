@@ -7,7 +7,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle, MapPin, MessageCircle, Phone, Sparkles, Trash2 } from 'lucide-react-native';
+import { AlertTriangle, FileDown, MapPin, MessageCircle, Phone, Sparkles, Trash2 } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import {
   HINT_CLIENTE_SIN_CANAL_CON_TELEFONO,
@@ -75,6 +75,8 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
+import { abrirOrdenCompraPdf } from '@/utils/abrirOrdenCompraPdf';
+import { cotizacionTieneOrdenCompraPdf } from '@/utils/ordenCompraPdf';
 import {
   busquedaWebPendiente,
   esBorradorGeneradoPorAgente,
@@ -640,6 +642,21 @@ export const CotizacionIaEditor = React.forwardRef<
   const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
   const [precioBusy, setPrecioBusy] = useState(false);
   const [consultandoRepuestoId, setConsultandoRepuestoId] = useState<string | null>(null);
+  const [descargandoOrdenCompra, setDescargandoOrdenCompra] = useState(false);
+  const puedePdfOrdenCompra = cotizacionTieneOrdenCompraPdf(cotizacion.id);
+
+  const descargarPdfOrdenCompra = useCallback(async () => {
+    if (!puedePdfOrdenCompra || descargandoOrdenCompra) return;
+    setDescargandoOrdenCompra(true);
+    try {
+      const { bytes, filename } = await cotizacionCanalService.descargarOrdenCompraPdf(cotizacion.id);
+      await abrirOrdenCompraPdf(bytes, filename);
+    } catch {
+      showAlert('No se pudo obtener el PDF', 'Intenta de nuevo en un momento.');
+    } finally {
+      setDescargandoOrdenCompra(false);
+    }
+  }, [cotizacion.id, descargandoOrdenCompra, puedePdfOrdenCompra]);
 
   const consultarCasasLinea = useCallback(async (rep: RepuestoCotizacion, soloRestantes = false) => {
     const repuestoId = String(rep.id || '');
@@ -1329,6 +1346,21 @@ export const CotizacionIaEditor = React.forwardRef<
         <InstitutionalText role="caption" color="muted">
           Corriges esta cotización en borrador. Confirma precios y vuelve a enviarla. El cliente sigue viendo la versión anterior hasta ese envío.
         </InstitutionalText>
+      ) : null}
+
+      {puedePdfOrdenCompra ? (
+        <TallerPildora
+          label="PDF para casa de repuestos"
+          tono="suave"
+          forma="hoja"
+          loading={descargandoOrdenCompra}
+          disabled={descargandoOrdenCompra}
+          onPress={() => {
+            void descargarPdfOrdenCompra();
+          }}
+          leading={<FileDown size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          style={styles.accionSuelta}
+        />
       ) : null}
 
       {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
