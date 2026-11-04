@@ -5,8 +5,10 @@ import { describe, it, expect } from '@jest/globals';
 import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import {
   casaRepuestosLabel,
+  fichasInternasDe,
   motivoSeleccionCasa,
   badgeConsolidacion,
+  nombreFuente,
 } from '../repuestoCerteza';
 
 describe('casaRepuestosLabel', () => {
@@ -35,6 +37,41 @@ describe('casaRepuestosLabel', () => {
     };
     
     expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBeNull();
+  });
+});
+
+describe('nombreFuente', () => {
+  it('muestra el nombre humano y no pega el slug', () => {
+    expect(nombreFuente({
+      tienda: 'TodoAuto Chile',
+      dominio: 'todoautochile.cl',
+    })).toBe('TodoAuto Chile');
+    expect(nombreFuente({
+      tienda: 'Comercial Ramírez',
+      dominio: 'Comercialramirezspa',
+    })).toBe('Comercial Ramírez');
+  });
+
+  it('usa el dominio solo cuando no hay nombre de tienda', () => {
+    expect(nombreFuente({ dominio: 'todoautochile.cl', fuente: 'web' })).toBe('todoautochile.cl');
+  });
+
+  it('la ficha de origen del precio no incluye el slug', () => {
+    const fichas = fichasInternasDe({
+      nombre: 'Filtro de aceite',
+      cantidad: 1,
+      precio_unitario_clp: 12000,
+      fuentes_detalle: [{
+        tienda: 'Comercial Ramírez',
+        dominio: 'Comercialramirezspa',
+        url: 'https://comercialramirez.cl/filtro',
+        nombre: 'Filtro de aceite',
+        precio_clp: 12000,
+      }],
+    } as RepuestoCotizacion);
+
+    expect(fichas[0]?.tienda).toBe('Comercial Ramírez');
+    expect(fichas[0]?.tienda).not.toContain('Comercialramirezspa');
   });
 });
 

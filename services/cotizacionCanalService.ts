@@ -1,5 +1,12 @@
 import api from './api';
 import { hidratarPreciosCotizacion } from '@/utils/cotizacionPreciosWeb';
+import {
+  bytesPdfDesdeRespuesta,
+  esPdf,
+  filenameDesdeContentDisposition,
+  leerHeader,
+  nombreArchivoPdfSeguro,
+} from '@/utils/ordenCompraPdf';
 
 export interface ManoObraLinea {
   id?: string;
@@ -975,6 +982,24 @@ class CotizacionCanalService {
 
   async eliminarPlantilla(id: number): Promise<void> {
     await api.delete(`/ordenes/cotizaciones-canal-plantillas/${id}/`);
+  }
+
+  /** PDF de orden de compra para la casa de repuestos. Misma sesión que el resto de la API. */
+  async descargarOrdenCompraPdf(id: number): Promise<{ bytes: Uint8Array; filename: string }> {
+    const response = await api.get(`/ordenes/cotizaciones-canal/${id}/orden-compra-pdf/`, {
+      responseType: 'arraybuffer',
+      timeout: 60000,
+    });
+    const bytes = bytesPdfDesdeRespuesta(response.data);
+    if (!esPdf(bytes)) {
+      throw new Error('respuesta-pdf-invalida');
+    }
+    const header = leerHeader(response.headers, 'content-disposition');
+    const filename = nombreArchivoPdfSeguro(
+      filenameDesdeContentDisposition(header, `orden-compra-${id}.pdf`),
+      id,
+    );
+    return { bytes, filename };
   }
 }
 
