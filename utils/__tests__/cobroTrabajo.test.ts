@@ -271,4 +271,87 @@ describe('resumenPreciosOrden', () => {
     expect(resumen.precioFinalCliente).toBeNull();
     expect(resumen.comision).toBeNull();
   });
+
+  it('un pagado de fuente sin contabilizar no es deuda y un pendiente 0 no lo pisa', () => {
+    const vista = resolverCobroTrabajo({
+      origen: 'oferta',
+      estadoCobroUi: 'pagado_segun_oferta',
+      pagoContabilizable: false,
+      saldoConocido: false,
+      pendientesNoSumadosClp: 0,
+      estadoPagoRepuestos: 'pagado',
+    });
+    expect(vista.etiqueta).toBe('Pagado según la fuente');
+    expect(vista.aclaracion).toMatch(/no es una deuda/i);
+    expect(vista.aclaracion).toMatch(/no es cero/i);
+  });
+
+  it('un reembolso del API gana al pagado anterior', () => {
+    const vista = cobroVisibleOferta({
+      estado_cobro_ui: 'reembolsado',
+      estado_pago_repuestos: 'pagado',
+      estado_pago_servicio: 'pagado',
+    });
+    expect(vista.etiqueta).toBe('Reembolsado');
+  });
+
+  it('no reescribe un por cobrar que ya mandó el API', () => {
+    const vista = resolverCobroTrabajo({
+      origen: 'oferta',
+      estadoCobroUi: 'por_cobrar',
+      estadoPagoRepuestos: 'pagado',
+      saldoConocido: false,
+    });
+    expect(vista.etiqueta).toBe('Por cobrar');
+    expect(vista.aclaracion).toMatch(/sin saldo contable/i);
+  });
+
+  it('un pagado legacy con aviso sin efecto no es deuda', () => {
+    const vista = cobroVisibleOferta({
+      estado_cobro_ui: 'pagado_segun_oferta',
+      pago_contabilizable: false,
+      pago_provenance: {
+        aviso_libro: 'sin_efecto_contable',
+        saldo_clp: null,
+        saldo_conocido: false,
+        pendientes_no_sumados_clp: 0,
+      },
+    });
+    expect(vista.etiqueta).toBe('Pagado según la fuente');
+    expect(vista.aclaracion).toMatch(/no es una deuda/i);
+    expect(vista.aclaracion).toMatch(/no es cero/i);
+  });
+
+  it('la proyección de la orden gana al pagado viejo de la oferta', () => {
+    const vista = cobroVisibleLista({
+      estadoEfectivo: 'completado',
+      oferta: {
+        estado_pago_repuestos: 'pagado',
+        estado_pago_servicio: 'pagado',
+      },
+      orden: {
+        estado: 'completado',
+        estado_cobro_ui: 'reembolsado',
+      },
+    });
+    expect(vista.etiqueta).toBe('Reembolsado');
+  });
+
+  it('sin proyección la oferta pagada sigue en Pagado', () => {
+    expect(cobroVisibleLista({
+      oferta: {
+        estado_pago_repuestos: 'pagado',
+        estado_pago_servicio: 'pagado',
+      },
+      orden: { estado: 'completado' },
+    }).etiqueta).toBe('Pagado');
+  });
+
+  it('sin estado_cobro_ui la cita sigue sin información de pago', () => {
+    expect(resolverCobroTrabajo({
+      origen: 'cita',
+      estado: 'cerrada',
+      pendientesNoSumadosClp: 0,
+    }).etiqueta).toBe('Pago sin información');
+  });
 });

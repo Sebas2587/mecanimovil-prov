@@ -6,7 +6,7 @@
  * Esos campos sí existen en `OfertaProveedor`. Si la orden no los trae, un
  * estado `en_ejecucion` o `completado` no puede conservar «Pagado».
  */
-export type CobroVisible = 'pagado' | 'por_cobrar' | 'sin_informacion';
+export type CobroVisible = 'pagado' | 'por_cobrar' | 'sin_informacion' | 'reembolsado' | 'pagado_fuente';
 
 export type OrigenCobro = 'orden' | 'oferta' | 'cita' | 'cotizacion';
 
@@ -15,11 +15,17 @@ export type EvidenciaCobro = {
   estado?: string | null;
   estadoPagoRepuestos?: string | null;
   estadoPagoServicio?: string | null;
+  estadoCobroUi?: string | null;
+  pagoContabilizable?: boolean | null;
+  saldoConocido?: boolean | null;
+  avisoLibro?: string | null;
+  /** No pisa un pagado de fuente. Tampoco convierte un por_cobrar del API. */
+  pendientesNoSumadosClp?: number | null;
 };
 
 export type CobroVista = {
   cobro: CobroVisible;
-  etiqueta: 'Pagado' | 'Por cobrar' | 'Pago sin información';
+  etiqueta: 'Pagado' | 'Por cobrar' | 'Pago sin información' | 'Pagado según la fuente' | 'Reembolsado';
   tono: 'success' | 'warning' | 'neutral';
   /** Solo si un campo de pago lo dice. Vacío si no hay evidencia. */
   detalle: string;
@@ -33,18 +39,24 @@ const ETIQUETA: Record<CobroVisible, CobroVista['etiqueta']> = {
   pagado: 'Pagado',
   por_cobrar: 'Por cobrar',
   sin_informacion: 'Pago sin información',
+  reembolsado: 'Reembolsado',
+  pagado_fuente: 'Pagado según la fuente',
 };
 
 const TONO: Record<CobroVisible, CobroVista['tono']> = {
   pagado: 'success',
   por_cobrar: 'warning',
   sin_informacion: 'neutral',
+  reembolsado: 'warning',
+  pagado_fuente: 'success',
 };
 
 const MONTO: Record<CobroVisible, CobroVista['etiquetaMonto']> = {
   pagado: 'Cobrado',
   por_cobrar: 'Por cobrar',
   sin_informacion: 'Total del trabajo',
+  reembolsado: 'Total del trabajo',
+  pagado_fuente: 'Total del trabajo',
 };
 
 const ESTADOS_PAGO_COMPLETO = new Set(['pagada']);
@@ -57,8 +69,8 @@ function limpio(valor: string | null | undefined): string {
   return String(valor ?? '').trim().toLowerCase();
 }
 
-function armar(cobro: CobroVisible, detalle = ''): CobroVista {
-  const aclaracion = cobro === 'sin_informacion'
+function armar(cobro: CobroVisible, detalle = '', aclaracion?: string): CobroVista {
+  const base = cobro === 'sin_informacion'
     ? 'Este monto es del trabajo. El pago no tiene información.'
     : '';
   return {
@@ -67,8 +79,44 @@ function armar(cobro: CobroVisible, detalle = ''): CobroVista {
     tono: TONO[cobro],
     detalle,
     etiquetaMonto: MONTO[cobro],
-    aclaracion,
+    aclaracion: aclaracion ?? base,
   };
+}
+
+const ESTADOS_UI_PAGADO = new Set([
+  'pagado',
+  'pagado_segun_oferta',
+  'pagado_segun_mp',
+  'pagado_segun_anotacion',
+]);
+
+/**
+ * El API manda. Un pendiente en 0 no baja un pagado de fuente,
+ * y un por_cobrar del API no se reescribe con un flag viejo.
+ */
+function lecturaEstadoCobroUi(ui: string, evidencia: EvidenciaCobro): CobroVista {
+  if (ui === 'reembolsado') {
+    return armar('reembolsado', '', 'Una devolución pesa más que un pagado anterior.');
+  }
+  if (ESTADOS_UI_PAGADO.has(ui)) {
+    const sinEfecto = evidencia.avisoLibro === 'sin_efecto_contable';
+    if (evidencia.pagoContabilizable === false || sinEfecto) {
+      return armar(
+        'pagado_fuente',
+        '',
+        'No entra a la caja. No es una deuda y el saldo no es cero.',
+      );
+    }
+    return armar('pagado');
+  }
+  if (ui === 'parcial' || ui === 'por_cobrar') {
+    const sinSaldo = evidencia.saldoConocido === false
+      ? 'Sin saldo contable. No es cero ni una deuda nueva.'
+      : '';
+    return armar('por_cobrar', '', sinSaldo);
+  }
+  if (ui === 'pago_sin_informacion') return armar('sin_informacion');
+  return armar('sin_informacion', ui);
 }
 
 function clasificarCampo(valor: string): ClaseCampo {
@@ -117,6 +165,9 @@ function camposDicenPagado(repuestos: ClaseCampo, servicio: ClaseCampo): boolean
  * estado de pago. El avance (aceptada, en ejecución, completado) no cuenta.
  */
 export function resolverCobroTrabajo(evidencia: EvidenciaCobro): CobroVista {
+  const ui = limpio(evidencia.estadoCobroUi);
+  if (ui) return lecturaEstadoCobroUi(ui, evidencia);
+
   if (evidencia.origen === 'cita' || evidencia.origen === 'cotizacion') {
     return armar('sin_informacion');
   }
@@ -166,6 +217,17 @@ export type RegistroCobro = {
   estado?: string | null;
   estado_pago_repuestos?: string | null;
   estado_pago_servicio?: string | null;
+  estado_cobro_ui?: string | null;
+  pago_contabilizable?: boolean | null;
+  saldo_conocido?: boolean | null;
+  pendientes_no_sumados_clp?: number | null;
+  pago_provenance?: {
+    aviso_libro?: string | null;
+    saldo_conocido?: boolean | null;
+    saldo_clp?: number | null;
+    exigible_fuente?: string | null;
+    pendientes_no_sumados_clp?: number | null;
+  } | null;
 };
 
 /** Arma la evidencia con los campos persistentes si el registro los trae. */
@@ -175,6 +237,12 @@ export function evidenciaCobroDeRegistro(registro: RegistroCobro, origen: Origen
     estado: registro.estado,
     estadoPagoRepuestos: registro.estado_pago_repuestos,
     estadoPagoServicio: registro.estado_pago_servicio,
+    estadoCobroUi: registro.estado_cobro_ui,
+    pagoContabilizable: registro.pago_contabilizable,
+    saldoConocido: registro.saldo_conocido ?? registro.pago_provenance?.saldo_conocido,
+    avisoLibro: registro.pago_provenance?.aviso_libro,
+    pendientesNoSumadosClp: registro.pendientes_no_sumados_clp
+      ?? registro.pago_provenance?.pendientes_no_sumados_clp,
   };
 }
 
@@ -189,9 +257,17 @@ export function cobroVisibleOferta(oferta: RegistroCobro | null | undefined): Co
 }
 
 /**
- * Lista de Servicios. Si hay oferta, sus campos de pago mandan aunque el
- * estado efectivo sea el de la orden (completado, en ejecución).
+ * Lista de Servicios. La proyección de la orden manda aunque la oferta
+ * traiga flags viejos. Sin `estado_cobro_ui`, sigue mandando la oferta.
  */
+function proyeccionDisponible(
+  registro: RegistroCobro | null | undefined,
+  origen: OrigenCobro,
+): EvidenciaCobro | null {
+  if (!registro || !limpio(registro.estado_cobro_ui)) return null;
+  return evidenciaCobroDeRegistro(registro, origen);
+}
+
 export function cobroVisibleLista(item: {
   estadoEfectivo?: string | null;
   orden?: RegistroCobro | null;
@@ -199,12 +275,27 @@ export function cobroVisibleLista(item: {
 }): CobroVista {
   const oferta = item.oferta;
   const orden = item.orden;
+  const proyectada = proyeccionDisponible(orden, 'orden')
+    ?? proyeccionDisponible(oferta, 'oferta');
+  if (proyectada) {
+    return resolverCobroTrabajo({
+      ...proyectada,
+      estado: item.estadoEfectivo ?? proyectada.estado,
+    });
+  }
+  const fuente = oferta ?? orden;
   const origen: OrigenCobro = oferta ? 'oferta' : 'orden';
   return resolverCobroTrabajo({
     origen,
     estado: item.estadoEfectivo ?? orden?.estado ?? oferta?.estado,
     estadoPagoRepuestos: oferta?.estado_pago_repuestos ?? orden?.estado_pago_repuestos,
     estadoPagoServicio: oferta?.estado_pago_servicio ?? orden?.estado_pago_servicio,
+    estadoCobroUi: fuente?.estado_cobro_ui,
+    pagoContabilizable: fuente?.pago_contabilizable,
+    saldoConocido: fuente?.saldo_conocido ?? fuente?.pago_provenance?.saldo_conocido,
+    avisoLibro: fuente?.pago_provenance?.aviso_libro,
+    pendientesNoSumadosClp: fuente?.pendientes_no_sumados_clp
+      ?? fuente?.pago_provenance?.pendientes_no_sumados_clp,
   });
 }
 

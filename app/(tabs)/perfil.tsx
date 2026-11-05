@@ -155,7 +155,7 @@ export default function PerfilScreen() {
   }, []);
 
   const handleFinanzasCardPress = useCallback(() => {
-    router.push('/creditos/saldo' as never);
+    router.push('/caja-taller' as never);
   }, []);
 
   const handleFinanzasCanalPress = useCallback((canal: 'app' | 'propias') => {
