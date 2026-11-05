@@ -1052,6 +1052,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
               vehiculoVin={det.vehiculo_vin}
               vehiculoCilindraje={det.vehiculo_cilindraje}
               onLlamar={handleLlamar}
+              montoReferencia={precio}
             />
           )}
 
@@ -1080,8 +1081,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
               </InstitutionalText>
               <InstitutionalText role="caption" color="body">
                 {checklistPendienteSupervisor
-                  ? 'El mecánico ya terminó su parte. Revisa el checklist para que el cliente pueda firmar.'
-                  : 'El servicio ya empezó. Sigue el checklist hasta dejar el informe listo para el cliente.'}
+                  ? 'El mecánico ya terminó su parte. Revisa la lista del trabajo para que el cliente pueda firmar.'
+                  : 'El servicio ya empezó. Sigue la lista del trabajo hasta dejar el informe listo para el cliente.'}
               </InstitutionalText>
             </View>
           ) : null}

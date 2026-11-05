@@ -30,6 +30,14 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapOrdenEstadoToOperativo,
+} from '@/utils/estadoOperativo';
+import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { resumenPreciosOrden } from '@/utils/resumenPreciosOrden';
+import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
@@ -481,6 +489,8 @@ export default function ServicioDetalleScreen() {
   }
 
   const botonAccion = getBotonAccion();
+  const estadoTrabajo = mapOrdenEstadoToOperativo(orden.estado);
+  const cobroOrden = resolverCobroTrabajo({ origen: 'orden', estado: orden.estado });
 
   return (
     <View style={styles.container}>
@@ -491,8 +501,8 @@ export default function ServicioDetalleScreen() {
             <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Detalle de Orden</Text>
-            <Text style={styles.subtitle}>Orden #{orden.id}</Text>
+            <Text style={styles.title}>Trabajo</Text>
+            <Text style={styles.subtitle}>Trabajo #{orden.id}</Text>
           </View>
           <View style={{ width: 24 }} />
         </View>
@@ -504,6 +514,12 @@ export default function ServicioDetalleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <>
+        <EstadoTrabajoCobro
+          trabajo={ESTADO_OPERATIVO_LABELS[estadoTrabajo]}
+          trabajoTono={ESTADO_OPERATIVO_VARIANT[estadoTrabajo]}
+          cobro={cobroOrden}
+          monto={orden.total ? formatearMontoCLP(orden.total) : null}
+        />
         <HostSectionKicker label="Cliente" />
         <Card elevated padding="host" style={styles.clientCard}>
           <View style={styles.clientSection}>
@@ -759,92 +775,71 @@ export default function ServicioDetalleScreen() {
         {/* Total al final - Card destacada con desglose completo */}
         <HostSectionKicker label="Resumen de precios" />
         <Card elevated padding="host" style={styles.totalCard}>
-          <Text style={styles.totalCardTitle}>Resumen de Precios</Text>
-          
-          {/* Calcular desglose desde lineas_detail */}
+          <Text style={styles.totalCardTitle}>Resumen de precios</Text>
           {(() => {
-            // Sumar todos los desgloses de las líneas
-            let costoTotalSinIva = 0;
-            let ivaTotal = 0;
-            let precioFinalCliente = 0;
-            let comisionTotal = 0;
-            let ivaComisionTotal = 0;
-            let gananciaNetaTotal = 0;
-
-            if (orden.lineas_detail && Array.isArray(orden.lineas_detail)) {
-              orden.lineas_detail.forEach((linea: any) => {
-                const desglose = linea.oferta_servicio_detail?.desglose_precios;
-                if (desglose) {
-                  costoTotalSinIva += parseFloat(desglose.costo_total_sin_iva || 0);
-                  ivaTotal += parseFloat(desglose.iva_19_porciento || 0);
-                  precioFinalCliente += parseFloat(desglose.precio_final_cliente || 0);
-                  comisionTotal += parseFloat(desglose.comision_mecanmovil_20_porciento || 0);
-                  ivaComisionTotal += parseFloat(desglose.iva_sobre_comision || 0);
-                  gananciaNetaTotal += parseFloat(desglose.ganancia_neta_proveedor || 0);
-                } else {
-                  // Si no hay desglose, calcular desde el precio
-                  const precioLinea = parseFloat(linea.precio_final || 0);
-                  precioFinalCliente += precioLinea;
-                  // Calcular aproximado si no hay desglose
-                  const costoAprox = precioLinea / 1.19; // Descontar IVA aproximado
-                  costoTotalSinIva += costoAprox;
-                  ivaTotal += precioLinea - costoAprox;
-                  comisionTotal += costoAprox * 0.20;
-                  ivaComisionTotal += (costoAprox * 0.20) * 0.19;
-                  gananciaNetaTotal += costoAprox - (costoAprox * 0.20);
-                }
-              });
+            const resumen = resumenPreciosOrden(orden.lineas_detail);
+            if (!resumen.hayLineas) {
+              return (
+                <Text style={styles.desgloseLabel}>
+                  Esta orden no trae el detalle de precios.
+                </Text>
+              );
             }
-
+            if (!resumen.desgloseCompleto) {
+              return (
+                <View style={styles.desgloseContainer}>
+                  <View style={[styles.desgloseRow, styles.desgloseRowHighlight]}>
+                    <Text style={[styles.desgloseLabel, styles.desgloseLabelBold]}>
+                      Total del trabajo
+                    </Text>
+                    <Text style={[styles.desgloseValue, styles.desgloseValueBold]}>
+                      {formatearMontoCLP(resumen.precioFinalCliente)}
+                    </Text>
+                  </View>
+                  <Text style={styles.desgloseLabel}>
+                    Falta el desglose de comisión en alguna línea. No se calcula una ganancia.
+                  </Text>
+                </View>
+              );
+            }
             return (
               <View style={styles.desgloseContainer}>
-                {/* Precio del servicio + IVA */}
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>Precio del servicio (sin IVA)</Text>
-                  <Text style={styles.desgloseValue}>
-                    {formatearMontoCLP(costoTotalSinIva)}
-                  </Text>
+                  <Text style={styles.desgloseValue}>{formatearMontoCLP(resumen.costoSinIva)}</Text>
                 </View>
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>IVA (19%)</Text>
-                  <Text style={styles.desgloseValue}>
-                    {formatearMontoCLP(ivaTotal)}
-                  </Text>
+                  <Text style={styles.desgloseValue}>{formatearMontoCLP(resumen.iva)}</Text>
                 </View>
                 <View style={[styles.desgloseRow, styles.desgloseRowHighlight]}>
                   <Text style={[styles.desgloseLabel, styles.desgloseLabelBold]}>
                     Precio final al cliente
                   </Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueBold]}>
-                    {formatearMontoCLP(precioFinalCliente)}
+                    {formatearMontoCLP(resumen.precioFinalCliente)}
                   </Text>
                 </View>
-
                 <View style={styles.desgloseSeparator} />
-
-                {/* Deducciones */}
                 <View style={styles.desgloseRow}>
-                  <Text style={styles.desgloseLabel}>Comisión MecaniMóvil (20%)</Text>
+                  <Text style={styles.desgloseLabel}>Comisión de la app</Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueNegative]}>
-                    -{formatearMontoCLP(comisionTotal)}
+                    -{formatearMontoCLP(resumen.comision)}
                   </Text>
                 </View>
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>IVA sobre comisión</Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueNegative]}>
-                    -{formatearMontoCLP(ivaComisionTotal)}
+                    -{formatearMontoCLP(resumen.ivaComision)}
                   </Text>
                 </View>
-
                 <View style={styles.desgloseSeparator} />
-
-                {/* Ganancia real */}
                 <View style={[styles.desgloseRow, styles.desgloseRowFinal]}>
                   <Text style={[styles.desgloseLabel, styles.desgloseLabelBold]}>
-                    Ganancia real del proveedor
+                    Después de comisión de la app
                   </Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueFinal]}>
-                    {formatearMontoCLP(gananciaNetaTotal)}
+                    {formatearMontoCLP(resumen.despuesDeComision)}
                   </Text>
                 </View>
               </View>
@@ -943,6 +938,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 18,
@@ -1054,9 +1050,12 @@ const styles = StyleSheet.create({
   },
   desgloseRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     paddingVertical: 8,
+    maxWidth: '100%',
   },
   desgloseRowHighlight: {
     borderTopWidth: 1,
@@ -1083,6 +1082,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: I.ink,
     fontWeight: '500',
+    flexShrink: 0,
+    maxWidth: '100%',
   },
   desgloseValueBold: {
     fontWeight: 'bold',

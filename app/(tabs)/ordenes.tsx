@@ -61,6 +61,7 @@ import {
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { parseFechaLocal } from '@/utils/fechaLocal';
+import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -229,9 +230,15 @@ export default function OrdenesScreen() {
             onPress={() => navigateToOrdenActiva(router, queryClient, item)}
           >
             <View style={styles.cardTop}>
-              <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+              <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" uppercase={false} />
+              <InstitutionalTag
+                label={resolverCobroTrabajo({ origen: 'cita' }).etiqueta}
+                variant="neutral"
+                size="sm"
+                uppercase={false}
+              />
               {cita.template_generado_por_ia ? (
-                <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
+                <InstitutionalTag label="Lista con IA" variant="info" size="sm" uppercase={false} />
               ) : null}
               <OrigenOrdenBadge origen="personal" />
               <View style={{ flex: 1 }} />
@@ -314,6 +321,12 @@ export default function OrdenesScreen() {
       const tieneRepuestos =
         orden?.lineas?.some((l) => l.con_repuestos)
         || oferta?.incluye_repuestos === true;
+      const cobroLista = resolverCobroTrabajo({
+        origen: orden && !oferta ? 'orden' : 'oferta',
+        estado: estadoEfectivo,
+        estadoPagoRepuestos: oferta?.estado_pago_repuestos,
+        estadoPagoServicio: oferta?.estado_pago_servicio,
+      });
 
       return (
         <Card
@@ -324,7 +337,13 @@ export default function OrdenesScreen() {
           onPress={() => navigateToOrdenActiva(router, queryClient, item)}
         >
           <View style={styles.cardTop}>
-            <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+            <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" uppercase={false} />
+            <InstitutionalTag
+              label={cobroLista.etiqueta}
+              variant={cobroLista.tono}
+              size="sm"
+              uppercase={false}
+            />
             <OrigenOrdenBadge origen="mecanimovil" />
             {oferta?.es_oferta_secundaria ? (
               <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
@@ -650,6 +669,7 @@ const styles = StyleSheet.create({
   },
   cardTop: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: SPACING.fixed.xs,
     marginBottom: SPACING.fixed.sm,
@@ -659,6 +679,8 @@ const styles = StyleSheet.create({
     fontFamily: FF.monoMedium,
     lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
     color: I.ink,
+    flexShrink: 0,
+    maxWidth: '100%',
   },
   cardTitle: {
     fontSize: TS.h4.fontSize,

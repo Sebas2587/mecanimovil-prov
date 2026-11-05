@@ -32,8 +32,8 @@ export const institutionalInputStyles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.md,
     minHeight: 52,
-    fontSize: T.body.fontSize,
-    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    fontSize: Platform.OS === 'web' ? 16 : T.body.fontSize,
+    lineHeight: Math.round((Platform.OS === 'web' ? 16 : T.body.fontSize) * T.body.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.ink,
     backgroundColor: COLORS.background.paper,
@@ -42,8 +42,8 @@ export const institutionalInputStyles = StyleSheet.create({
   inputCompact: {
     minHeight: 44,
     paddingVertical: SPACING.fixed.sm,
-    fontSize: T.caption.fontSize,
-    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    fontSize: Platform.OS === 'web' ? 16 : T.caption.fontSize,
+    lineHeight: Math.round((Platform.OS === 'web' ? 16 : T.caption.fontSize) * T.caption.lineHeight),
   } satisfies TextStyle,
   /** Campo de hoja: alto 48, radio amplio, blanco sobre el canvas. */
   inputSheet: {
@@ -99,14 +99,14 @@ export const institutionalInputStyles = StyleSheet.create({
     minHeight: 52,
   } satisfies ViewStyle,
   inputRowPrefix: {
-    fontSize: T.body.fontSize,
+    fontSize: Platform.OS === 'web' ? 16 : T.body.fontSize,
     fontFamily: FF.monoMedium,
     color: I.ink,
   } satisfies TextStyle,
   inputRowField: {
     flex: 1,
     minWidth: 0,
-    fontSize: T.body.fontSize,
+    fontSize: Platform.OS === 'web' ? 16 : T.body.fontSize,
     fontFamily: FF.sansRegular,
     color: I.ink,
     paddingVertical: SPACING.fixed.sm,
