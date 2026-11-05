@@ -57,11 +57,11 @@ import {
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
-  mapCitaEstadoOperativo,
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { cobroVisibleLista, cobroVisiblePipeline } from '@/utils/cobroTrabajo';
+import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -209,13 +209,14 @@ export default function OrdenesScreen() {
     (item: OrdenActivaItem) => {
       if (item.origen === 'personal') {
         const { cita } = item;
-        const estadoOperativo = mapCitaEstadoOperativo(
-          cita.estado_operativo,
-          cita.estado,
-          Boolean(cita.horario_por_confirmar),
-        );
-        const textoEstado = ESTADO_OPERATIVO_LABELS[estadoOperativo];
-        const estadoVariant = ESTADO_OPERATIVO_VARIANT[estadoOperativo];
+        const presentacion = presentacionCitaTrabajo({
+          estado: cita.estado,
+          estado_operativo: cita.estado_operativo,
+          horario_por_confirmar: cita.horario_por_confirmar,
+          checklist_estado: cita.checklist_estado,
+        });
+        const textoEstado = presentacion.trabajo;
+        const estadoVariant = presentacion.trabajoTono;
         const nombreServicio = nombreServicioCita(cita);
         const precioFormateado = cita.detalle.precio_referencia
           ? formatearPrecio(cita.detalle.precio_referencia)

@@ -33,6 +33,9 @@ export type CitaCasoIdentidadProps = {
   onLlamar?: () => void;
   /** Precio de referencia de la cita. No es un cobro. */
   montoReferencia?: string | null;
+  /** Avance ya resuelto. Si viene, no se vuelve a leer el estado operativo. */
+  trabajoLabel?: string;
+  trabajoTono?: 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info';
 };
 
 export function CitaCasoIdentidad({
@@ -54,6 +57,8 @@ export function CitaCasoIdentidad({
   vehiculoCilindraje,
   onLlamar,
   montoReferencia,
+  trabajoLabel,
+  trabajoTono,
 }: CitaCasoIdentidadProps) {
   const { width } = useWindowDimensions();
   const stacked = width < 520;
@@ -62,7 +67,10 @@ export function CitaCasoIdentidad({
     .join(' ')
     .trim();
   const cilindraje = cilindrajeEfectivo(vehiculoCilindraje, vehiculoMarca, vehiculoModelo);
-  const trabajo = horarioPorConfirmar ? 'Horario por confirmar' : ESTADO_OPERATIVO_LABELS[estadoOperativo];
+  const trabajo = trabajoLabel
+    ?? (horarioPorConfirmar ? 'Horario por confirmar' : ESTADO_OPERATIVO_LABELS[estadoOperativo]);
+  const tono = trabajoTono
+    ?? (horarioPorConfirmar ? 'warning' : ESTADO_OPERATIVO_VARIANT[estadoOperativo]);
   const cobro = resolverCobroTrabajo({ origen: 'cita' });
 
   return (
@@ -81,7 +89,7 @@ export function CitaCasoIdentidad({
         </InstitutionalText>
         <EstadoTrabajoCobro
           trabajo={trabajo}
-          trabajoTono={horarioPorConfirmar ? 'warning' : ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+          trabajoTono={tono}
           cobro={cobro}
           monto={montoReferencia}
         />

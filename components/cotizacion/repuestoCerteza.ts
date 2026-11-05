@@ -271,11 +271,11 @@ export const COPY_PRECIO_TALLER = {
   usarDeLaTienda: 'Usar el de la tienda',
   usarConMargen: 'Usar con margen',
   hintBanda:
-    'De la tienda es el publicado. Con margen es por si la casa cobra más. El cliente ve el de margen hasta que eliges uno.',
+    'De la tienda es el precio publicado. Con margen es ese precio si la casa cobra más. Hasta que elijas el precio final, el cliente ve el de margen.',
   hintForm: 'Ya está el de la tienda arriba. Cambia el monto solo si pagaste distinto.',
   confirmarHint:
     'Elige el de la tienda o el de margen. Esto no envía al cliente: después aparece Enviar cotización.',
-  clienteVeMargen: 'El cliente ve el de margen hasta que fijas uno.',
+  clienteVeMargen: 'Hasta que elijas el precio final, el cliente ve el precio con margen, no el de la tienda.',
   usarTiendaTodas: 'Usar el de la tienda en todas',
   usarMargenTodas: 'Usar el de margen en todas',
   alertaFaltanPrecios:
