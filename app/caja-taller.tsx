@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +40,118 @@ function claveDueno(dueno: DuenoCaja | null): string {
   return dueno ? `${dueno.usuarioId}\n${dueno.tallerId}` : '';
 }
 
+type IntentoEnPantalla = { duenoClave: string; intento: IntentoCaja<CuerpoCobro> };
+type CostoEnPantalla = { duenoClave: string; serial: string; aviso: string };
+
+type RefsAlta = {
+  intentoCobro: React.MutableRefObject<IntentoEnPantalla | null>;
+  enviandoRef: React.MutableRefObject<string | null>;
+  costoAmbiguo: React.MutableRefObject<CostoEnPantalla | null>;
+  duenoPantalla: React.MutableRefObject<string>;
+};
+
+type AccionesAlta = {
+  dueno: DuenoCaja | null;
+  duenoClave: string;
+  setEnviando: (valor: boolean) => void;
+  setIntentoIncierto: (valor: IntentoCaja<CuerpoCobro> | null) => void;
+  setNotaServidor: (valor: string | null) => void;
+  setDevolucion: (valor: MovimientoCaja | null) => void;
+  setFalloAlta: (valor: FalloCaja | null) => void;
+  setAlta: (valor: null | 'cobro' | 'costo') => void;
+  setAvisoCosto: (valor: string | null) => void;
+  cargar: () => Promise<void>;
+};
+
+function sigueEnPantalla(refs: RefsAlta, claveEnvio: string): boolean {
+  return refs.duenoPantalla.current === claveEnvio;
+}
+
+async function confirmarCobroEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cuerpo: CuerpoCobro) {
+  if (refs.enviandoRef.current) return;
+  const { duenoClave, dueno } = acciones;
+  const claveEnvio = duenoClave;
+  const deEstaCuenta = refs.intentoCobro.current?.duenoClave === claveEnvio
+    ? refs.intentoCobro.current.intento
+    : null;
+  const previo = leerIntentoIncierto(dueno) ?? deEstaCuenta;
+  const intento = claveParaIntento(previo, cuerpo);
+  refs.intentoCobro.current = { duenoClave: claveEnvio, intento };
+  refs.enviandoRef.current = claveEnvio;
+  if (sigueEnPantalla(refs, claveEnvio)) acciones.setEnviando(true);
+  const guardarIntento = (siguiente: IntentoCaja<CuerpoCobro> | null) => {
+    const fijo = siguiente?.incierto ? siguiente : null;
+    guardarIntentoIncierto(dueno, fijo);
+    if (refs.intentoCobro.current?.duenoClave === claveEnvio) {
+      refs.intentoCobro.current = fijo ? { duenoClave: claveEnvio, intento: fijo } : null;
+    }
+    if (sigueEnPantalla(refs, claveEnvio)) acciones.setIntentoIncierto(fijo);
+  };
+  try {
+    const guardado = await registrarCobro(intento.cuerpo, intento.clave);
+    guardarIntento(null);
+    if (!sigueEnPantalla(refs, claveEnvio)) return;
+    const ancla = anclaGuardada(intento.cuerpo, guardado);
+    acciones.setNotaServidor(ancla.distinta
+      ? `El servidor lo guardó en ${etiquetaAncla(ancla.ancla_tipo, ancla.ancla_id)}.`
+      : null);
+    acciones.setDevolucion(null);
+    acciones.setFalloAlta(null);
+    acciones.setAlta(null);
+    await acciones.cargar();
+  } catch (error) {
+    const falloEnvio = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
+    if (resultadoAmbiguo(falloEnvio.status)) guardarIntento({ ...intento, incierto: true });
+    else guardarIntento(null);
+    if (sigueEnPantalla(refs, claveEnvio)) acciones.setFalloAlta(falloEnvio);
+  } finally {
+    if (refs.enviandoRef.current === claveEnvio) refs.enviandoRef.current = null;
+    if (sigueEnPantalla(refs, claveEnvio)) acciones.setEnviando(false);
+  }
+}
+
+async function confirmarCostoEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cuerpo: CuerpoCosto) {
+  if (refs.enviandoRef.current) return;
+  const claveEnvio = acciones.duenoClave;
+  const serial = JSON.stringify(cuerpo);
+  const repetido = refs.costoAmbiguo.current?.duenoClave === claveEnvio
+    && refs.costoAmbiguo.current.serial === serial
+    ? refs.costoAmbiguo.current.aviso
+    : null;
+  if (repetido) {
+    if (sigueEnPantalla(refs, claveEnvio)) acciones.setFalloAlta({
+      ...falloDesdeRespuesta(502, {}),
+      mensaje: repetido,
+    });
+    return;
+  }
+  refs.enviandoRef.current = claveEnvio;
+  if (sigueEnPantalla(refs, claveEnvio)) acciones.setEnviando(true);
+  try {
+    await registrarCosto(cuerpo);
+    if (refs.costoAmbiguo.current?.duenoClave === claveEnvio) refs.costoAmbiguo.current = null;
+    if (!sigueEnPantalla(refs, claveEnvio)) return;
+    acciones.setAvisoCosto(null);
+    acciones.setFalloAlta(null);
+    acciones.setAlta(null);
+    await acciones.cargar();
+  } catch (error) {
+    const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
+    const falloCosto = resultadoAmbiguo(base.status)
+      ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, 'costo') }
+      : base;
+    const aviso = `Un costo de ${formatearMontoCLP(cuerpo.monto_clp)} quedó sin respuesta. ${falloCosto.mensaje}`;
+    if (resultadoAmbiguo(base.status)) refs.costoAmbiguo.current = { duenoClave: claveEnvio, serial, aviso };
+    else if (refs.costoAmbiguo.current?.duenoClave === claveEnvio) refs.costoAmbiguo.current = null;
+    if (!sigueEnPantalla(refs, claveEnvio)) return;
+    acciones.setAvisoCosto(resultadoAmbiguo(base.status) ? aviso : null);
+    acciones.setFalloAlta(falloCosto);
+  } finally {
+    if (refs.enviandoRef.current === claveEnvio) refs.enviandoRef.current = null;
+    if (sigueEnPantalla(refs, claveEnvio)) acciones.setEnviando(false);
+  }
+}
+
 export default function CajaTallerScreen() {
   const insets = useSafeAreaInsets();
   const { esMecanicoEquipo, usuario, estadoProveedor } = useAuth();
@@ -60,10 +172,12 @@ export default function CajaTallerScreen() {
   const [alta, setAlta] = useState<null | 'cobro' | 'costo'>(null);
   const [enviando, setEnviando] = useState(false);
   const [falloAlta, setFalloAlta] = useState<FalloCaja | null>(null);
+  const [avisoCosto, setAvisoCosto] = useState<string | null>(null);
   const intentoCobro = useRef<{ duenoClave: string; intento: IntentoCaja<CuerpoCobro> } | null>(null);
   const libroRef = useRef<LibroCaja | null>(null);
-  const costoAmbiguo = useRef<{ serial: string; fallo: FalloCaja } | null>(null);
-  const enviandoRef = useRef(false);
+  const costoAmbiguo = useRef<{ duenoClave: string; serial: string; aviso: string } | null>(null);
+  const enviandoRef = useRef<string | null>(null);
+  const duenoPantalla = useRef(duenoClave);
   const consultaRef = useRef({ desde, hasta, granularidad, pagina, paginaCasos });
   const consultaSeq = useRef(0);
   const [vistaDueno, setVistaDueno] = useState(duenoClave);
@@ -80,16 +194,17 @@ export default function CajaTallerScreen() {
     setNotaServidor(null);
     setFallo(null);
     setLibro(null);
+    setEnviando(false);
+    setAvisoCosto(costoAmbiguo.current?.duenoClave === duenoClave ? costoAmbiguo.current.aviso : null);
   }
 
-  const marcarIntento = (intento: IntentoCaja<CuerpoCobro> | null) => {
-    const fijo = intento?.incierto ? intento : null;
-    intentoCobro.current = intento ? { duenoClave, intento } : null;
-    setIntentoIncierto(fijo);
-    guardarIntentoIncierto(dueno, fijo);
-  };
+  useLayoutEffect(() => {
+    duenoPantalla.current = duenoClave;
+    if (enviandoRef.current && enviandoRef.current !== duenoClave) enviandoRef.current = null;
+  }, [duenoClave]);
 
   const cargar = useCallback(async () => {
+    const claveEnvio = duenoPantalla.current;
     const pedido = { ...consultaRef.current };
     const aviso = validarPeriodo(pedido.desde, pedido.hasta);
     setAvisoPeriodo(aviso);
@@ -117,12 +232,14 @@ export default function CajaTallerScreen() {
         page: pedido.pagina,
         casosPage: pedido.paginaCasos,
       });
+      if (duenoPantalla.current !== claveEnvio) return;
       if (seq !== consultaSeq.current) return;
       if (respuesta.desde !== pedido.desde || respuesta.hasta !== pedido.hasta) return;
       libroRef.current = respuesta;
       setLibro(respuesta);
       setFallo(null);
     } catch (error) {
+      if (duenoPantalla.current !== claveEnvio) return;
       if (seq !== consultaSeq.current) return;
       const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
       if (!resultadoAmbiguo(base.status)) {
@@ -133,7 +250,7 @@ export default function CajaTallerScreen() {
         ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, mismoPeriodo ? 'mismo' : 'otro') }
         : base);
     } finally {
-      if (seq === consultaSeq.current) setCargando(false);
+      if (duenoPantalla.current === claveEnvio && seq === consultaSeq.current) setCargando(false);
     }
   }, []);
 
@@ -150,7 +267,6 @@ export default function CajaTallerScreen() {
     duenoCargado.current = duenoClave;
     if (!habiaCuenta) return;
     libroRef.current = null;
-    costoAmbiguo.current = null;
     setLibro(null);
     void cargar();
   }, [duenoClave, duenoListo, cargar]);
@@ -165,75 +281,34 @@ export default function CajaTallerScreen() {
     void cargar();
   };
 
-  const confirmarCobro = async (cuerpo: CuerpoCobro) => {
-    if (enviandoRef.current) return;
-    const deEstaCuenta = intentoCobro.current?.duenoClave === duenoClave
-      ? intentoCobro.current.intento
-      : null;
-    const previo = leerIntentoIncierto(dueno) ?? deEstaCuenta;
-    const intento = claveParaIntento(previo, cuerpo);
-    intentoCobro.current = { duenoClave, intento };
-    enviandoRef.current = true;
-    setEnviando(true);
-    try {
-      const guardado = await registrarCobro(intento.cuerpo, intento.clave);
-      const ancla = anclaGuardada(intento.cuerpo, guardado);
-      setNotaServidor(ancla.distinta
-        ? `El servidor lo guardó en ${etiquetaAncla(ancla.ancla_tipo, ancla.ancla_id)}.`
-        : null);
-      marcarIntento(null);
-      setDevolucion(null);
-      setFalloAlta(null);
-      setAlta(null);
-      await cargar();
-    } catch (error) {
-      const falloEnvio = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
-      if (resultadoAmbiguo(falloEnvio.status)) {
-        marcarIntento({ ...intento, incierto: true });
-      } else {
-        intentoCobro.current = { duenoClave, intento: { ...intento, incierto: false } };
-        guardarIntentoIncierto(dueno, null);
-        setIntentoIncierto(null);
-      }
-      setFalloAlta(falloEnvio);
-    } finally {
-      enviandoRef.current = false;
-      setEnviando(false);
-    }
+  const refsAlta: RefsAlta = { intentoCobro, enviandoRef, costoAmbiguo, duenoPantalla };
+  const accionesAlta: AccionesAlta = {
+    dueno,
+    duenoClave,
+    setEnviando,
+    setIntentoIncierto,
+    setNotaServidor,
+    setDevolucion,
+    setFalloAlta,
+    setAlta,
+    setAvisoCosto,
+    cargar,
   };
-
-  const confirmarCosto = async (cuerpo: CuerpoCosto) => {
-    if (enviandoRef.current) return;
-    const serial = JSON.stringify(cuerpo);
-    const repetido = costoAmbiguo.current?.serial === serial ? costoAmbiguo.current.fallo : null;
-    if (repetido) {
-      setFalloAlta(repetido);
-      return;
-    }
-    enviandoRef.current = true;
-    setEnviando(true);
-    try {
-      await registrarCosto(cuerpo);
-      costoAmbiguo.current = null;
-      setFalloAlta(null);
-      setAlta(null);
-      await cargar();
-    } catch (error) {
-      const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
-      const falloCosto = resultadoAmbiguo(base.status)
-        ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, 'costo') }
-        : base;
-      costoAmbiguo.current = resultadoAmbiguo(base.status) ? { serial, fallo: falloCosto } : null;
-      setFalloAlta(falloCosto);
-    } finally {
-      enviandoRef.current = false;
-      setEnviando(false);
-    }
+  const confirmarCobro = (cuerpo: CuerpoCobro) => {
+    void confirmarCobroEnCuenta(refsAlta, accionesAlta, cuerpo);
+  };
+  const confirmarCosto = (cuerpo: CuerpoCosto) => {
+    void confirmarCostoEnCuenta(refsAlta, accionesAlta, cuerpo);
   };
 
   return (
     <View style={[styles.pantalla, { paddingBottom: insets.bottom }]}>
       <Header title="Caja del taller" showBack />
+      {avisoCosto && alta !== 'costo' ? (
+        <View style={styles.aviso}>
+          <InstitutionalText role="caption" color="ink">{avisoCosto}</InstitutionalText>
+        </View>
+      ) : null}
       {intentoIncierto && alta !== 'cobro' ? (
         <View style={styles.aviso}>
           <InstitutionalText role="caption" color="ink">
@@ -316,7 +391,7 @@ export default function CajaTallerScreen() {
             ? `Devolución del cobro del ${devolucion.fecha_local} por ${formatearMontoCLP(devolucion.monto_clp)}.`
             : null}
           onCerrar={() => {
-            if (enviandoRef.current) return;
+            if (enviandoRef.current === duenoClave) return;
             setAlta(null);
           }}
           onConfirmarCobro={(cuerpo) => { void confirmarCobro(cuerpo); }}

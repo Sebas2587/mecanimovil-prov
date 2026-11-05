@@ -434,6 +434,144 @@ describe('CajaTallerScreen', () => {
     expect(mockRegistrar.mock.calls[1][0]).toEqual(mockRegistrar.mock.calls[0][0]);
   });
 
+  function usarCuenta(usuarioId: number, tallerId = 3) {
+    (globalThis as { __cajaAuth?: AuthCaja }).__cajaAuth = {
+      esMecanicoEquipo: false,
+      usuario: { id: usuarioId },
+      estadoProveedor: { proveedor_id: tallerId },
+    };
+  }
+
+  async function mostrarCuenta(
+    view: Awaited<ReturnType<typeof render>>,
+    usuarioId: number,
+  ) {
+    usarCuenta(usuarioId);
+    await view.rerender(marco(<CajaTallerScreen />));
+  }
+
+  it('un 502 que llega después del cambio de cuenta no se pinta en la otra', async () => {
+    let rechazar: (error: unknown) => void = () => {};
+    mockRegistrar.mockImplementation(() => new Promise((_resolve, reject) => {
+      rechazar = reject;
+    }));
+    usarCuenta(7);
+    const view = await render(marco(<CajaTallerScreen />));
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(1));
+    const clave = mockRegistrar.mock.calls[0][1];
+    const monto = new RegExp(formatearMontoCLP(30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+    await mostrarCuenta(view, 8);
+    await waitFor(() => expect(view.queryByLabelText('Confirmar envío')).toBeNull());
+    expect(view.queryByText(monto)).toBeNull();
+    expect(view.queryByText(/quedó sin respuesta/i)).toBeNull();
+
+    await act(async () => {
+      rechazar(falloDesdeRespuesta(502, {}));
+    });
+    await waitFor(() => expect(leerIntentoIncierto(duenoCaja(7, 3))?.clave).toBe(clave));
+    expect(view.queryByText(/no confirmó el resultado \(502\)/i)).toBeNull();
+    expect(view.queryByText(/quedó sin respuesta/i)).toBeNull();
+    expect(view.queryByText(monto)).toBeNull();
+    expect(view.queryByLabelText('Confirmar envío')).toBeNull();
+    expect(leerIntentoIncierto(duenoCaja(8, 3))).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await waitFor(() => expect(view.getByText('Reintentar el mismo envío')).toBeTruthy());
+    expect(view.getByText(monto)).toBeTruthy();
+    await fireEvent.press(view.getByText('Reintentar el mismo envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(2));
+    expect(mockRegistrar.mock.calls[1][1]).toBe(clave);
+    expect(mockRegistrar.mock.calls[1][0]).toEqual(mockRegistrar.mock.calls[0][0]);
+  });
+
+  it('un 502 de costo que llega en otra cuenta no se pinta allí', async () => {
+    let rechazar: (error: unknown) => void = () => {};
+    mockCosto.mockImplementation(() => new Promise((_resolve, reject) => {
+      rechazar = reject;
+    }));
+    usarCuenta(7);
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getByText('No hay movimientos en este período.')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Id del caso')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Id del caso'), '15');
+    await fireEvent.changeText(view.getByLabelText('Monto en pesos'), '30');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(1));
+
+    await mostrarCuenta(view, 8);
+    await waitFor(() => expect(view.queryByLabelText('Confirmar envío')).toBeNull());
+    await act(async () => {
+      rechazar(falloDesdeRespuesta(502, {}));
+    });
+    await asentar();
+    expect(view.queryByText(/no se sabe si el costo quedó guardado/i)).toBeNull();
+    expect(view.queryByText(/Un costo de/i)).toBeNull();
+    expect(view.queryByLabelText('Confirmar envío')).toBeNull();
+    expect(view.queryByText(new RegExp(formatearMontoCLP(30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await waitFor(() => expect(view.getByText(/Un costo de/i)).toBeTruthy());
+    expect(view.getByText(/no se sabe si el costo quedó guardado/i)).toBeTruthy();
+    expect(view.getByText(new RegExp(formatearMontoCLP(30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy();
+  });
+
+  it('un 200, un 400 o un 409 que llegan en otra cuenta no se pintan', async () => {
+    let asentarEnvio: { resolver: (valor: unknown) => void; rechazar: (error: unknown) => void } = {
+      resolver: () => {},
+      rechazar: () => {},
+    };
+    mockRegistrar.mockImplementation(() => new Promise((resolve, reject) => {
+      asentarEnvio = { resolver: resolve, rechazar: reject };
+    }));
+    usarCuenta(7);
+    const view = await render(marco(<CajaTallerScreen />));
+
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(1));
+    await mostrarCuenta(view, 8);
+    await act(async () => {
+      asentarEnvio.rechazar(falloDesdeRespuesta(400, { code: 'fecha_invalida' }));
+    });
+    await asentar();
+    expect(view.queryByText(/no guardó/i)).toBeNull();
+    expect(view.queryByLabelText('Confirmar envío')).toBeNull();
+    expect(leerIntentoIncierto(duenoCaja(7, 3))).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(2));
+    await mostrarCuenta(view, 8);
+    await act(async () => {
+      asentarEnvio.rechazar(falloDesdeRespuesta(409, { code: 'reverso_ancla_distinta' }));
+    });
+    await asentar();
+    expect(view.queryByText(/mismo caso/i)).toBeNull();
+    expect(view.queryByText(/quedó sin respuesta/i)).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(3));
+    await mostrarCuenta(view, 8);
+    await fireEvent.press(view.getByLabelText('Registrar cobro'));
+    await waitFor(() => expect(view.getByLabelText('Id del caso')).toBeTruthy());
+    await act(async () => {
+      asentarEnvio.resolver({ id: 'ok', ancla_tipo: 'oferta', ancla_id: '9' });
+    });
+    await asentar();
+    expect(view.getByLabelText('Id del caso')).toBeTruthy();
+    expect(view.queryByText(/Oferta 9/)).toBeNull();
+    expect(view.queryByText(/quedó sin respuesta/i)).toBeNull();
+  });
+
   it('un POST sin respuesta no se edita ni cambia de clave, tampoco al volver a montar', async () => {
     mockRegistrar.mockRejectedValue(new Error('timeout'));
     const view = await render(marco(<CajaTallerScreen />));
