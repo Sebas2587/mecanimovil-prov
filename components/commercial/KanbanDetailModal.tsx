@@ -47,6 +47,7 @@ import agenteIaService from '@/services/agenteIaService';
 import { ChatMessageComposer } from '@/components/chats/ChatMessageComposer';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
+import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { showAlert } from '@/utils/platformAlert';
 
@@ -441,10 +442,12 @@ export function KanbanDetailModal({
                               </InstitutionalText>
                             </View>
                             <ReferenciaTiendaLinea rep={rep} />
+                            <MargenRepuestoLinea rep={rep} />
                           </View>
                         ))}
 
                         <View style={styles.divider} />
+                        <ResumenMargenRepuestos repuestos={cotizacionDetalle.repuestos} />
                         <View style={styles.priceRow}>
                           <InstitutionalText role="caption" color="muted">Mano de Obra:</InstitutionalText>
                           <InstitutionalText role="captionBold">{formatearMontoCLP(cotizacionDetalle.mano_obra_clp)}</InstitutionalText>

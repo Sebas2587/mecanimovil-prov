@@ -160,6 +160,19 @@ export interface RepuestoCotizacion {
   tienda_referencia?: string;
   /** Precio verificado en la ficha, o null. */
   precio_verificado_clp?: number | null;
+  /** Casa a la que el taller debería comprar. No es la tienda del link. */
+  casa_sugerida?: string;
+  /** true solo si el link y el precio son de casa_sugerida. */
+  precio_verificado_en_casa?: boolean;
+  /** Aviso cuando el link no es de la casa sugerida. Vacío si sí lo es. */
+  nota_referencia?: string;
+  /** Costo unitario para el taller. null si no se conoce. */
+  costo_unitario_clp?: number | null;
+  /** Precio unitario cobrado al cliente, según el serializer. */
+  precio_cobrado_clp?: number;
+  /** Margen de la línea que calculó el backend. La UI lo recalcula al editar. */
+  margen_clp?: number | null;
+  margen_pct?: number | null;
   /** Título de la ficha de tienda (solo taller). */
   nombre_producto?: string;
   /** true si el precio no viene del catálogo/historial del taller (revisar antes de enviar). */
@@ -277,6 +290,11 @@ export interface CotizacionCanal {
   /** Guardó cambios sobre un folio ya emitido; el cliente aún ve la versión anterior. */
   emision_pendiente?: boolean;
   costo_repuestos_clp: number;
+  /** Totales de margen del serializer. La UI recalcula en vivo desde las líneas. */
+  costo_total_repuestos_clp?: number | null;
+  cobrado_total_repuestos_clp?: number | null;
+  ganancia_repuestos_clp?: number | null;
+  margen_repuestos_pct?: number | null;
   descuento_tipo?: '' | 'monto' | 'porcentaje' | null;
   descuento_alcance?: 'mano_obra' | 'total' | null;
   descuento_valor?: number | null;

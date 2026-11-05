@@ -1,16 +1,24 @@
 import React from 'react';
 import { Linking, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { ExternalLink } from 'lucide-react-native';
+import { AlertTriangle, ExternalLink } from 'lucide-react-native';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { textoReferenciaTienda } from '@/utils/referenciaTienda';
+import { vistaReferenciaTienda } from '@/utils/referenciaTienda';
 import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 
 const I = COLORS.institutional;
 
 type Props = {
-  rep: Pick<RepuestoCotizacion, 'url_referencia' | 'tienda_referencia' | 'precio_verificado_clp'>;
+  rep: Pick<
+    RepuestoCotizacion,
+    | 'url_referencia'
+    | 'tienda_referencia'
+    | 'precio_verificado_clp'
+    | 'casa_sugerida'
+    | 'precio_verificado_en_casa'
+    | 'nota_referencia'
+  >;
 };
 
 export function abrirUrlReferenciaTienda(url: string): void {
@@ -21,35 +29,56 @@ export function abrirUrlReferenciaTienda(url: string): void {
   Linking.openURL(url).catch(() => undefined);
 }
 
-/** Referencia compacta de la ficha. Visible en la línea, sin abrir el precio. */
+/** Tienda real del link, casa sugerida aparte y aviso si el precio no es de esa casa. */
 export const ReferenciaTiendaLinea = React.memo(function ReferenciaTiendaLinea({ rep }: Props) {
-  const ref = textoReferenciaTienda(rep);
+  const ref = vistaReferenciaTienda(rep);
   if (!ref) return null;
+  const etiquetaLink = ref.tienda ? `Ver en ${ref.tienda}` : 'Ver en tienda';
 
   return (
-    <View style={styles.row} accessibilityLabel="Referencia de la tienda">
-      {ref.texto ? (
-        <InstitutionalText role="caption" color="muted" numberOfLines={1} style={styles.texto}>
-          {ref.texto}
+    <View style={styles.bloque} accessibilityLabel="Referencia de la tienda">
+      {ref.url ? (
+        <View style={styles.row}>
+          {ref.tienda || ref.precio ? (
+            <InstitutionalText role="caption" color="muted" numberOfLines={1} style={styles.texto}>
+              {[ref.tienda, ref.precio].filter(Boolean).join(' ')}
+            </InstitutionalText>
+          ) : null}
+          <TouchableOpacity
+            onPress={() => abrirUrlReferenciaTienda(ref.url as string)}
+            accessibilityRole="link"
+            accessibilityLabel={etiquetaLink}
+            hitSlop={8}
+            style={styles.link}
+          >
+            <ExternalLink size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalText role="captionBold" color="primary">
+              Ver en tienda
+            </InstitutionalText>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {ref.casaSugerida ? (
+        <InstitutionalText role="caption" color="muted">
+          Casa sugerida: {ref.casaSugerida}
         </InstitutionalText>
       ) : null}
-      <TouchableOpacity
-        onPress={() => abrirUrlReferenciaTienda(ref.url)}
-        accessibilityRole="link"
-        accessibilityLabel="Ver en tienda"
-        hitSlop={8}
-        style={styles.link}
-      >
-        <ExternalLink size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-        <InstitutionalText role="captionBold" color="primary">
-          Ver en tienda
-        </InstitutionalText>
-      </TouchableOpacity>
+      {ref.nota ? (
+        <View style={styles.aviso}>
+          <AlertTriangle size={14} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalText role="caption" color="ink" style={styles.avisoTexto}>
+            {ref.nota}
+          </InstitutionalText>
+        </View>
+      ) : null}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
+  bloque: {
+    gap: SPACING.fixed.xxs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -66,5 +95,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.fixed.xxs,
     flexShrink: 0,
+  },
+  aviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs,
+  },
+  avisoTexto: {
+    flex: 1,
+    minWidth: 0,
   },
 });

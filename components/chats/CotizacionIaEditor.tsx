@@ -29,6 +29,7 @@ import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
 import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
+import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -389,6 +390,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
         </InstitutionalText>
       ) : null}
       <ReferenciaTiendaLinea rep={rep} />
+      <MargenRepuestoLinea rep={rep} />
       {rangoCliente ? (
         <InstitutionalText role="caption" color="muted">
           {rangoCliente}
@@ -1710,6 +1712,7 @@ export const CotizacionIaEditor = React.forwardRef<
             {formatearMontoCLP(totalRepuestos)}
           </InstitutionalText>
         </View>
+        <ResumenMargenRepuestos repuestos={repuestos} />
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
             Mano de obra
