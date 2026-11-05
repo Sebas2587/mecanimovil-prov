@@ -48,6 +48,7 @@ import { ChatMessageComposer } from '@/components/chats/ChatMessageComposer';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
 import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
+import { RevisionCotizador, ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { showAlert } from '@/utils/platformAlert';
 
@@ -424,6 +425,7 @@ export function KanbanDetailModal({
                       <ActivityIndicator size="small" color={I.primary} style={{ marginVertical: 12 }} />
                     ) : cotizacionDetalle ? (
                       <Card elevated padding="host" style={styles.breakdownCard}>
+                        <RevisionCotizador alertas={cotizacionDetalle.alertas_validacion} />
                         <InstitutionalText role="captionBold">{cotizacionDetalle.servicio_nombre}</InstitutionalText>
                         {cotizacionDetalle.descripcion_problema ? (
                           <InstitutionalText role="caption" color="muted">
@@ -441,6 +443,7 @@ export function KanbanDetailModal({
                                 {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
                               </InstitutionalText>
                             </View>
+                            <ValidacionRepuestoLinea rep={rep} />
                             <ReferenciaTiendaLinea rep={rep} />
                             <MargenRepuestoLinea rep={rep} />
                           </View>

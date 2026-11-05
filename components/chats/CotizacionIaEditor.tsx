@@ -30,6 +30,7 @@ import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet
 import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
 import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
 import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
+import { RevisionCotizador, ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -319,6 +320,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
           </InstitutionalText>
         </View>
       ) : null}
+
+      <ValidacionRepuestoLinea rep={rep} />
 
       <View style={styles.repuestoGrid}>
         <View style={styles.gridColCant}>
@@ -1614,6 +1617,8 @@ export const CotizacionIaEditor = React.forwardRef<
         ) : null}
       </Card>
       ) : null}
+
+      <RevisionCotizador alertas={cotizacion.alertas_validacion} />
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
