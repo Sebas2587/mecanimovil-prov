@@ -63,4 +63,23 @@ describe('cajaTallerService', () => {
     });
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
+
+  it('trae el nombre del caso en el mismo GET y no pide cada ancla', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        casos: {
+          results: [{ cliente_nombre: 'Ana', vehiculo_patente: 'ABCD12', folio: 'MM-1' }],
+        },
+      },
+    });
+    const libro = await consultarCaja({
+      desde: '2026-11-01',
+      hasta: '2026-11-05',
+      granularidad: 'mes',
+    });
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(libro.casos.results[0].cliente_nombre).toBe('Ana');
+    expect(libro.casos.results[0].vehiculo_patente).toBe('ABCD12');
+    expect(libro.casos.results[0].folio).toBe('MM-1');
+  });
 });

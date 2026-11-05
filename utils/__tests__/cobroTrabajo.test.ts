@@ -322,6 +322,31 @@ describe('resumenPreciosOrden', () => {
     expect(vista.aclaracion).toMatch(/no es cero/i);
   });
 
+  it('la proyección de la orden gana al pagado viejo de la oferta', () => {
+    const vista = cobroVisibleLista({
+      estadoEfectivo: 'completado',
+      oferta: {
+        estado_pago_repuestos: 'pagado',
+        estado_pago_servicio: 'pagado',
+      },
+      orden: {
+        estado: 'completado',
+        estado_cobro_ui: 'reembolsado',
+      },
+    });
+    expect(vista.etiqueta).toBe('Reembolsado');
+  });
+
+  it('sin proyección la oferta pagada sigue en Pagado', () => {
+    expect(cobroVisibleLista({
+      oferta: {
+        estado_pago_repuestos: 'pagado',
+        estado_pago_servicio: 'pagado',
+      },
+      orden: { estado: 'completado' },
+    }).etiqueta).toBe('Pagado');
+  });
+
   it('sin estado_cobro_ui la cita sigue sin información de pago', () => {
     expect(resolverCobroTrabajo({
       origen: 'cita',

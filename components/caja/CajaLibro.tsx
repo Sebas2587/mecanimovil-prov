@@ -13,13 +13,16 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { formatearMontoCLP, montoConocidoCLP } from '@/utils/formatearMontoCLP';
 import {
   ETIQUETA_NETO,
+  entradaManualDevolvible,
   notaExigible,
   textoMargenContratado,
   textoMargenEstimado,
   textoMargenReal,
+  textoFaltantesResumen,
   textoResultadoCaja,
   tituloHumano,
   type CasoCaja,
+  type MovimientoCaja,
   type FalloCaja,
   type GranularidadCaja,
   type LibroCaja,
@@ -45,6 +48,7 @@ type Props = {
   puedeCosto: boolean;
   onRegistrarCobro: () => void;
   onRegistrarCosto: () => void;
+  onDevolverEntrada?: (movimiento: MovimientoCaja) => void;
   notaServidor?: string | null;
 };
 
@@ -83,6 +87,7 @@ export function CajaLibro({
   puedeCosto,
   onRegistrarCobro,
   onRegistrarCosto,
+  onDevolverEntrada,
   notaServidor,
 }: Props) {
   const resumen = libro?.resumen;
@@ -136,7 +141,7 @@ export function CajaLibro({
         {cargando ? (
           <View style={styles.estado}>
             <ActivityIndicator color={I.primary} />
-            <InstitutionalText role="body" color="muted">Cargando la caja</InstitutionalText>
+            <InstitutionalText role="body" color="muted">{`Cargando ${desde} a ${hasta}`}</InstitutionalText>
           </View>
         ) : null}
 
@@ -162,9 +167,9 @@ export function CajaLibro({
                 La suma es solo el libro, no el total del negocio.
               </InstitutionalText>
             ) : null}
-            {!resumen.completo ? (
+            {textoFaltantesResumen(resumen.faltantes) ? (
               <InstitutionalText role="caption" color="muted">
-                {`Faltan datos: fuente sin movimiento ${resumen.faltantes?.legacy_sin_movimiento ?? 0}, otra moneda ${resumen.faltantes?.moneda_no_clp ?? 0}.`}
+                {textoFaltantesResumen(resumen.faltantes)}
               </InstitutionalText>
             ) : null}
             {resumen.legacy_no_contabilizado > 0 ? (
@@ -208,6 +213,21 @@ export function CajaLibro({
                   </InstitutionalText>
                   <InstitutionalText role="bodyBold" color="ink">{pesos(movimiento.monto_clp)}</InstitutionalText>
                   <InstitutionalText role="caption" color="muted">{movimiento.fecha_local}</InstitutionalText>
+                  {entradaManualDevolvible(movimiento) && onDevolverEntrada ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Devolver el cobro del ${movimiento.fecha_local} por ${pesos(movimiento.monto_clp)}`}
+                      onPress={() => onDevolverEntrada(movimiento)}
+                      style={styles.accionSecundaria}
+                    >
+                      <InstitutionalText role="captionBold" color="ink">Devolver este cobro</InstitutionalText>
+                    </Pressable>
+                  ) : null}
+                  {movimiento.tipo === 'entrada' && movimiento.origen && String(movimiento.origen).toLowerCase() !== 'manual' ? (
+                    <InstitutionalText role="caption" color="muted">
+                      La devolución de Mercado Pago la confirma el servidor.
+                    </InstitutionalText>
+                  ) : null}
                   {!movimiento.contabiliza_clp ? (
                     <InstitutionalText role="caption" color="muted">No entra a la suma CLP.</InstitutionalText>
                   ) : null}

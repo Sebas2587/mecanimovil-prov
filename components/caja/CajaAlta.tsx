@@ -10,7 +10,7 @@ import {
 import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import type { AnclaTipo, CuerpoCobro, CuerpoCosto, FalloCaja } from '@/utils/cajaTaller';
+import { fechaRealIso, type AnclaTipo, type CuerpoCobro, type CuerpoCosto, type FalloCaja } from '@/utils/cajaTaller';
 
 const I = COLORS.institutional;
 
@@ -21,6 +21,10 @@ type Props = {
   modo: Modo;
   enviando: boolean;
   fallo: FalloCaja | null;
+  /** Cuerpo fijo. Si la edición está bloqueada, confirmar reenvía este cuerpo y no el de los campos. */
+  cobroInicial?: CuerpoCobro | null;
+  edicionBloqueada?: boolean;
+  entradaLegible?: string | null;
   onCerrar: () => void;
   onConfirmarCobro: (cuerpo: CuerpoCobro) => void;
   onConfirmarCosto: (cuerpo: CuerpoCosto) => void;
@@ -33,20 +37,23 @@ export function CajaAlta({
   modo,
   enviando,
   fallo,
+  cobroInicial = null,
+  edicionBloqueada = false,
+  entradaLegible = null,
   onCerrar,
   onConfirmarCobro,
   onConfirmarCosto,
 }: Props) {
-  const [paso, setPaso] = useState<'editar' | 'revisar'>('editar');
-  const [anclaTipo, setAnclaTipo] = useState<AnclaTipo>('cita');
-  const [anclaId, setAnclaId] = useState('');
-  const [tipo, setTipo] = useState<'entrada' | 'reembolso'>('entrada');
-  const [componente, setComponente] = useState<'total' | 'repuestos' | 'servicio'>('total');
+  const [paso, setPaso] = useState<'editar' | 'revisar'>(edicionBloqueada ? 'revisar' : 'editar');
+  const [anclaTipo, setAnclaTipo] = useState<AnclaTipo>(cobroInicial?.ancla_tipo ?? 'cita');
+  const [anclaId, setAnclaId] = useState(cobroInicial?.ancla_id ?? '');
+  const [tipo, setTipo] = useState<'entrada' | 'reembolso'>(cobroInicial?.tipo ?? 'entrada');
+  const [componente, setComponente] = useState<'total' | 'repuestos' | 'servicio'>(cobroInicial?.componente ?? 'total');
   const [tipoCosto, setTipoCosto] = useState<'registrado' | 'estimado'>('registrado');
-  const [monto, setMonto] = useState('');
-  const [fecha, setFecha] = useState('');
-  const [origenId, setOrigenId] = useState('');
-  const [motivo, setMotivo] = useState('');
+  const [monto, setMonto] = useState(cobroInicial ? String(cobroInicial.monto_clp) : '');
+  const [fecha, setFecha] = useState(cobroInicial?.fecha_efectiva ?? '');
+  const [origenId, setOrigenId] = useState(cobroInicial?.movimiento_origen_id ?? '');
+  const [motivo, setMotivo] = useState(cobroInicial?.motivo ?? '');
   const [nota, setNota] = useState('');
   const [confirmarSobrepago, setConfirmarSobrepago] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -73,8 +80,8 @@ export function CajaAlta({
       setAviso('El cobro tiene que ser mayor a cero.');
       return;
     }
-    if (modo === 'cobro' && !/^\d{4}-\d{2}-\d{2}$/.test(fecha.trim())) {
-      setAviso('La fecha efectiva usa YYYY-MM-DD.');
+    if (modo === 'cobro' && !fechaRealIso(fecha.trim())) {
+      setAviso('La fecha efectiva no existe. Usa un día real, con forma YYYY-MM-DD.');
       return;
     }
     if (modo === 'cobro' && tipo === 'reembolso' && !origenId.trim()) {
@@ -89,7 +96,7 @@ export function CajaAlta({
     if (enviando) return;
     const montoClp = Number(monto.trim());
     if (modo === 'cobro') {
-      onConfirmarCobro({
+      onConfirmarCobro(edicionBloqueada && cobroInicial ? cobroInicial : {
         ancla_tipo: anclaTipo,
         ancla_id: anclaId.trim(),
         tipo,
@@ -159,7 +166,11 @@ export function CajaAlta({
                     <Campo label="Monto en pesos" valor={monto} onChange={setMonto} numeric />
                     <Campo label="Fecha efectiva" valor={fecha} onChange={setFecha} />
                     {tipo === 'reembolso' ? (
-                      <Campo label="Movimiento de origen" valor={origenId} onChange={setOrigenId} />
+                      entradaLegible ? (
+                        <InstitutionalText role="caption" color="ink">{entradaLegible}</InstitutionalText>
+                      ) : (
+                        <Campo label="Movimiento de origen" valor={origenId} onChange={setOrigenId} />
+                      )
                     ) : null}
                     <Campo label="Motivo" valor={motivo} onChange={setMotivo} />
                   </>
@@ -231,8 +242,21 @@ export function CajaAlta({
                     {enviando ? 'Enviando' : 'Confirmar envío'}
                   </InstitutionalText>
                 </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Volver a editar" onPress={() => setPaso('editar')} style={styles.secundario}>
-                  <InstitutionalText role="captionBold" color="ink">Volver</InstitutionalText>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={edicionBloqueada ? 'Reintentar antes de editar' : 'Volver a editar'}
+                  onPress={() => {
+                    if (edicionBloqueada) {
+                      setAviso('Este envío no tuvo respuesta. Reintenta estos mismos datos antes de editarlos.');
+                      return;
+                    }
+                    setPaso('editar');
+                  }}
+                  style={styles.secundario}
+                >
+                  <InstitutionalText role="captionBold" color="ink">
+                    {edicionBloqueada ? 'Reintentar antes de editar' : 'Volver'}
+                  </InstitutionalText>
                 </Pressable>
               </>
             )}

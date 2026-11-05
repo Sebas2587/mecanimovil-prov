@@ -24,7 +24,7 @@ function libro(parcial: Partial<LibroCaja> = {}): LibroCaja {
       moneda: 'CLP',
       completo: true,
       conocido_parcial: true,
-      faltantes: {},
+      faltantes: [],
       legacy_no_contabilizado: 0,
     },
     serie: [{ inicio: '2026-11-05', fin: '2026-11-05', cobros_brutos_clp: 30, reembolsos_clp: 0, neto_clp: 30 }],
@@ -93,6 +93,32 @@ describe('CajaLibro', () => {
     expect(screen.getByText('Cita 15')).toBeTruthy();
     expect(screen.queryByText('100')).toBeNull();
     expect(screen.getByLabelText('Registrar cobro')).toBeTruthy();
+  });
+
+  it('lista los códigos faltantes y no inventa un cero de moneda', async () => {
+    const base = libro({
+      resumen: {
+        ...libro().resumen,
+        completo: false,
+        faltantes: ['legacy_sin_movimiento'],
+      },
+    });
+    await renderLibro({ libro: base });
+    expect(screen.getByText('Faltan datos: fuente sin movimiento.')).toBeTruthy();
+    expect(screen.queryByText(/otra moneda 0/)).toBeNull();
+  });
+
+  it('muestra el nombre que vino en la misma fila', async () => {
+    const base = libro();
+    base.casos.results[0] = {
+      ...base.casos.results[0],
+      cliente_nombre: 'Ana',
+      vehiculo_patente: 'ABCD12',
+      folio: 'MM-1',
+    };
+    await renderLibro({ libro: base });
+    expect(screen.getByText('Ana · ABCD12 · MM-1')).toBeTruthy();
+    expect(screen.queryByText('Cita 15')).toBeNull();
   });
 
   it('el mecánico no ve las acciones de registro', async () => {

@@ -5,7 +5,11 @@ import {
   anclaGuardada,
   claveParaIntento,
   diasInclusivos,
+  entradaManualDevolvible,
   falloDesdeRespuesta,
+  fechaRealIso,
+  guardarIntentoIncierto,
+  textoFaltantesResumen,
   periodoMesHastaHoy,
   textoMargenContratado,
   textoMargenReal,
@@ -36,6 +40,8 @@ describe('caja del taller', () => {
     expect(diasInclusivos(periodo.desde, periodo.hasta)).toBe(5);
     expect(validarPeriodo('2025-01-01', '2026-01-02')).toMatch(String(DIAS_MAXIMOS));
     expect(validarPeriodo('2026-11-01', '2026-11-05')).toBeNull();
+    expect(fechaRealIso('2026-02-31')).toBe(false);
+    expect(validarPeriodo('2026-02-31', '2026-03-02')).toMatch(/no existe/i);
   });
 
   it('muestra el neto del API y no calcula el margen con el exigible', () => {
@@ -63,6 +69,9 @@ describe('caja del taller', () => {
     expect(reintento.clave).toBe(primero.clave);
     const otro = claveParaIntento(primero, { ...cuerpo, monto_clp: 40 });
     expect(otro.clave).not.toBe(primero.clave);
+    const incierto = claveParaIntento({ ...primero, incierto: true }, { ...cuerpo, motivo: 'otro' });
+    expect(incierto.clave).toBe(primero.clave);
+    expect(incierto.cuerpo).toEqual(primero.cuerpo);
   });
 
   it('un 404 sin ancla no es un período vacío y el ancla ajena sí se nombra', () => {
@@ -70,7 +79,41 @@ describe('caja del taller', () => {
     expect(falloDesdeRespuesta(404, {}).clase).toBe('api_ausente');
     expect(falloDesdeRespuesta(404, { code: 'ancla_ajena' }).mensaje).toMatch(/no es de este taller/i);
     expect(falloDesdeRespuesta(409, { code: 'reverso_mp_solo_webhook' }).mensaje).toMatch(/webhook/i);
-    expect(falloDesdeRespuesta(null, null).clase).toBe('red');
+    const sinRespuesta = falloDesdeRespuesta(null, null);
+    expect(sinRespuesta.clase).toBe('red');
+    expect(sinRespuesta.mensaje).toMatch(/no se sabe si/i);
+    expect(sinRespuesta.mensaje).not.toMatch(/no cambió/i);
+    expect(textoFaltantesResumen(['legacy_sin_movimiento'])).toBe('Faltan datos: fuente sin movimiento.');
+    expect(textoFaltantesResumen(['legacy_sin_movimiento'])).not.toMatch(/0/);
+    expect(textoFaltantesResumen({ moneda_no_clp: 0 })).toBeNull();
+    expect(entradaManualDevolvible({
+      id: 'abc',
+      ancla_tipo: 'cita',
+      ancla_id: '15',
+      componente: 'total',
+      origen: 'manual',
+      tipo: 'entrada',
+      estado: 'confirmado',
+      monto_clp: 30,
+      moneda: 'CLP',
+      contabiliza_clp: true,
+      fecha_efectiva: '2026-11-05',
+      fecha_local: '2026-11-05',
+    })).toBe(true);
+    expect(entradaManualDevolvible({
+      id: 'mp-1',
+      ancla_tipo: 'cita',
+      ancla_id: '15',
+      componente: 'total',
+      origen: 'mp',
+      tipo: 'entrada',
+      estado: 'confirmado',
+      monto_clp: 30,
+      moneda: 'CLP',
+      contabiliza_clp: true,
+      fecha_efectiva: '2026-11-05',
+      fecha_local: '2026-11-05',
+    })).toBe(false);
   });
 
   it('sin nombre humano muestra la ancla y no inventa cliente', () => {
@@ -115,5 +158,26 @@ describe('caja del taller', () => {
     const fallo = falloDesdeRespuesta(409, { code: 'reverso_ancla_distinta' });
     expect(fallo.clase).toBe('conflicto');
     expect(fallo.mensaje).toMatch(/mismo caso/i);
+  });
+
+  it('un módulo nuevo recupera el intento incierto desde la sesión', () => {
+    const bolsa = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (clave: string) => bolsa.get(clave) ?? null,
+        setItem: (clave: string, valor: string) => { bolsa.set(clave, valor); },
+        removeItem: (clave: string) => { bolsa.delete(clave); },
+      },
+    });
+    const intento = claveParaIntento(null, cuerpo);
+    guardarIntentoIncierto({ ...intento, incierto: true });
+    const caja: { leido: { clave?: string; cuerpo?: CuerpoCobro } | null } = { leido: null };
+    jest.isolateModules(() => {
+      caja.leido = require('@/utils/cajaTaller').leerIntentoIncierto();
+    });
+    expect(caja.leido?.clave).toBe(intento.clave);
+    expect(caja.leido?.cuerpo).toEqual(cuerpo);
+    guardarIntentoIncierto(null);
   });
 });

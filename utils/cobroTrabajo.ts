@@ -257,9 +257,17 @@ export function cobroVisibleOferta(oferta: RegistroCobro | null | undefined): Co
 }
 
 /**
- * Lista de Servicios. Si hay oferta, sus campos de pago mandan aunque el
- * estado efectivo sea el de la orden (completado, en ejecución).
+ * Lista de Servicios. La proyección de la orden manda aunque la oferta
+ * traiga flags viejos. Sin `estado_cobro_ui`, sigue mandando la oferta.
  */
+function proyeccionDisponible(
+  registro: RegistroCobro | null | undefined,
+  origen: OrigenCobro,
+): EvidenciaCobro | null {
+  if (!registro || !limpio(registro.estado_cobro_ui)) return null;
+  return evidenciaCobroDeRegistro(registro, origen);
+}
+
 export function cobroVisibleLista(item: {
   estadoEfectivo?: string | null;
   orden?: RegistroCobro | null;
@@ -267,6 +275,14 @@ export function cobroVisibleLista(item: {
 }): CobroVista {
   const oferta = item.oferta;
   const orden = item.orden;
+  const proyectada = proyeccionDisponible(orden, 'orden')
+    ?? proyeccionDisponible(oferta, 'oferta');
+  if (proyectada) {
+    return resolverCobroTrabajo({
+      ...proyectada,
+      estado: item.estadoEfectivo ?? proyectada.estado,
+    });
+  }
   const fuente = oferta ?? orden;
   const origen: OrigenCobro = oferta ? 'oferta' : 'orden';
   return resolverCobroTrabajo({

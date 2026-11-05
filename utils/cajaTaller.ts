@@ -26,7 +26,8 @@ export type ResumenCaja = {
   moneda: 'CLP';
   completo: boolean;
   conocido_parcial: boolean;
-  faltantes: { legacy_sin_movimiento?: number; moneda_no_clp?: number };
+  /** Códigos, por ejemplo legacy_sin_movimiento o moneda_no_clp. No es un contador. */
+  faltantes: string[];
   legacy_no_contabilizado: number;
 };
 
@@ -130,6 +131,8 @@ export type CuerpoCosto = {
 export type IntentoCaja<T> = {
   clave: string;
   cuerpo: T;
+  /** True cuando el POST salió y no hubo respuesta. La clave y el cuerpo quedan fijos. */
+  incierto?: boolean;
 };
 
 export type ClaseFallo = 'api_ausente' | 'ancla_ajena' | 'sin_permiso' | 'conflicto' | 'solicitud' | 'red';
@@ -163,8 +166,21 @@ export function periodoMesHastaHoy(ahora = new Date()): { desde: string; hasta: 
   return { desde: `${anio}-${mes}-01`, hasta };
 }
 
+/** YYYY-MM-DD que existe en el calendario. 2026-02-31 no pasa. */
+export function fechaRealIso(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const anio = Number(iso.slice(0, 4));
+  const mes = Number(iso.slice(5, 7));
+  const dia = Number(iso.slice(8, 10));
+  if (mes < 1 || mes > 12 || dia < 1) return false;
+  const probe = new Date(Date.UTC(anio, mes - 1, dia));
+  return probe.getUTCFullYear() === anio
+    && probe.getUTCMonth() === mes - 1
+    && probe.getUTCDate() === dia;
+}
+
 export function diasInclusivos(desde: string, hasta: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) return null;
+  if (!fechaRealIso(desde) || !fechaRealIso(hasta)) return null;
   const inicio = Date.parse(`${desde}T00:00:00Z`);
   const fin = Date.parse(`${hasta}T00:00:00Z`);
   if (!Number.isFinite(inicio) || !Number.isFinite(fin) || fin < inicio) return null;
@@ -172,6 +188,10 @@ export function diasInclusivos(desde: string, hasta: string): number | null {
 }
 
 export function validarPeriodo(desde: string, hasta: string): string | null {
+  if ((/^\d{4}-\d{2}-\d{2}$/.test(desde) && !fechaRealIso(desde))
+    || (/^\d{4}-\d{2}-\d{2}$/.test(hasta) && !fechaRealIso(hasta))) {
+    return 'La fecha no existe. Revisa el día del mes.';
+  }
   const dias = diasInclusivos(desde, hasta);
   if (dias == null) return 'El período usa fechas YYYY-MM-DD y la fecha final no puede ser anterior.';
   if (dias > DIAS_MAXIMOS) return `El período admite como máximo ${DIAS_MAXIMOS} días.`;
@@ -185,9 +205,68 @@ export function nuevaClaveIdempotencia(): string {
 }
 
 export function claveParaIntento<T>(intento: IntentoCaja<T> | null, cuerpo: T): IntentoCaja<T> {
+  if (intento?.incierto) return intento;
   const serial = JSON.stringify(cuerpo);
   if (intento && JSON.stringify(intento.cuerpo) === serial) return intento;
-  return { clave: nuevaClaveIdempotencia(), cuerpo };
+  return { clave: nuevaClaveIdempotencia(), cuerpo, incierto: false };
+}
+
+const CLAVE_SESION_INTENTO = 'mecanimovil.caja.intento-incierto';
+let intentoEnMemoria: IntentoCaja<CuerpoCobro> | null = null;
+
+function almacenamientoSesion(): Storage | null {
+  try {
+    const candidato = (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    if (!candidato || typeof candidato.getItem !== 'function') return null;
+    return candidato;
+  } catch {
+    return null;
+  }
+}
+
+/** El intento cuyo POST no respondió. Sobrevive a salir de la pantalla y, si hay sesión, al refresh. */
+export function leerIntentoIncierto(): IntentoCaja<CuerpoCobro> | null {
+  if (intentoEnMemoria?.incierto) return intentoEnMemoria;
+  const raw = almacenamientoSesion()?.getItem(CLAVE_SESION_INTENTO);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as IntentoCaja<CuerpoCobro>;
+    if (!parsed?.incierto || !parsed.clave || !parsed.cuerpo) return null;
+    intentoEnMemoria = parsed;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function guardarIntentoIncierto(intento: IntentoCaja<CuerpoCobro> | null): void {
+  intentoEnMemoria = intento?.incierto ? intento : null;
+  const caja = almacenamientoSesion();
+  if (!caja) return;
+  if (intentoEnMemoria) caja.setItem(CLAVE_SESION_INTENTO, JSON.stringify(intentoEnMemoria));
+  else caja.removeItem(CLAVE_SESION_INTENTO);
+}
+
+export function entradaManualDevolvible(movimiento: MovimientoCaja): boolean {
+  return movimiento.tipo === 'entrada'
+    && String(movimiento.origen || '').toLowerCase() === 'manual'
+    && Boolean(movimiento.id);
+}
+
+const NOMBRE_FALTANTE: Record<string, string> = {
+  legacy_sin_movimiento: 'fuente sin movimiento',
+  moneda_no_clp: 'otra moneda',
+};
+
+/** Lista de códigos. Un objeto o un ausente no se convierte en contador 0. */
+export function textoFaltantesResumen(faltantes: unknown): string | null {
+  if (!Array.isArray(faltantes)) return null;
+  const nombres = faltantes
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean)
+    .map((codigo) => NOMBRE_FALTANTE[codigo] || codigo);
+  if (nombres.length === 0) return null;
+  return `Faltan datos: ${nombres.join(', ')}.`;
 }
 
 const NOMBRE_ANCLA: Record<string, string> = {
@@ -289,7 +368,7 @@ export function falloDesdeRespuesta(status: number | null, data: unknown): Fallo
       status,
       code,
       detail,
-      mensaje: 'No hubo respuesta del servidor. El libro no cambió. Reintenta este mismo envío.',
+      mensaje: 'No hubo respuesta del servidor. No se sabe si el cobro quedó guardado. Reintenta este mismo envío, con estos datos, antes de editarlo.',
     };
   }
   if (status === 404 && code === 'ancla_ajena') {

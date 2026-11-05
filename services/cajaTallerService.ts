@@ -35,6 +35,10 @@ function paramsConsulta(consulta: ConsultaCaja): string {
   return params.toString();
 }
 
+/**
+ * Un solo GET del período. cliente_nombre, vehiculo_patente y folio, si existen,
+ * vienen en cada fila. No se pide el caso otra vez para ponerle nombre.
+ */
 export async function consultarCaja(consulta: ConsultaCaja): Promise<LibroCaja> {
   try {
     const respuesta = await api.get(`/ordenes/caja/?${paramsConsulta(consulta)}`);
