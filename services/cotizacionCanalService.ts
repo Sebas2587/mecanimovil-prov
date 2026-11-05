@@ -173,6 +173,12 @@ export interface RepuestoCotizacion {
   /** Margen de la línea que calculó el backend. La UI lo recalcula al editar. */
   margen_clp?: number | null;
   margen_pct?: number | null;
+  /** ok | sin_referencia_valida | requiere_revision | asumido. Ausente en cotizaciones viejas. */
+  validacion_estado?: 'ok' | 'sin_referencia_valida' | 'requiere_revision' | 'asumido' | '';
+  /** Una frase. Vacía cuando el estado es ok. */
+  validacion_motivo?: string;
+  /** Qué revisó el cotizador en esta línea. */
+  alertas?: string[];
   /** Título de la ficha de tienda (solo taller). */
   nombre_producto?: string;
   /** true si el precio no viene del catálogo/historial del taller (revisar antes de enviar). */
@@ -295,6 +301,13 @@ export interface CotizacionCanal {
   cobrado_total_repuestos_clp?: number | null;
   ganancia_repuestos_clp?: number | null;
   margen_repuestos_pct?: number | null;
+  /** Líneas que no quedaron en ok o que traen una alerta. Ausente si el backend no lo envía. */
+  alertas_validacion?: Array<{
+    repuesto?: string;
+    estado?: string;
+    motivo?: string;
+    alertas?: string[];
+  }>;
   descuento_tipo?: '' | 'monto' | 'porcentaje' | null;
   descuento_alcance?: 'mano_obra' | 'total' | null;
   descuento_valor?: number | null;
