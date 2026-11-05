@@ -54,6 +54,8 @@ import {
   formatearMontoCLP,
   redondearCLP,
 } from '@/utils/formatearMontoCLP';
+import { resolverObligacionCotizacion, totalesDesdeLineas } from '@/utils/totalesCotizacion';
+import { textoObligacionCotizacion } from '@/utils/cotizacionPresentacion';
 import type { CotizacionCanal, ManoObraLinea, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
   MAX_MANO_OBRA_LINEAS,
@@ -813,12 +815,56 @@ export const CotizacionIaEditor = React.forwardRef<
 
   const totalCalculado = descuentoLive.total;
 
+  const canon = useMemo(
+    () => totalesDesdeLineas({
+      repuestos,
+      manoObraLineas: lineasMo,
+      descuentoTipo: cotizacion.descuento_tipo,
+      descuentoAlcance: cotizacion.descuento_alcance,
+      descuentoValor: cotizacion.descuento_valor,
+      totalPersistido: cotizacion.total_persistido_clp ?? cotizacion.total_clp,
+    }),
+    [
+      repuestos,
+      lineasMo,
+      cotizacion.descuento_tipo,
+      cotizacion.descuento_alcance,
+      cotizacion.descuento_valor,
+      cotizacion.total_persistido_clp,
+      cotizacion.total_clp,
+    ],
+  );
+
+  const obligacionVista = useMemo(
+    () => resolverObligacionCotizacion({
+      estado: cotizacion.estado,
+      obligacionCongeladaClp: cotizacion.metadata?.obligacion_congelada_clp,
+      repuestos,
+      manoObraLineas: lineasMo,
+      descuentoTipo: cotizacion.descuento_tipo,
+      descuentoAlcance: cotizacion.descuento_alcance,
+      descuentoValor: cotizacion.descuento_valor,
+      totalPersistido: cotizacion.total_persistido_clp ?? cotizacion.total_clp,
+    }),
+    [
+      cotizacion.estado,
+      cotizacion.metadata?.obligacion_congelada_clp,
+      cotizacion.descuento_tipo,
+      cotizacion.descuento_alcance,
+      cotizacion.descuento_valor,
+      cotizacion.total_persistido_clp,
+      cotizacion.total_clp,
+      repuestos,
+      lineasMo,
+    ],
+  );
+
   const descuentoActivo = cotizacion.descuento_tipo === 'porcentaje'
     || cotizacion.descuento_tipo === 'monto';
 
   const desgloseTotal = useMemo(
-    () => desgloseIvaDesdeTotal(totalCalculado),
-    [totalCalculado],
+    () => desgloseIvaDesdeTotal(canon.totales_completos ? (canon.total_clp ?? 0) : totalCalculado),
+    [canon, totalCalculado],
   );
 
   const esEstimacionEmitida = cotizacion.estado !== 'borrador'
@@ -1737,12 +1783,12 @@ export const CotizacionIaEditor = React.forwardRef<
             </InstitutionalText>
           </View>
         ) : null}
-        {esEstimacionEmitida && bandaCliente.hayRango ? null : (
+        {esEstimacionEmitida && bandaCliente.hayRango ? null : canon.totales_completos ? (
           <>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
               <InstitutionalText role="caption" color="muted">
-                Neto
+                Precio sin IVA
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
                 {formatearMontoCLP(desgloseTotal.neto)}
@@ -1750,13 +1796,22 @@ export const CotizacionIaEditor = React.forwardRef<
             </View>
             <View style={styles.summaryRow}>
               <InstitutionalText role="caption" color="muted">
-                IVA 19%
+                IVA incluido
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
                 {formatearMontoCLP(desgloseTotal.iva)}
               </InstitutionalText>
             </View>
           </>
+        ) : (
+          <View style={styles.summaryRow}>
+            <InstitutionalText role="caption" color="muted">
+              Suma parcial
+            </InstitutionalText>
+            <InstitutionalText role="captionBold" color="ink">
+              {formatearMontoCLP(canon.total_conocido_parcial_clp)}
+            </InstitutionalText>
+          </View>
         )}
         <View style={styles.summaryDivider} />
         {esEstimacionEmitida && bandaCliente.hayRango ? (
@@ -1774,7 +1829,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 Total de trabajo (taller)
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseTotal.total)}
+                {canon.totales_completos ? formatearMontoCLP(canon.total_clp) : 'Incompleto'}
               </InstitutionalText>
             </View>
             <InstitutionalText role="caption" color="muted">
@@ -1788,7 +1843,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 Total a pagar
               </InstitutionalText>
               <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-                {formatearMontoCLP(desgloseTotal.total)}
+                {canon.totales_completos ? formatearMontoCLP(canon.total_clp) : 'Incompleto'}
               </InstitutionalText>
             </View>
             {bandaCliente.hayRango ? (
@@ -1801,6 +1856,11 @@ export const CotizacionIaEditor = React.forwardRef<
                 Los precios de línea ya incluyen IVA. El desglose neto/IVA es informativo.
               </InstitutionalText>
             )}
+            {textoObligacionCotizacion(obligacionVista) ? (
+              <InstitutionalText role="caption" color="muted">
+                {`Obligación de caja: ${textoObligacionCotizacion(obligacionVista)}. Esta vista no se guarda.`}
+              </InstitutionalText>
+            ) : null}
           </>
         )}
       </Card>

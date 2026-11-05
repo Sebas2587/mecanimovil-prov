@@ -2,7 +2,8 @@ import {
   resolverManoObraLineas,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
-import { redondearCLP } from '@/utils/formatearMontoCLP';
+import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
+import { totalConocidoCotizacion } from '@/utils/totalesCotizacion';
 
 export type EstadoCotizacionVista =
   | 'borrador'
@@ -110,4 +111,29 @@ export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesg
 
 export function montoCotizacion(cotizacion: Pick<CotizacionCanal, 'total_clp'>): number {
   return redondearCLP(cotizacion.total_clp);
+}
+
+/** Total de la respuesta. Incompleto no se muestra como $0. */
+export function textoTotalCotizacion(cotizacion: {
+  total_clp?: number | null;
+  totales_completos?: boolean | null;
+}): string {
+  const total = totalConocidoCotizacion(cotizacion);
+  if (total == null) return 'Incompleto';
+  return formatearMontoCLP(total);
+}
+
+/** La obligación null no se muestra como $0. Sin campos nuevos, no se inventa. */
+export function textoObligacionCotizacion(cotizacion: {
+  obligacion_clp?: number | null;
+  obligacion_conocida?: boolean | null;
+  obligacion_fuente?: string | null;
+}): string | null {
+  if (cotizacion.obligacion_conocida == null && cotizacion.obligacion_fuente == null) return null;
+  if (cotizacion.obligacion_clp == null || cotizacion.obligacion_conocida === false) {
+    if (cotizacion.obligacion_fuente === 'incompleto') return 'Obligación incompleta';
+    if (cotizacion.obligacion_fuente === 'no_aceptada') return 'Todavía no es obligación';
+    return 'Obligación desconocida';
+  }
+  return formatearMontoCLP(cotizacion.obligacion_clp);
 }

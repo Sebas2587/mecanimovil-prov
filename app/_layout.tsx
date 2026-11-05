@@ -158,6 +158,7 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="creditos" options={{ headerShown: false }} />
                   <Stack.Screen name="creditos/saldo" options={{ headerShown: false }} />
+                  <Stack.Screen name="caja-taller" options={{ headerShown: false }} />
                   <Stack.Screen name="creditos/historial" options={{ headerShown: false }} />
                   <Stack.Screen name="creditos/comprar" options={{ headerShown: false }} />
                   <Stack.Screen name="mis-servicios" options={{ headerShown: false }} />

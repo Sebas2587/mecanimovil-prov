@@ -274,7 +274,7 @@ export function FinanzasTallerCard({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel="Finanzas del mes, ver detalle"
+        accessibilityLabel="Caja del taller, ver movimientos"
         style={({ pressed }) => [styles.cardInset, fill && styles.cardFill, pressed && styles.pressed, style]}
       >
         {body}

@@ -43,9 +43,10 @@ import {
   estadoCotizacionVista,
   etiquetaEstadoCotizacion,
   fechaCortaCotizacion,
-  montoCotizacion,
+  textoTotalCotizacion,
   type EstadoCotizacionVista,
 } from '@/utils/cotizacionPresentacion';
+import { totalConocidoCotizacion } from '@/utils/totalesCotizacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -119,15 +120,22 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     });
   }, [busqueda, cotizaciones, filtro]);
 
-  const esperando = cotizaciones
-    .filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'enviada')
-    .reduce((sum, cotizacion) => sum + montoCotizacion(cotizacion), 0);
-  const aceptado = cotizaciones
-    .filter((cotizacion) => {
-      const estado = estadoCotizacionVista(cotizacion);
-      return estado === 'aceptada' || estado === 'agendada' || estado === 'entregada';
-    })
-    .reduce((sum, cotizacion) => sum + montoCotizacion(cotizacion), 0);
+  const sumaEstados = (estados: EstadoCotizacionVista[]) => {
+    const buscados = new Set(estados);
+    return cotizaciones
+    .filter((cotizacion) => buscados.has(estadoCotizacionVista(cotizacion)))
+    .reduce(
+      (acc, cotizacion) => {
+        const total = totalConocidoCotizacion(cotizacion);
+        if (total == null) return { ...acc, incompletos: acc.incompletos + 1 };
+        return { ...acc, total: acc.total + total };
+      },
+      { total: 0, incompletos: 0 },
+    );
+  };
+  const esperando = sumaEstados(['enviada']);
+  const aceptado = sumaEstados(['aceptada', 'agendada', 'entregada']);
+  const incompletos = esperando.incompletos + aceptado.incompletos;
 
   const abrir = useCallback((id: number) => setAbiertaId(id), []);
   const agendar = useCallback((cotizacion: CotizacionCanal) => {
@@ -313,7 +321,8 @@ export function CotizacionesVista({ estadoInicial }: Props) {
               <InstitutionalText role="h4">{TITULO_FILTRO[filtro]}</InstitutionalText>
             ) : null}
             <InstitutionalText role="caption" color="body" style={styles.resumen}>
-              {formatearMontoCLP(esperando)} esperando respuesta · {formatearMontoCLP(aceptado)} aceptado
+              {formatearMontoCLP(esperando.total)} esperando respuesta · {formatearMontoCLP(aceptado.total)} aceptado
+              {incompletos > 0 ? ' · hay totales incompletos' : ''}
             </InstitutionalText>
             {puedeLimpiarLista && visibles.length > 0 ? (
               <Pressable
@@ -494,7 +503,7 @@ const CotizacionCard = memo(function CotizacionCard({
             {cotizacion.enviada_en ? `Enviada el ${fecha}` : `Creada el ${fecha}`}
           </InstitutionalText>
         ) : null}
-        <InstitutionalText role="bodyBold">{formatearMontoCLP(montoCotizacion(cotizacion))}</InstitutionalText>
+        <InstitutionalText role="bodyBold">{textoTotalCotizacion(cotizacion)}</InstitutionalText>
       </Pressable>
     </View>
   );

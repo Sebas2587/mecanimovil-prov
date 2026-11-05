@@ -33,7 +33,8 @@ import {
   fechaCortaCotizacion,
   fechaLargaCotizacion,
   lineasDesgloseCotizacion,
-  montoCotizacion,
+  textoObligacionCotizacion,
+  textoTotalCotizacion,
 } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
@@ -282,8 +283,14 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
               ) : null}
               <View style={styles.total}>
                 <InstitutionalText role="bodyBold">Total</InstitutionalText>
-                <InstitutionalText role="bodyBold">{formatearMontoCLP(montoCotizacion(cotizacion))}</InstitutionalText>
+                <InstitutionalText role="bodyBold">{textoTotalCotizacion(cotizacion)}</InstitutionalText>
               </View>
+              {textoObligacionCotizacion(cotizacion) ? (
+                <View style={styles.linea}>
+                  <InstitutionalText role="caption" color="body">Obligación de caja</InstitutionalText>
+                  <InstitutionalText role="caption">{textoObligacionCotizacion(cotizacion)}</InstitutionalText>
+                </View>
+              ) : null}
             </View>
 
             <Seguimiento cotizacion={cotizacion} />

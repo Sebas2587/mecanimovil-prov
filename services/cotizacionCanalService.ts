@@ -316,6 +316,17 @@ export interface CotizacionCanal {
   dias_validez?: number;
   fecha_expiracion_publica?: string | null;
   total_clp: number;
+  total_persistido_clp?: number | null;
+  total_conocido_parcial_clp?: number | null;
+  total_alineado?: boolean | null;
+  totales_completos?: boolean | null;
+  totales_faltantes?: string[];
+  totales_fuente?: string | null;
+  precios_iva?: 'incluido' | string | null;
+  obligacion_clp?: number | null;
+  obligacion_conocida?: boolean | null;
+  obligacion_fuente?: 'lineas_respuesta' | 'congelada' | 'discrepancia' | 'incompleto' | 'no_aceptada' | 'oferta_aceptada' | string | null;
+  obligacion_faltantes?: string[] | null;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
   notas_internas?: string;
@@ -353,6 +364,7 @@ export interface CotizacionCanal {
     cita_personal_id?: number;
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
     entrega_canal_motivo?: string;
+    obligacion_congelada_clp?: number | null;
     servicios_lineas?: Array<{
       id?: string;
       nombre?: string;
