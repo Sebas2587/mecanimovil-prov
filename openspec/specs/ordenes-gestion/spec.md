@@ -195,16 +195,17 @@ Si `checklist_estado` viene omitido, null, vacío o con un valor que no es enum 
 - WHEN se lee el avance
 - THEN no dice «Agendado»
 
-### Requirement: Las acciones flotantes no tapan la última línea
-En pantallas estrechas, la ficha de la cita MUST reservar el alto del botón de más acciones más un hueco, por encima del pie. La lista de Servicios MUST reservar el alto de «Nueva cotización» cuando esa acción flota. El contenido MUST terminar por encima del botón. Las acciones, el pie y el scroll MUST permanecer.
+### Requirement: Las acciones de la ficha y la lista quedan fuera del contenido
+El botón de más acciones de la cita MUST estar en la cabecera, fuera del scroll, con pie y sin pie. MUST NOT flotar sobre el contenido. En Servicios, el marco de la lista MUST terminar encima de «Nueva cotización» usando el alto medido de ese control. MUST NOT ser un padding al final del scroll. Las acciones, el pie y el zoom MUST permanecer.
 
-#### Scenario: Ficha con pie y botón de más acciones
-- GIVEN una ficha con pie fijo y el botón de más acciones
-- WHEN se calcula el padding del scroll
-- THEN el padding es mayor que el ancla del botón más su alto
-- AND el ancla queda por encima del pie
+#### Scenario: Ficha sin pie
+- GIVEN una cita sin pie fijo y con acciones
+- WHEN se abre la ficha
+- THEN «Más acciones» está en la cabecera
+- AND no hay un botón absoluto sobre el scroll
 
 #### Scenario: Lista de Servicios
-- GIVEN la acción «Nueva cotización» flotando sobre la barra
-- WHEN se muestra la lista
-- THEN el padding inferior incluye el alto de esa acción y un hueco
+- GIVEN «Nueva cotización» visible
+- WHEN la lista mide el control
+- THEN el marco usa ese alto como margen inferior
+- AND el padding del contenido no incluye esa reserva

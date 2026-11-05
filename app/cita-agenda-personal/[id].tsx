@@ -17,7 +17,8 @@ import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, ListChecks, MessageCircle, UserRound, Wrench } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import type { CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import { CitaMasAcciones } from '@/components/agenda/CitaMasAcciones';
 import { folioIdentidadLabel } from '@/utils/entregaCotizacionCopy';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -80,11 +81,6 @@ import { TallerPildora } from '@/components/taller/TallerPildora';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
 import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
-import {
-  ALTO_BOTON_MAS,
-  HUECO_ACCION,
-  reservaScrollSobreAccion,
-} from '@/utils/reservaAccionFlotante';
 import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
@@ -423,7 +419,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (esActiva && editando) {
       return 72 + footerBottomPad + SPACING.fixed.md;
     }
-    // CTA full-width + cancelar como link debajo (deja hueco para el FAB).
+    // Alto del pie fijo (CTA y enlace). El menú de acciones no vive aquí.
     return 108 + footerBottomPad + SPACING.fixed.md;
   }, [
     muestraFooterAcciones,
@@ -1013,12 +1009,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
   }
   const mostrarFab = fabActions.length > 0;
-  const anclaFab = muestraFooterAcciones && mostrarStickyPrimario
-    ? footerReserve + HUECO_ACCION
-    : Math.max(insets.bottom, SPACING.fixed.md) + 96;
-  const paddingScroll = mostrarFab
-    ? reservaScrollSobreAccion(anclaFab, ALTO_BOTON_MAS)
-    : footerReserve;
 
   return (
     <View style={styles.container}>
@@ -1030,6 +1020,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
         titleColor={I.ink}
+        style={{ zIndex: 5 }}
+        rightComponent={mostrarFab ? <CitaMasAcciones actions={fabActions} /> : undefined}
       />
 
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -1039,7 +1031,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingBottom: paddingScroll },
+            { paddingBottom: footerReserve },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -1459,13 +1451,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
         onClose={() => setShowChecklistResumen(false)}
         citaPersonalId={cita.id}
         instanceId={cita.checklist_id ?? null}
-      />
-
-      <CotizacionEditorFab
-        visible={mostrarFab}
-        variant="more"
-        actions={fabActions}
-        bottomOffset={mostrarFab ? anclaFab : undefined}
       />
 
       <ChecklistSignatureModal
