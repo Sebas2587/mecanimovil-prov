@@ -40,6 +40,8 @@ type Props = {
   onCambiarGranularidad: (valor: GranularidadCaja) => void;
   onConsultar: () => void;
   avisoPeriodo: string | null;
+  /** Período que se pidió. No es el borrador del input. */
+  periodoPedido?: { desde: string; hasta: string } | null;
   cargando: boolean;
   fallo: FalloCaja | null;
   libro: LibroCaja | null;
@@ -79,6 +81,7 @@ export function CajaLibro({
   onCambiarGranularidad,
   onConsultar,
   avisoPeriodo,
+  periodoPedido = null,
   cargando,
   fallo,
   libro,
@@ -139,10 +142,12 @@ export function CajaLibro({
           <InstitutionalText role="captionBold" color="onPrimary">Consultar período</InstitutionalText>
         </Pressable>
 
-        {cargando ? (
+        {cargando && periodoPedido ? (
           <View style={styles.estado}>
             <ActivityIndicator color={I.primary} />
-            <InstitutionalText role="body" color="muted">{`Cargando ${desde} a ${hasta}`}</InstitutionalText>
+            <InstitutionalText role="body" color="muted">
+              {`Cargando ${periodoPedido.desde} a ${periodoPedido.hasta}`}
+            </InstitutionalText>
           </View>
         ) : null}
 
@@ -155,8 +160,11 @@ export function CajaLibro({
           </Card>
         ) : null}
 
-        {resumen && !fallo ? (
+        {resumen && libro ? (
           <Card elevated padding="host" style={styles.bloque}>
+            <InstitutionalText role="caption" color="muted">
+              {`Libro ${libro.desde} a ${libro.hasta}`}
+            </InstitutionalText>
             <Fila label="Cobros" valor={pesos(resumen.cobros_brutos_clp)} />
             <Fila label="Devoluciones" valor={pesos(resumen.reembolsos_clp)} />
             <Fila label={ETIQUETA_NETO} valor={pesos(resumen.neto_clp)} />

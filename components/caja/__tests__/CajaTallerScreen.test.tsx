@@ -2,7 +2,15 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { guardarIntentoIncierto, type LibroCaja, type MovimientoCaja } from '@/utils/cajaTaller';
+import {
+  duenoCaja,
+  falloDesdeRespuesta,
+  fechaSantiago,
+  leerIntentoIncierto,
+  olvidarIntentosCaja,
+  type LibroCaja,
+  type MovimientoCaja,
+} from '@/utils/cajaTaller';
 
 jest.mock('lucide-react-native', () => new Proxy({}, { get: () => () => null }));
 
@@ -28,16 +36,36 @@ jest.mock('expo-router', () => {
   };
 });
 
+type AuthCaja = {
+  esMecanicoEquipo: boolean;
+  usuario: { id: number } | null;
+  estadoProveedor: { proveedor_id?: number } | null;
+};
+
 jest.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ esMecanicoEquipo: false }),
+  useAuth: () => {
+    const bolsa = globalThis as {
+      __cajaAuth?: {
+        esMecanicoEquipo: boolean;
+        usuario: { id: number } | null;
+        estadoProveedor: { proveedor_id?: number } | null;
+      };
+    };
+    return bolsa.__cajaAuth ?? {
+      esMecanicoEquipo: false,
+      usuario: { id: 1 },
+      estadoProveedor: { proveedor_id: 1 },
+    };
+  },
 }));
 
 const mockConsultar = jest.fn();
 const mockRegistrar = jest.fn();
+const mockCosto = jest.fn();
 jest.mock('@/services/cajaTallerService', () => ({
   consultarCaja: (...args: unknown[]) => mockConsultar(...args),
   registrarCobro: (...args: unknown[]) => mockRegistrar(...args),
-  registrarCosto: jest.fn(),
+  registrarCosto: (...args: unknown[]) => mockCosto(...args),
 }));
 
 import CajaTallerScreen from '@/app/caja-taller';
@@ -111,9 +139,15 @@ describe('CajaTallerScreen', () => {
         removeItem: (clave: string) => { bolsa.delete(clave); },
       },
     });
-    guardarIntentoIncierto(null);
+    (globalThis as { __cajaAuth?: AuthCaja }).__cajaAuth = {
+      esMecanicoEquipo: false,
+      usuario: { id: 1 },
+      estadoProveedor: { proveedor_id: 1 },
+    };
+    olvidarIntentosCaja();
     mockConsultar.mockReset();
     mockRegistrar.mockReset();
+    mockCosto.mockReset();
     mockConsultar.mockImplementation(async (consulta: { desde: string; hasta: string }) => (
       libroDe(consulta.desde, consulta.hasta, 0)
     ));
@@ -182,7 +216,11 @@ describe('CajaTallerScreen', () => {
       consulta.hasta,
       30,
       [
-        movimiento({ id: 'manual-30', origen: 'manual' }),
+        movimiento({
+          id: 'manual-30',
+          origen: 'manual',
+          fecha_efectiva: '2026-03-02T15:04:00-03:00',
+        }),
         movimiento({ id: 'mp-30', origen: 'mp', monto_clp: 40 }),
       ],
     ));
@@ -192,6 +230,12 @@ describe('CajaTallerScreen', () => {
     expect(view.getByText(/Mercado Pago/)).toBeTruthy();
     await fireEvent.press(view.getByText('Devolver este cobro'));
     await waitFor(() => expect(view.getByText(/Devolución del cobro del 2026-11-05/)).toBeTruthy());
+    const hoy = fechaSantiago(new Date());
+    const fecha = String(view.getByLabelText('Fecha efectiva').props.value);
+    expect(fecha).toBe(hoy);
+    expect(fecha).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(fecha).not.toBe('2026-03-02');
+    expect(fecha).not.toContain('T');
     expect(view.queryByLabelText('Movimiento de origen')).toBeNull();
     await fireEvent.press(view.getByText('Revisar'));
     await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
@@ -199,6 +243,7 @@ describe('CajaTallerScreen', () => {
     await waitFor(() => expect(mockRegistrar).toHaveBeenCalled());
     expect(mockRegistrar.mock.calls[0][0].movimiento_origen_id).toBe('manual-30');
     expect(mockRegistrar.mock.calls[0][0].tipo).toBe('reembolso');
+    expect(mockRegistrar.mock.calls[0][0].fecha_efectiva).toBe(hoy);
 
     mockRegistrar.mockClear();
     await waitFor(() => expect(view.queryByLabelText('Confirmar envío')).toBeNull());
@@ -213,6 +258,180 @@ describe('CajaTallerScreen', () => {
     await fireEvent.press(view.getByText('Revisar'));
     await waitFor(() => expect(view.getByText(/no guarda/i)).toBeTruthy());
     expect(mockRegistrar).not.toHaveBeenCalled();
+  });
+
+  it('un 502 y un 504 conservan la clave y no abren la edición', async () => {
+    mockRegistrar.mockRejectedValueOnce(falloDesdeRespuesta(502, {}));
+    const view = await render(marco(<CajaTallerScreen />));
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(view.getByText(/no confirmó el resultado \(502\)/i)).toBeTruthy());
+    expect(view.queryByText(/rechaz/i)).toBeNull();
+    expect(view.queryByText(/no cambió/i)).toBeNull();
+    await fireEvent.press(view.getByLabelText('Reintentar antes de editar'));
+    expect(view.queryByLabelText('Motivo')).toBeNull();
+    mockRegistrar.mockRejectedValueOnce(falloDesdeRespuesta(504, {}));
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(view.getByText(/no confirmó el resultado \(504\)/i)).toBeTruthy());
+    expect(mockRegistrar).toHaveBeenCalledTimes(2);
+    expect(mockRegistrar.mock.calls[1][0]).toEqual(mockRegistrar.mock.calls[0][0]);
+    expect(mockRegistrar.mock.calls[1][1]).toBe(mockRegistrar.mock.calls[0][1]);
+    expect(view.queryByLabelText('Motivo')).toBeNull();
+  });
+
+  it('un 400 definitivo deja corregir el cobro con otra clave', async () => {
+    mockRegistrar.mockRejectedValueOnce(falloDesdeRespuesta(400, { code: 'fecha_invalida' }));
+    const view = await render(marco(<CajaTallerScreen />));
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(view.getByText(/no guardó/i)).toBeTruthy());
+    expect(view.queryByText(/no se sabe/i)).toBeNull();
+    await fireEvent.press(view.getByLabelText('Volver a editar'));
+    await waitFor(() => expect(view.getByLabelText('Motivo')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Motivo'), 'corregido');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    mockRegistrar.mockResolvedValueOnce({ id: 'ok', ancla_tipo: 'cita', ancla_id: '15' });
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(2));
+    expect(mockRegistrar.mock.calls[1][1]).not.toBe(mockRegistrar.mock.calls[0][1]);
+    expect(mockRegistrar.mock.calls[1][0].motivo).toBe('corregido');
+  });
+
+  it('el borrador de fechas no retitula la carga ni el dinero ya pedido', async () => {
+    const pendientes: Array<(valor: LibroCaja) => void> = [];
+    mockConsultar.mockReset();
+    mockConsultar.mockImplementation(() => new Promise((resolve) => {
+      pendientes.push(resolve);
+    }));
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(pendientes.length).toBeGreaterThan(0));
+    const desde = String(view.getByLabelText('Desde').props.value);
+    const hasta = String(view.getByLabelText('Hasta').props.value);
+    await fireEvent.changeText(view.getByLabelText('Hasta'), '2026-12-01');
+    await fireEvent.press(view.getByText('Día'));
+    expect(view.getByText(`Cargando ${desde} a ${hasta}`)).toBeTruthy();
+    expect(view.queryByText(`Cargando ${desde} a 2026-12-01`)).toBeNull();
+    const enCurso = pendientes.length;
+    for (let i = 0; i < enCurso; i += 1) {
+      pendientes[i](libroDe(desde, hasta, 111));
+    }
+    await waitFor(() => expect(view.getByText(`Libro ${desde} a ${hasta}`)).toBeTruthy());
+    expect(view.getAllByText(formatearMontoCLP(111)).length).toBeGreaterThan(0);
+    expect(String(view.getByLabelText('Hasta').props.value)).toBe('2026-12-01');
+    expect(view.queryByText(`Libro ${desde} a 2026-12-01`)).toBeNull();
+    expect(view.queryByText(`Cargando ${desde} a 2026-12-01`)).toBeNull();
+  });
+
+  it('un GET 502 del mismo período conserva las cifras y no dice que fue rechazado', async () => {
+    mockConsultar.mockImplementation(async (consulta: { desde: string; hasta: string }) => (
+      libroDe(consulta.desde, consulta.hasta, 333)
+    ));
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getAllByText(formatearMontoCLP(333)).length).toBeGreaterThan(0));
+    const desde = String(view.getByLabelText('Desde').props.value);
+    const hasta = String(view.getByLabelText('Hasta').props.value);
+    mockConsultar.mockRejectedValueOnce(falloDesdeRespuesta(502, {}));
+    await fireEvent.press(view.getByLabelText('Consultar período'));
+    await waitFor(() => expect(view.getByText(/no confirmó el resultado \(502\)/i)).toBeTruthy());
+    expect(view.getByText(`Libro ${desde} a ${hasta}`)).toBeTruthy();
+    expect(view.getAllByText(formatearMontoCLP(333)).length).toBeGreaterThan(0);
+    expect(view.getByText(/período ya cargado/i)).toBeTruthy();
+    expect(view.queryByText(/rechaz/i)).toBeNull();
+    expect(view.queryByText('No hay movimientos en este período.')).toBeNull();
+  });
+
+  it('un GET 502 de otro período no deja el dinero anterior bajo el pedido nuevo', async () => {
+    mockConsultar.mockImplementation(async (consulta: { desde: string; hasta: string }) => (
+      libroDe(consulta.desde, consulta.hasta, 333)
+    ));
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getAllByText(formatearMontoCLP(333)).length).toBeGreaterThan(0));
+    const desde = String(view.getByLabelText('Desde').props.value);
+    const hasta = String(view.getByLabelText('Hasta').props.value);
+    await fireEvent.changeText(view.getByLabelText('Hasta'), '2026-12-01');
+    mockConsultar.mockRejectedValueOnce(falloDesdeRespuesta(504, {}));
+    await fireEvent.press(view.getByLabelText('Consultar período'));
+    await waitFor(() => expect(view.getByText(/no se muestran cifras de otro período/i)).toBeTruthy());
+    expect(view.queryByText(formatearMontoCLP(333))).toBeNull();
+    expect(view.queryByText(`Libro ${desde} a ${hasta}`)).toBeNull();
+    expect(view.queryByText(/rechaz/i)).toBeNull();
+    expect(view.queryByText('No hay movimientos en este período.')).toBeNull();
+    expect(String(view.getByLabelText('Hasta').props.value)).toBe('2026-12-01');
+  });
+
+  it('un 502 de costo no se cuenta como cobro ni como rechazo', async () => {
+    mockCosto.mockRejectedValueOnce(falloDesdeRespuesta(502, {}));
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getByText('No hay movimientos en este período.')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Id del caso')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Id del caso'), '15');
+    await fireEvent.changeText(view.getByLabelText('Monto en pesos'), '30');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(view.getByText(/no se sabe si el costo quedó guardado/i)).toBeTruthy());
+    expect(view.queryByText(/cobro quedó guardado/i)).toBeNull();
+    expect(view.queryByText(/rechaz/i)).toBeNull();
+    expect(mockCosto).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    expect(mockCosto).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByLabelText('Volver a editar'));
+    await waitFor(() => expect(view.getByLabelText('Nota')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Nota'), 'otro gasto');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    mockCosto.mockResolvedValueOnce({ id: 'costo-1' });
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(2));
+    expect(mockCosto.mock.calls[1][0].nota).toBe('otro gasto');
+  });
+
+  it('cambiar de cuenta no muestra ni borra el intento de la cuenta anterior', async () => {
+    (globalThis as { __cajaAuth?: AuthCaja }).__cajaAuth = {
+      esMecanicoEquipo: false,
+      usuario: { id: 7 },
+      estadoProveedor: { proveedor_id: 3 },
+    };
+    let neto = 777;
+    mockConsultar.mockImplementation(async (consulta: { desde: string; hasta: string }) => (
+      libroDe(consulta.desde, consulta.hasta, neto)
+    ));
+    mockRegistrar.mockRejectedValue(falloDesdeRespuesta(502, {}));
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getAllByText(formatearMontoCLP(777)).length).toBeGreaterThan(0));
+    await abrirCobro(view);
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    await waitFor(() => expect(view.getByText(/no confirmó el resultado \(502\)/i)).toBeTruthy());
+    const clave = mockRegistrar.mock.calls[0][1];
+    expect(view.getByLabelText('Confirmar envío')).toBeTruthy();
+
+    neto = 0;
+    (globalThis as { __cajaAuth?: AuthCaja }).__cajaAuth = {
+      esMecanicoEquipo: false,
+      usuario: { id: 8 },
+      estadoProveedor: { proveedor_id: 3 },
+    };
+    await view.rerender(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.queryByText(formatearMontoCLP(777))).toBeNull());
+    expect(view.queryByLabelText('Confirmar envío')).toBeNull();
+    expect(view.queryByText('Reintentar el mismo envío')).toBeNull();
+    expect(leerIntentoIncierto(duenoCaja(7, 3))?.clave).toBe(clave);
+    expect(leerIntentoIncierto(duenoCaja(8, 3))).toBeNull();
+    expect(mockRegistrar).toHaveBeenCalledTimes(1);
+
+    (globalThis as { __cajaAuth?: AuthCaja }).__cajaAuth = {
+      esMecanicoEquipo: false,
+      usuario: { id: 7 },
+      estadoProveedor: { proveedor_id: 3 },
+    };
+    await view.rerender(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getByText('Reintentar el mismo envío')).toBeTruthy());
+    await fireEvent.press(view.getByText('Reintentar el mismo envío'));
+    await waitFor(() => expect(mockRegistrar).toHaveBeenCalledTimes(2));
+    expect(mockRegistrar.mock.calls[1][1]).toBe(clave);
+    expect(mockRegistrar.mock.calls[1][0]).toEqual(mockRegistrar.mock.calls[0][0]);
   });
 
   it('un POST sin respuesta no se edita ni cambia de clave, tampoco al volver a montar', async () => {
@@ -242,8 +461,8 @@ describe('CajaTallerScreen', () => {
     expect(mockRegistrar.mock.calls[2][0]).toEqual(mockRegistrar.mock.calls[0][0]);
     await waitFor(() => expect(otra.getByText(/no se sabe si/i)).toBeTruthy());
     expect(otra.queryByLabelText('Motivo')).toBeNull();
-    const guardado = globalThis.sessionStorage?.getItem('mecanimovil.caja.intento-incierto');
-    expect(JSON.parse(String(guardado)).clave).toBe(clave);
+    const guardado = JSON.parse(String(globalThis.sessionStorage?.getItem('mecanimovil.caja.intento-incierto')));
+    expect(guardado['1\n1'].clave).toBe(clave);
   });
 
 });

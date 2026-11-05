@@ -240,8 +240,47 @@ export function claveParaIntento<T>(intento: IntentoCaja<T> | null, cuerpo: T): 
   return { clave: nuevaClaveIdempotencia(), cuerpo, incierto: false };
 }
 
+/** Sin estado, 408 o 5xx: el servidor pudo haber guardado y la respuesta no lo prueba. */
+export function resultadoAmbiguo(status: number | null): boolean {
+  if (status == null) return true;
+  if (status === 408) return true;
+  return status >= 500;
+}
+
+export function mensajeResultadoAmbiguo(
+  status: number | null,
+  lectura: false | 'mismo' | 'otro' | 'costo' = false,
+): string {
+  const cabeza = status == null
+    ? 'No hubo respuesta del servidor.'
+    : `El servidor no confirmó el resultado (${status}).`;
+  if (lectura === 'mismo') {
+    return `${cabeza} No se sabe si el libro cambió. Las cifras que siguen son del período ya cargado.`;
+  }
+  if (lectura === 'otro') {
+    return `${cabeza} No se sabe si ese período cargó. No se muestran cifras de otro período.`;
+  }
+  if (lectura === 'costo') {
+    return `${cabeza} No se sabe si el costo quedó guardado. No lo reintentes: podría duplicarse.`;
+  }
+  return `${cabeza} No se sabe si el cobro quedó guardado. Reintenta este mismo envío, con estos datos, antes de editarlo.`;
+}
+
+export type DuenoCaja = { usuarioId: string; tallerId: string };
+
+export function duenoCaja(usuarioId: unknown, tallerId: unknown): DuenoCaja | null {
+  const usuario = String(usuarioId ?? '').trim();
+  const taller = String(tallerId ?? '').trim();
+  if (!usuario || !taller || usuario === 'undefined' || taller === 'undefined') return null;
+  return { usuarioId: usuario, tallerId: taller };
+}
+
+function claveDueno(dueno: DuenoCaja): string {
+  return `${dueno.usuarioId}\n${dueno.tallerId}`;
+}
+
 const CLAVE_SESION_INTENTO = 'mecanimovil.caja.intento-incierto';
-let intentoEnMemoria: IntentoCaja<CuerpoCobro> | null = null;
+const intentosEnMemoria = new Map<string, IntentoCaja<CuerpoCobro>>();
 
 function almacenamientoSesion(): Storage | null {
   try {
@@ -253,27 +292,79 @@ function almacenamientoSesion(): Storage | null {
   }
 }
 
-/** El intento cuyo POST no respondió. Sobrevive a salir de la pantalla y, si hay sesión, al refresh. */
-export function leerIntentoIncierto(): IntentoCaja<CuerpoCobro> | null {
-  if (intentoEnMemoria?.incierto) return intentoEnMemoria;
+type BolsaIntentos = Record<string, IntentoCaja<CuerpoCobro>>;
+
+function leerBolsa(): BolsaIntentos {
   const raw = almacenamientoSesion()?.getItem(CLAVE_SESION_INTENTO);
-  if (!raw) return null;
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(raw) as IntentoCaja<CuerpoCobro>;
-    if (!parsed?.incierto || !parsed.clave || !parsed.cuerpo) return null;
-    intentoEnMemoria = parsed;
-    return parsed;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const suelto = parsed as IntentoCaja<CuerpoCobro>;
+    if (suelto.incierto && suelto.clave && suelto.cuerpo) {
+      almacenamientoSesion()?.removeItem(CLAVE_SESION_INTENTO);
+      return {};
+    }
+    return parsed as BolsaIntentos;
   } catch {
-    return null;
+    return {};
   }
 }
 
-export function guardarIntentoIncierto(intento: IntentoCaja<CuerpoCobro> | null): void {
-  intentoEnMemoria = intento?.incierto ? intento : null;
+function escribirBolsa(bolsa: BolsaIntentos): void {
   const caja = almacenamientoSesion();
   if (!caja) return;
-  if (intentoEnMemoria) caja.setItem(CLAVE_SESION_INTENTO, JSON.stringify(intentoEnMemoria));
-  else caja.removeItem(CLAVE_SESION_INTENTO);
+  if (Object.keys(bolsa).length === 0) caja.removeItem(CLAVE_SESION_INTENTO);
+  else caja.setItem(CLAVE_SESION_INTENTO, JSON.stringify(bolsa));
+}
+
+/** El intento de esta cuenta y este taller. Otra identidad no lo ve y no lo borra. */
+export function leerIntentoIncierto(dueno: DuenoCaja | null): IntentoCaja<CuerpoCobro> | null {
+  if (!dueno) return null;
+  const clave = claveDueno(dueno);
+  const enMemoria = intentosEnMemoria.get(clave);
+  if (enMemoria?.incierto) return enMemoria;
+  const guardado = leerBolsa()[clave];
+  if (!guardado?.incierto || !guardado.clave || !guardado.cuerpo) return null;
+  intentosEnMemoria.set(clave, guardado);
+  return guardado;
+}
+
+export function guardarIntentoIncierto(dueno: DuenoCaja | null, intento: IntentoCaja<CuerpoCobro> | null): void {
+  if (!dueno) return;
+  const clave = claveDueno(dueno);
+  const fijo = intento?.incierto ? intento : null;
+  if (fijo) intentosEnMemoria.set(clave, fijo);
+  else intentosEnMemoria.delete(clave);
+  const bolsa = leerBolsa();
+  if (fijo) bolsa[clave] = fijo;
+  else delete bolsa[clave];
+  escribirBolsa(bolsa);
+}
+
+/** Limpia la memoria del proceso. No toca los intentos de otras pestañas. */
+export function olvidarIntentosCaja(): void {
+  intentosEnMemoria.clear();
+}
+
+export function cuerpoDesdeEntrada(movimiento: MovimientoCaja, ahora = new Date()): CuerpoCobro {
+  const componente = movimiento.componente === 'repuestos' || movimiento.componente === 'servicio'
+    ? movimiento.componente
+    : 'total';
+  const ancla = movimiento.ancla_tipo === 'solicitud' || movimiento.ancla_tipo === 'oferta'
+    ? movimiento.ancla_tipo
+    : 'cita';
+  return {
+    ancla_tipo: ancla,
+    ancla_id: String(movimiento.ancla_id),
+    tipo: 'reembolso',
+    componente,
+    monto_clp: movimiento.monto_clp,
+    fecha_efectiva: fechaSantiago(ahora),
+    movimiento_origen_id: movimiento.id,
+    motivo: '',
+    confirmar_sobrepago: false,
+  };
 }
 
 export function entradaManualDevolvible(movimiento: MovimientoCaja): boolean {
@@ -391,13 +482,13 @@ export function falloDesdeRespuesta(status: number | null, data: unknown): Fallo
   const body = data && typeof data === 'object' ? data as Record<string, unknown> : {};
   const code = typeof body.code === 'string' ? body.code : '';
   const detail = typeof body.detail === 'string' ? body.detail : '';
-  if (status == null) {
+  if (resultadoAmbiguo(status)) {
     return {
       clase: 'red',
       status,
       code,
       detail,
-      mensaje: 'No hubo respuesta del servidor. No se sabe si el cobro quedó guardado. Reintenta este mismo envío, con estos datos, antes de editarlo.',
+      mensaje: mensajeResultadoAmbiguo(status),
     };
   }
   if (status === 404 && code === 'ancla_ajena') {

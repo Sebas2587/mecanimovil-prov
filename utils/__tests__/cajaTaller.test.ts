@@ -10,7 +10,12 @@ import {
   etiquetaTipoMovimiento,
   fechaRealIso,
   motivoFechaCobro,
+  cuerpoDesdeEntrada,
+  duenoCaja,
   guardarIntentoIncierto,
+  leerIntentoIncierto,
+  olvidarIntentosCaja,
+  resultadoAmbiguo,
   textoFaltantesResumen,
   periodoMesHastaHoy,
   textoMargenContratado,
@@ -187,7 +192,45 @@ describe('caja del taller', () => {
     expect(fallo.mensaje).toMatch(/mismo caso/i);
   });
 
-  it('un módulo nuevo recupera el intento incierto desde la sesión', () => {
+  it('un 502, un 504 y un 408 no son un rechazo; un 400 y un 409 sí', () => {
+    for (const status of [null, 408, 500, 502, 504]) {
+      const fallo = falloDesdeRespuesta(status, {});
+      expect(resultadoAmbiguo(status)).toBe(true);
+      expect(fallo.mensaje).toMatch(/no se sabe/i);
+      expect(fallo.mensaje).not.toMatch(/rechaz/i);
+      expect(fallo.mensaje).not.toMatch(/no cambió/i);
+    }
+    expect(resultadoAmbiguo(400)).toBe(false);
+    expect(resultadoAmbiguo(409)).toBe(false);
+    const fecha = falloDesdeRespuesta(400, { code: 'fecha_invalida' });
+    expect(fecha.mensaje).toMatch(/no guardó/i);
+    expect(fecha.mensaje).not.toMatch(/no se sabe/i);
+  });
+
+  it('la devolución precarga el día de Santiago y no el timestamp de la entrada', () => {
+    const entrada = {
+      id: 'manual-30',
+      ancla_tipo: 'cita',
+      ancla_id: '15',
+      componente: 'total',
+      origen: 'manual',
+      tipo: 'entrada',
+      estado: 'confirmado',
+      monto_clp: 30,
+      moneda: 'CLP',
+      contabiliza_clp: true,
+      fecha_efectiva: '2026-03-02T15:04:00-03:00',
+      fecha_local: '2026-03-02',
+    };
+    const deDia = cuerpoDesdeEntrada(entrada, new Date('2026-11-05T15:04:00-03:00'));
+    expect(deDia.fecha_efectiva).toBe('2026-11-05');
+    expect(deDia.fecha_efectiva).not.toContain('T');
+    const cruce = cuerpoDesdeEntrada(entrada, new Date('2026-11-05T02:30:00Z'));
+    expect(cruce.fecha_efectiva).toBe('2026-11-04');
+    expect(cruce.movimiento_origen_id).toBe('manual-30');
+  });
+
+  it('un módulo nuevo recupera el intento de esa cuenta y no el de otra', () => {
     const bolsa = new Map<string, string>();
     Object.defineProperty(globalThis, 'sessionStorage', {
       configurable: true,
@@ -197,14 +240,36 @@ describe('caja del taller', () => {
         removeItem: (clave: string) => { bolsa.delete(clave); },
       },
     });
+    olvidarIntentosCaja();
+    const dueno = duenoCaja(7, 3);
+    const ajeno = duenoCaja(8, 3);
     const intento = claveParaIntento(null, cuerpo);
-    guardarIntentoIncierto({ ...intento, incierto: true });
-    const caja: { leido: { clave?: string; cuerpo?: CuerpoCobro } | null } = { leido: null };
+    guardarIntentoIncierto(dueno, { ...intento, incierto: true });
+    guardarIntentoIncierto(null, { ...intento, incierto: true, clave: 'no-se-guarda' });
+    const caja: {
+      leido: { clave?: string; cuerpo?: CuerpoCobro } | null;
+      otro: { clave?: string } | null;
+    } = { leido: null, otro: null };
     jest.isolateModules(() => {
-      caja.leido = require('@/utils/cajaTaller').leerIntentoIncierto();
+      const mod = require('@/utils/cajaTaller');
+      caja.leido = mod.leerIntentoIncierto(mod.duenoCaja(7, 3));
+      caja.otro = mod.leerIntentoIncierto(mod.duenoCaja(8, 3));
     });
     expect(caja.leido?.clave).toBe(intento.clave);
     expect(caja.leido?.cuerpo).toEqual(cuerpo);
-    guardarIntentoIncierto(null);
+    expect(caja.otro).toBeNull();
+    guardarIntentoIncierto(ajeno, { ...intento, incierto: true, clave: 'del-otro' });
+    guardarIntentoIncierto(dueno, null);
+    expect(leerIntentoIncierto(dueno)).toBeNull();
+    expect(leerIntentoIncierto(ajeno)?.clave).toBe('del-otro');
+    sessionStorage.setItem('mecanimovil.caja.intento-incierto', JSON.stringify({
+      ...intento,
+      incierto: true,
+      clave: 'suelto',
+    }));
+    olvidarIntentosCaja();
+    expect(leerIntentoIncierto(dueno)).toBeNull();
+    expect(sessionStorage.getItem('mecanimovil.caja.intento-incierto')).toBeNull();
+    guardarIntentoIncierto(ajeno, null);
   });
 });

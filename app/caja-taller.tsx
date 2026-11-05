@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,15 +11,20 @@ import { consultarCaja, registrarCobro, registrarCosto } from '@/services/cajaTa
 import {
   anclaGuardada,
   claveParaIntento,
+  cuerpoDesdeEntrada,
+  duenoCaja,
   esFalloCaja,
   etiquetaAncla,
   falloDesdeRespuesta,
   guardarIntentoIncierto,
   leerIntentoIncierto,
+  mensajeResultadoAmbiguo,
   periodoMesHastaHoy,
+  resultadoAmbiguo,
   validarPeriodo,
   type CuerpoCobro,
   type CuerpoCosto,
+  type DuenoCaja,
   type FalloCaja,
   type GranularidadCaja,
   type IntentoCaja,
@@ -29,35 +34,22 @@ import {
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 
-function cuerpoDesdeEntrada(movimiento: MovimientoCaja): CuerpoCobro {
-  const componente = movimiento.componente === 'repuestos' || movimiento.componente === 'servicio'
-    ? movimiento.componente
-    : 'total';
-  const ancla = movimiento.ancla_tipo === 'solicitud' || movimiento.ancla_tipo === 'oferta'
-    ? movimiento.ancla_tipo
-    : 'cita';
-  return {
-    ancla_tipo: ancla,
-    ancla_id: String(movimiento.ancla_id),
-    tipo: 'reembolso',
-    componente,
-    monto_clp: movimiento.monto_clp,
-    fecha_efectiva: movimiento.fecha_efectiva,
-    movimiento_origen_id: movimiento.id,
-    motivo: '',
-    confirmar_sobrepago: false,
-  };
-}
-
 const periodoInicial = periodoMesHastaHoy();
+
+function claveDueno(dueno: DuenoCaja | null): string {
+  return dueno ? `${dueno.usuarioId}\n${dueno.tallerId}` : '';
+}
 
 export default function CajaTallerScreen() {
   const insets = useSafeAreaInsets();
-  const { esMecanicoEquipo } = useAuth();
+  const { esMecanicoEquipo, usuario, estadoProveedor } = useAuth();
   const puedeRegistrar = !esMecanicoEquipo;
+  const dueno = duenoCaja(usuario?.id, estadoProveedor?.proveedor_id);
+  const duenoClave = claveDueno(dueno);
   const [desde, setDesde] = useState(periodoInicial.desde);
   const [hasta, setHasta] = useState(periodoInicial.hasta);
   const [granularidad, setGranularidad] = useState<GranularidadCaja>('mes');
+  const [periodoPedido, setPeriodoPedido] = useState({ desde: periodoInicial.desde, hasta: periodoInicial.hasta });
   const [pagina, setPagina] = useState(1);
   const [paginaCasos, setPaginaCasos] = useState(1);
   const [libro, setLibro] = useState<LibroCaja | null>(null);
@@ -68,20 +60,33 @@ export default function CajaTallerScreen() {
   const [alta, setAlta] = useState<null | 'cobro' | 'costo'>(null);
   const [enviando, setEnviando] = useState(false);
   const [falloAlta, setFalloAlta] = useState<FalloCaja | null>(null);
-  const intentoCobro = useRef<IntentoCaja<CuerpoCobro> | null>(null);
+  const intentoCobro = useRef<{ duenoClave: string; intento: IntentoCaja<CuerpoCobro> } | null>(null);
+  const libroRef = useRef<LibroCaja | null>(null);
+  const costoAmbiguo = useRef<{ serial: string; fallo: FalloCaja } | null>(null);
   const enviandoRef = useRef(false);
   const consultaRef = useRef({ desde, hasta, granularidad, pagina, paginaCasos });
   const consultaSeq = useRef(0);
+  const [vistaDueno, setVistaDueno] = useState(duenoClave);
   const [intentoIncierto, setIntentoIncierto] = useState<IntentoCaja<CuerpoCobro> | null>(
-    () => leerIntentoIncierto(),
+    () => leerIntentoIncierto(dueno),
   );
   const [devolucion, setDevolucion] = useState<MovimientoCaja | null>(null);
+  if (vistaDueno !== duenoClave) {
+    setVistaDueno(duenoClave);
+    setIntentoIncierto(leerIntentoIncierto(dueno));
+    setAlta(null);
+    setFalloAlta(null);
+    setDevolucion(null);
+    setNotaServidor(null);
+    setFallo(null);
+    setLibro(null);
+  }
 
   const marcarIntento = (intento: IntentoCaja<CuerpoCobro> | null) => {
     const fijo = intento?.incierto ? intento : null;
-    intentoCobro.current = intento;
+    intentoCobro.current = intento ? { duenoClave, intento } : null;
     setIntentoIncierto(fijo);
-    guardarIntentoIncierto(fijo);
+    guardarIntentoIncierto(dueno, fijo);
   };
 
   const cargar = useCallback(async () => {
@@ -91,13 +96,19 @@ export default function CajaTallerScreen() {
     if (aviso) return;
     const seq = consultaSeq.current + 1;
     consultaSeq.current = seq;
+    setPeriodoPedido({ desde: pedido.desde, hasta: pedido.hasta });
     setCargando(true);
-    setLibro((actual) => (
-      actual
-      && (actual.desde !== pedido.desde || actual.hasta !== pedido.hasta || actual.granularidad !== pedido.granularidad)
-        ? null
-        : actual
-    ));
+    const cargado = libroRef.current;
+    const mismoPeriodo = Boolean(
+      cargado
+      && cargado.desde === pedido.desde
+      && cargado.hasta === pedido.hasta
+      && cargado.granularidad === pedido.granularidad,
+    );
+    if (!mismoPeriodo) {
+      libroRef.current = null;
+      setLibro(null);
+    }
     try {
       const respuesta = await consultarCaja({
         desde: pedido.desde,
@@ -108,12 +119,19 @@ export default function CajaTallerScreen() {
       });
       if (seq !== consultaSeq.current) return;
       if (respuesta.desde !== pedido.desde || respuesta.hasta !== pedido.hasta) return;
+      libroRef.current = respuesta;
       setLibro(respuesta);
       setFallo(null);
     } catch (error) {
       if (seq !== consultaSeq.current) return;
-      setLibro(null);
-      setFallo(esFalloCaja(error) ? error : falloDesdeRespuesta(null, null));
+      const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
+      if (!resultadoAmbiguo(base.status)) {
+        libroRef.current = null;
+        setLibro(null);
+      }
+      setFallo(resultadoAmbiguo(base.status)
+        ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, mismoPeriodo ? 'mismo' : 'otro') }
+        : base);
     } finally {
       if (seq === consultaSeq.current) setCargando(false);
     }
@@ -123,18 +141,38 @@ export default function CajaTallerScreen() {
     void cargar();
   }, [cargar]));
 
+  const duenoListo = Boolean(dueno);
+  const duenoCargado = useRef<string | null>(null);
+  useEffect(() => {
+    if (!duenoListo) return;
+    if (duenoCargado.current === duenoClave) return;
+    const habiaCuenta = duenoCargado.current !== null;
+    duenoCargado.current = duenoClave;
+    if (!habiaCuenta) return;
+    libroRef.current = null;
+    costoAmbiguo.current = null;
+    setLibro(null);
+    void cargar();
+  }, [duenoClave, duenoListo, cargar]);
+
   const consultar = () => {
+    const aviso = validarPeriodo(desde, hasta);
+    setAvisoPeriodo(aviso);
+    if (aviso) return;
     setPagina(1);
     setPaginaCasos(1);
-    consultaRef.current = { ...consultaRef.current, pagina: 1, paginaCasos: 1 };
+    consultaRef.current = { desde, hasta, granularidad, pagina: 1, paginaCasos: 1 };
     void cargar();
   };
 
   const confirmarCobro = async (cuerpo: CuerpoCobro) => {
     if (enviandoRef.current) return;
-    const previo = leerIntentoIncierto() ?? intentoCobro.current;
+    const deEstaCuenta = intentoCobro.current?.duenoClave === duenoClave
+      ? intentoCobro.current.intento
+      : null;
+    const previo = leerIntentoIncierto(dueno) ?? deEstaCuenta;
     const intento = claveParaIntento(previo, cuerpo);
-    intentoCobro.current = intento;
+    intentoCobro.current = { duenoClave, intento };
     enviandoRef.current = true;
     setEnviando(true);
     try {
@@ -150,11 +188,11 @@ export default function CajaTallerScreen() {
       await cargar();
     } catch (error) {
       const falloEnvio = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
-      if (falloEnvio.status == null) {
+      if (resultadoAmbiguo(falloEnvio.status)) {
         marcarIntento({ ...intento, incierto: true });
       } else {
-        intentoCobro.current = { ...intento, incierto: false };
-        guardarIntentoIncierto(null);
+        intentoCobro.current = { duenoClave, intento: { ...intento, incierto: false } };
+        guardarIntentoIncierto(dueno, null);
         setIntentoIncierto(null);
       }
       setFalloAlta(falloEnvio);
@@ -166,15 +204,27 @@ export default function CajaTallerScreen() {
 
   const confirmarCosto = async (cuerpo: CuerpoCosto) => {
     if (enviandoRef.current) return;
+    const serial = JSON.stringify(cuerpo);
+    const repetido = costoAmbiguo.current?.serial === serial ? costoAmbiguo.current.fallo : null;
+    if (repetido) {
+      setFalloAlta(repetido);
+      return;
+    }
     enviandoRef.current = true;
     setEnviando(true);
     try {
       await registrarCosto(cuerpo);
+      costoAmbiguo.current = null;
       setFalloAlta(null);
       setAlta(null);
       await cargar();
     } catch (error) {
-      setFalloAlta(esFalloCaja(error) ? error : falloDesdeRespuesta(null, null));
+      const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
+      const falloCosto = resultadoAmbiguo(base.status)
+        ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, 'costo') }
+        : base;
+      costoAmbiguo.current = resultadoAmbiguo(base.status) ? { serial, fallo: falloCosto } : null;
+      setFalloAlta(falloCosto);
     } finally {
       enviandoRef.current = false;
       setEnviando(false);
@@ -206,20 +256,12 @@ export default function CajaTallerScreen() {
         desde={desde}
         hasta={hasta}
         granularidad={granularidad}
-        onCambiarDesde={(valor) => {
-          setDesde(valor);
-          consultaRef.current = { ...consultaRef.current, desde: valor };
-        }}
-        onCambiarHasta={(valor) => {
-          setHasta(valor);
-          consultaRef.current = { ...consultaRef.current, hasta: valor };
-        }}
-        onCambiarGranularidad={(valor) => {
-          setGranularidad(valor);
-          consultaRef.current = { ...consultaRef.current, granularidad: valor };
-        }}
+        onCambiarDesde={setDesde}
+        onCambiarHasta={setHasta}
+        onCambiarGranularidad={setGranularidad}
         onConsultar={consultar}
         avisoPeriodo={avisoPeriodo}
+        periodoPedido={periodoPedido}
         cargando={cargando}
         fallo={fallo}
         libro={libro}
