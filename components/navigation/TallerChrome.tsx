@@ -219,9 +219,14 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
 }
 
 export function NuevaCotizacionFlotante({ bottom }: { bottom: number }) {
-  const { abrirNuevaCotizacion } = useTallerShell();
+  const { abrirNuevaCotizacion, fijarReservaLista } = useTallerShell();
+  useEffect(() => () => fijarReservaLista(0), [fijarReservaLista]);
   return (
-    <View pointerEvents="box-none" style={[styles.flotanteWrap, { bottom }]}>
+    <View
+      pointerEvents="box-none"
+      onLayout={(event) => fijarReservaLista(Math.ceil(event.nativeEvent.layout.height))}
+      style={[styles.flotanteWrap, styles.flotanteAire, { bottom }]}
+    >
       <Pressable
         onPress={abrirNuevaCotizacion}
         style={styles.flotante}
@@ -440,6 +445,10 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 30,
     alignItems: 'center',
+  },
+  /** El aire entra en la caja medida para que el marco de la lista termine arriba. */
+  flotanteAire: {
+    paddingBottom: SPACING.fixed.sm,
   },
   flotante: {
     flexDirection: 'row',

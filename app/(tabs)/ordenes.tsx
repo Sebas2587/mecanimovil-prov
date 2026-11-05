@@ -62,6 +62,8 @@ import {
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { cobroVisibleLista, cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
+import { marcoListaStyle } from '@/components/navigation/marcoLista';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -73,6 +75,7 @@ type TabType = 'activas' | 'completadas' | 'rechazadas';
 export default function OrdenesScreen() {
   const params = useLocalSearchParams<{ tab?: string; canal?: string; mes?: string }>();
   const { estadoProveedor } = useAuth();
+  const { reservaLista } = useTallerShell();
 
   const [tabActivo, setTabActivo] = useState<TabType>(() => {
     if (params.tab === 'completadas') return 'completadas';
@@ -430,7 +433,7 @@ export default function OrdenesScreen() {
 
   if (!isVerified) {
     return (
-      <TabScreenWrapper>
+      <TabScreenWrapper style={marcoListaStyle(reservaLista)}>
         <View style={styles.screenRoot}>
           <Header title="Servicios" dense backgroundColor={I.canvas} titleColor={I.ink} />
           <View style={styles.centeredContainer}>
@@ -446,7 +449,7 @@ export default function OrdenesScreen() {
   }
 
   return (
-    <TabScreenWrapper>
+    <TabScreenWrapper style={marcoListaStyle(reservaLista)}>
       <View style={styles.screenRoot}>
         <Header title="Servicios" dense backgroundColor={I.canvas} titleColor={I.ink} />
 

@@ -5,6 +5,12 @@ type TallerShellValue = {
   ocupaTope: boolean;
   /** Hay un botón flotante sobre la barra inferior. */
   accionFlotante: boolean;
+  /**
+   * Alto medido del control, incluido su aire sobre la barra.
+   * La lista lo usa como margen del marco, no como padding del scroll.
+   */
+  reservaLista: number;
+  fijarReservaLista: (alto: number) => void;
   /** Abre el formulario de cotización encima de la pantalla actual. */
   abrirNuevaCotizacion: () => void;
 };
@@ -12,6 +18,8 @@ type TallerShellValue = {
 const VACIO: TallerShellValue = {
   ocupaTope: false,
   accionFlotante: false,
+  reservaLista: 0,
+  fijarReservaLista: () => {},
   abrirNuevaCotizacion: () => {},
 };
 

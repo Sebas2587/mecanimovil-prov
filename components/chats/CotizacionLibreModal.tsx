@@ -832,7 +832,7 @@ export function CotizacionLibreModal({
               <Text style={styles.title} numberOfLines={1}>
                 {(cotizacion?.servicio_nombre || '').trim() || 'Nueva cotización'}
               </Text>
-              <Text style={styles.subtitle} numberOfLines={1}>{sheetSubtitle}</Text>
+              <Text style={styles.subtitle} numberOfLines={2}>{sheetSubtitle}</Text>
             </View>
             <View style={styles.closeSpacer} />
           </View>

@@ -194,3 +194,31 @@ Si `checklist_estado` viene omitido, null, vacío o con un valor que no es enum 
 - GIVEN `estado_operativo` `completado` o `cancelado` y sin checklist
 - WHEN se lee el avance
 - THEN no dice «Agendado»
+
+### Requirement: Las acciones de la ficha y la lista quedan fuera del contenido
+El botón de más acciones de la cita MUST estar en la cabecera, fuera del scroll, con pie y sin pie. MUST NOT flotar sobre el contenido. En Servicios, el marco de la lista MUST terminar encima de «Nueva cotización» usando el alto medido de ese control. MUST NOT ser un padding al final del scroll. Las acciones, el pie y el zoom MUST permanecer.
+
+#### Scenario: Ficha sin pie
+- GIVEN una cita sin pie fijo y con acciones
+- WHEN se abre la ficha
+- THEN «Más acciones» está en la cabecera
+- AND no hay un botón absoluto sobre el scroll
+
+#### Scenario: Lista de Servicios
+- GIVEN «Nueva cotización» visible
+- WHEN la lista mide el control
+- THEN el marco usa ese alto como margen inferior
+- AND el padding del contenido no incluye esa reserva
+
+### Requirement: El menú de más acciones recibe el toque en su superficie
+El menú abierto MUST renderizarse en un Modal de pantalla completa y MUST ser hijo de esa superficie. MUST NOT ser un absolute que desborda el botón de la cabecera. Abrir, cerrar por fondo, Escape en web o atrás MUST NOT ejecutar una acción. Una opción deshabilitada MUST NOT llamar su callback.
+
+#### Scenario: Elegir una opción
+- GIVEN el menú abierto con una opción habilitada
+- WHEN se presiona esa opción
+- THEN corre solo su callback y el menú se cierra
+
+#### Scenario: Cerrar sin elegir
+- GIVEN el menú abierto
+- WHEN se cierra con el fondo o con atrás
+- THEN ningún callback de acción corre

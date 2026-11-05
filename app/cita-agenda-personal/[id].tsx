@@ -17,7 +17,8 @@ import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, ListChecks, MessageCircle, UserRound, Wrench } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import type { CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import { CitaMasAcciones } from '@/components/agenda/CitaMasAcciones';
 import { folioIdentidadLabel } from '@/utils/entregaCotizacionCopy';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -418,7 +419,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (esActiva && editando) {
       return 72 + footerBottomPad + SPACING.fixed.md;
     }
-    // CTA full-width + cancelar como link debajo (deja hueco para el FAB).
+    // Alto del pie fijo (CTA y enlace). El menú de acciones no vive aquí.
     return 108 + footerBottomPad + SPACING.fixed.md;
   }, [
     muestraFooterAcciones,
@@ -1019,6 +1020,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
         titleColor={I.ink}
+        style={{ zIndex: 5 }}
+        rightComponent={mostrarFab ? <CitaMasAcciones actions={fabActions} /> : undefined}
       />
 
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -1028,7 +1031,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingBottom: footerReserve + (mostrarFab ? 24 : 0) },
+            { paddingBottom: footerReserve },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -1448,17 +1451,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
         onClose={() => setShowChecklistResumen(false)}
         citaPersonalId={cita.id}
         instanceId={cita.checklist_id ?? null}
-      />
-
-      <CotizacionEditorFab
-        visible={mostrarFab}
-        variant="more"
-        actions={fabActions}
-        bottomOffset={
-          muestraFooterAcciones && mostrarStickyPrimario
-            ? footerReserve + SPACING.fixed.xs
-            : undefined
-        }
       />
 
       <ChecklistSignatureModal

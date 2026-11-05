@@ -48,15 +48,21 @@ export default function TabLayout() {
     [pipeline.data?.results],
   );
   const [nuevaCotizacionAbierta, setNuevaCotizacionAbierta] = useState(false);
+  const [reservaLista, setReservaLista] = useState(0);
   const invalidarCotizaciones = useInvalidateCotizacionesCanalTaller();
   const abrirNuevaCotizacion = useCallback(() => setNuevaCotizacionAbierta(true), []);
+  const fijarReservaLista = useCallback((alto: number) => {
+    setReservaLista((prev) => (prev === alto ? prev : alto));
+  }, []);
   const shell = useMemo(
     () => ({
       ocupaTope: !esMecanicoEquipo,
       accionFlotante: !escritorio && !esMecanicoEquipo,
+      reservaLista,
+      fijarReservaLista,
       abrirNuevaCotizacion,
     }),
-    [esMecanicoEquipo, escritorio, abrirNuevaCotizacion],
+    [esMecanicoEquipo, escritorio, abrirNuevaCotizacion, reservaLista, fijarReservaLista],
   );
 
   useEffect(() => {
@@ -249,9 +255,9 @@ export default function TabLayout() {
     </Tabs>
     </View>
     {shell.accionFlotante ? (
-      <NuevaCotizacionFlotante bottom={barraInferior + 12} />
+      <NuevaCotizacionFlotante bottom={barraInferior} />
     ) : null}
-    <PlanUpdateEdge bottom={barraInferior + (shell.accionFlotante ? 68 : 0)} />
+    <PlanUpdateEdge bottom={barraInferior + reservaLista} />
     {needsConsent ? (
       <LegalConsentModal visible={needsConsent} onAccepted={clearNeedsConsent} />
     ) : null}
