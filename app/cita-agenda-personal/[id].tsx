@@ -80,6 +80,11 @@ import { TallerPildora } from '@/components/taller/TallerPildora';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
 import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
+import {
+  ALTO_BOTON_MAS,
+  HUECO_ACCION,
+  reservaScrollSobreAccion,
+} from '@/utils/reservaAccionFlotante';
 import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
@@ -1008,6 +1013,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
   }
   const mostrarFab = fabActions.length > 0;
+  const anclaFab = muestraFooterAcciones && mostrarStickyPrimario
+    ? footerReserve + HUECO_ACCION
+    : Math.max(insets.bottom, SPACING.fixed.md) + 96;
+  const paddingScroll = mostrarFab
+    ? reservaScrollSobreAccion(anclaFab, ALTO_BOTON_MAS)
+    : footerReserve;
 
   return (
     <View style={styles.container}>
@@ -1028,7 +1039,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingBottom: footerReserve + (mostrarFab ? 24 : 0) },
+            { paddingBottom: paddingScroll },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -1454,11 +1465,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
         visible={mostrarFab}
         variant="more"
         actions={fabActions}
-        bottomOffset={
-          muestraFooterAcciones && mostrarStickyPrimario
-            ? footerReserve + SPACING.fixed.xs
-            : undefined
-        }
+        bottomOffset={mostrarFab ? anclaFab : undefined}
       />
 
       <ChecklistSignatureModal

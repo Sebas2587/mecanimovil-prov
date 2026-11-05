@@ -62,6 +62,8 @@ import {
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { cobroVisibleLista, cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
+import { reservaNuevaCotizacion } from '@/utils/reservaAccionFlotante';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -73,6 +75,7 @@ type TabType = 'activas' | 'completadas' | 'rechazadas';
 export default function OrdenesScreen() {
   const params = useLocalSearchParams<{ tab?: string; canal?: string; mes?: string }>();
   const { estadoProveedor } = useAuth();
+  const { accionFlotante } = useTallerShell();
 
   const [tabActivo, setTabActivo] = useState<TabType>(() => {
     if (params.tab === 'completadas') return 'completadas';
@@ -476,7 +479,13 @@ export default function OrdenesScreen() {
 
         <ScrollView
           style={hostScreenStyles.scroll}
-          contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollContent]}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            styles.scrollContent,
+            accionFlotante
+              ? { paddingBottom: SPACING.fixed.xl + reservaNuevaCotizacion() }
+              : null,
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
         >
