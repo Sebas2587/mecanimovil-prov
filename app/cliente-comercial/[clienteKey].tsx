@@ -38,7 +38,7 @@ import {
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { resolverCobroTrabajo, type OrigenCobro } from '@/utils/cobroTrabajo';
+import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
 import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
@@ -203,12 +203,10 @@ const CasoListing = React.memo(function CasoListing({
       ? 'Incluye 1 trabajo adicional'
       : `Incluye ${extrasCount} trabajos adicionales`
     : null;
-  const origenCobro: OrigenCobro = caso.tipo_entidad === 'cotizacion_canal'
-    ? 'cotizacion'
-    : caso.tipo_entidad === 'cita_personal'
-      ? 'cita'
-      : 'orden';
-  const cobroCaso = resolverCobroTrabajo({ origen: origenCobro, estado: caso.estado_raw });
+  const cobroCaso = cobroVisiblePipeline({
+    tipo_entidad: caso.tipo_entidad,
+    estado: caso.estado_raw,
+  });
 
   return (
     <TouchableOpacity

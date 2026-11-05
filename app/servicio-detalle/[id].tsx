@@ -29,13 +29,13 @@ import {
   institutionalStatusColors,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { formatearMontoCLP, montoConocidoCLP } from '@/utils/formatearMontoCLP';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { cobroVisibleOrden } from '@/utils/cobroTrabajo';
 import { resumenPreciosOrden } from '@/utils/resumenPreciosOrden';
 import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import logger from '@/utils/logger';
@@ -490,7 +490,7 @@ export default function ServicioDetalleScreen() {
 
   const botonAccion = getBotonAccion();
   const estadoTrabajo = mapOrdenEstadoToOperativo(orden.estado);
-  const cobroOrden = resolverCobroTrabajo({ origen: 'orden', estado: orden.estado });
+  const cobroOrden = cobroVisibleOrden(orden);
 
   return (
     <View style={styles.container}>
@@ -518,7 +518,7 @@ export default function ServicioDetalleScreen() {
           trabajo={ESTADO_OPERATIVO_LABELS[estadoTrabajo]}
           trabajoTono={ESTADO_OPERATIVO_VARIANT[estadoTrabajo]}
           cobro={cobroOrden}
-          monto={orden.total ? formatearMontoCLP(orden.total) : null}
+          monto={montoConocidoCLP(orden.total)}
         />
         <HostSectionKicker label="Cliente" />
         <Card elevated padding="host" style={styles.clientCard}>
@@ -785,19 +785,21 @@ export default function ServicioDetalleScreen() {
                 </Text>
               );
             }
-            if (!resumen.desgloseCompleto) {
+            if (!resumen.desgloseCompleto || resumen.comision == null || resumen.precioFinalCliente == null) {
               return (
                 <View style={styles.desgloseContainer}>
-                  <View style={[styles.desgloseRow, styles.desgloseRowHighlight]}>
-                    <Text style={[styles.desgloseLabel, styles.desgloseLabelBold]}>
-                      Total del trabajo
-                    </Text>
-                    <Text style={[styles.desgloseValue, styles.desgloseValueBold]}>
-                      {formatearMontoCLP(resumen.precioFinalCliente)}
-                    </Text>
-                  </View>
+                  {resumen.precioFinalCliente != null ? (
+                    <View style={[styles.desgloseRow, styles.desgloseRowHighlight]}>
+                      <Text style={[styles.desgloseLabel, styles.desgloseLabelBold]}>
+                        Total del trabajo
+                      </Text>
+                      <Text style={[styles.desgloseValue, styles.desgloseValueBold]}>
+                        {formatearMontoCLP(resumen.precioFinalCliente)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <Text style={styles.desgloseLabel}>
-                    Falta el desglose de comisión en alguna línea. No se calcula una ganancia.
+                    Desglose no disponible.
                   </Text>
                 </View>
               );

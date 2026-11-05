@@ -53,6 +53,12 @@ export interface Orden {
   estado: string;
   estado_display: string;
   metodo_pago?: string;
+  /**
+   * No los garantiza el serializer de proveedor-ordenes. Se leen si el API
+   * los envía. Si faltan, la ficha no puede afirmar el cobro (etapa 2).
+   */
+  estado_pago_repuestos?: string | null;
+  estado_pago_servicio?: string | null;
   notas_cliente?: string;
   lineas: Array<{
     servicio_nombre: string;

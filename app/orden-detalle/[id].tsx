@@ -32,13 +32,13 @@ import {
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
-import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { montoConocidoCLP } from '@/utils/formatearMontoCLP';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { cobroVisibleOrden } from '@/utils/cobroTrabajo';
 import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import logger from '@/utils/logger';
 
@@ -549,9 +549,11 @@ export default function OrdenDetalleScreen() {
     );
   }
 
-  const colorEstado = ordenesProveedorService.obtenerColorEstado(orden.estado);
   const estadoTrabajo = mapOrdenEstadoToOperativo(orden.estado);
-  const cobro = resolverCobroTrabajo({ origen: 'orden', estado: orden.estado });
+  const tonoTrabajo = ESTADO_OPERATIVO_VARIANT[estadoTrabajo];
+  const colorTrabajo = institutionalStatusColors(tonoTrabajo);
+  const cobro = cobroVisibleOrden(orden);
+  const montoOrden = montoConocidoCLP(orden.total);
   const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnOrden({
     esMecanicoEquipo,
     esProveedorDomicilio,
@@ -578,8 +580,8 @@ export default function OrdenDetalleScreen() {
               {orden.vehiculo_detail.marca} {orden.vehiculo_detail.modelo}
             </Text>
           </View>
-          <View style={[styles.estadoBadge, { backgroundColor: colorEstado }]}>
-            <Text style={styles.estadoTexto}>{ESTADO_OPERATIVO_LABELS[estadoTrabajo]}</Text>
+          <View style={[styles.estadoBadge, { backgroundColor: colorTrabajo.bg, borderColor: colorTrabajo.border }]}>
+            <Text style={[styles.estadoTexto, { color: colorTrabajo.text }]}>{ESTADO_OPERATIVO_LABELS[estadoTrabajo]}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -589,7 +591,7 @@ export default function OrdenDetalleScreen() {
           trabajo={ESTADO_OPERATIVO_LABELS[estadoTrabajo]}
           trabajoTono={ESTADO_OPERATIVO_VARIANT[estadoTrabajo]}
           cobro={cobro}
-          monto={orden.total ? formatearMontoCLP(orden.total) : null}
+          monto={montoOrden}
         />
         {/* Información del cliente */}
         <HostPaperSection style={styles.section}>
@@ -780,16 +782,6 @@ export default function OrdenDetalleScreen() {
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
           )}
-        </HostPaperSection>
-
-        {/* Total */}
-        <HostPaperSection style={styles.totalSection}>
-          <Text style={styles.totalLabel}>{cobro.etiquetaMonto}</Text>
-          <Text style={styles.totalAmount}>{formatearMontoCLP(orden.total)}</Text>
-          {cobro.cobro === 'sin_registro' ? (
-            <Text style={styles.infoText}>{cobro.aclaracion}</Text>
-          ) : null}
-          {cobro.detalle ? <Text style={styles.infoText}>{cobro.detalle}</Text> : null}
         </HostPaperSection>
 
         {/* Notas */}
@@ -991,9 +983,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   estadoTexto: {
-    color: I.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },

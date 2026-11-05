@@ -60,7 +60,7 @@ import {
   ESTADO_OPERATIVO_VARIANT,
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
@@ -209,12 +209,8 @@ const LeadCard = React.memo(function LeadCard({
   const vehiculo = item.vehiculo_resumen?.trim();
   const leadCat = leadCategoriaOf(item);
   const showLeadTag = shouldShowLeadCategoria(item);
-  const cobroFila = resolverCobroTrabajo({
-    origen: item.tipo_entidad === 'cotizacion_canal'
-      ? 'cotizacion'
-      : item.tipo_entidad === 'cita_personal'
-        ? 'cita'
-        : 'orden',
+  const cobroFila = cobroVisiblePipeline({
+    tipo_entidad: item.tipo_entidad,
     estado: item.estado_raw,
   });
   const operativoTag = leadOperativoTag(

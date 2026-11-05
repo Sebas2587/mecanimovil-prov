@@ -15,7 +15,7 @@ type Props = {
 
 /** Avance del trabajo y cobro, en dos datos distintos. El texto puede partir línea. */
 export function EstadoTrabajoCobro({ trabajo, trabajoTono = 'info', cobro, monto }: Props) {
-  const mostrarAclaracion = Boolean(monto) && cobro.cobro === 'sin_registro';
+  const mostrarAclaracion = Boolean(monto) && cobro.cobro === 'sin_informacion';
   return (
     <View style={styles.bloque} accessibilityLabel={`Trabajo ${trabajo}. Cobro ${cobro.etiqueta}`}>
       <View style={styles.tags}>

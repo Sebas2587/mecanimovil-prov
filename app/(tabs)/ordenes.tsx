@@ -61,7 +61,7 @@ import {
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { parseFechaLocal } from '@/utils/fechaLocal';
-import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { cobroVisibleLista, cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -232,7 +232,7 @@ export default function OrdenesScreen() {
             <View style={styles.cardTop}>
               <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" uppercase={false} />
               <InstitutionalTag
-                label={resolverCobroTrabajo({ origen: 'cita' }).etiqueta}
+                label={cobroVisiblePipeline({ tipo_entidad: 'cita_personal', estado: cita.estado }).etiqueta}
                 variant="neutral"
                 size="sm"
                 uppercase={false}
@@ -321,12 +321,7 @@ export default function OrdenesScreen() {
       const tieneRepuestos =
         orden?.lineas?.some((l) => l.con_repuestos)
         || oferta?.incluye_repuestos === true;
-      const cobroLista = resolverCobroTrabajo({
-        origen: orden && !oferta ? 'orden' : 'oferta',
-        estado: estadoEfectivo,
-        estadoPagoRepuestos: oferta?.estado_pago_repuestos,
-        estadoPagoServicio: oferta?.estado_pago_servicio,
-      });
+      const cobroLista = cobroVisibleLista({ estadoEfectivo, orden, oferta });
 
       return (
         <Card

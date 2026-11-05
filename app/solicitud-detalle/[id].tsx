@@ -70,7 +70,7 @@ import {
   ESTADO_OPERATIVO_VARIANT,
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { cobroVisibleOferta } from '@/utils/cobroTrabajo';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -1218,18 +1218,8 @@ export default function SolicitudDetalleScreen() {
                     uppercase={false}
                   />
                   <InstitutionalTag
-                    label={resolverCobroTrabajo({
-                      origen: 'oferta',
-                      estado: miOferta.estado,
-                      estadoPagoRepuestos: miOferta.estado_pago_repuestos,
-                      estadoPagoServicio: miOferta.estado_pago_servicio,
-                    }).etiqueta}
-                    variant={resolverCobroTrabajo({
-                      origen: 'oferta',
-                      estado: miOferta.estado,
-                      estadoPagoRepuestos: miOferta.estado_pago_repuestos,
-                      estadoPagoServicio: miOferta.estado_pago_servicio,
-                    }).tono}
+                    label={cobroVisibleOferta(miOferta).etiqueta}
+                    variant={cobroVisibleOferta(miOferta).tono}
                     size="sm"
                     uppercase={false}
                   />
@@ -1297,12 +1287,7 @@ export default function SolicitudDetalleScreen() {
                             <Text style={styles.ofertaSecundariaEstado}>
                               {textoEstadoOferta(ofertaSec.estado)}
                               {' · '}
-                              {resolverCobroTrabajo({
-                                origen: 'oferta',
-                                estado: ofertaSec.estado,
-                                estadoPagoRepuestos: ofertaSec.estado_pago_repuestos,
-                                estadoPagoServicio: ofertaSec.estado_pago_servicio,
-                              }).etiqueta}
+                              {cobroVisibleOferta(ofertaSec).etiqueta}
                             </Text>
                           </View>
                           <View
