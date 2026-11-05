@@ -79,6 +79,9 @@ import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetall
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
+import { presentacionCitaTrabajo } from '@/utils/presentacionCitaTrabajo';
+import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
+import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 
 const I = COLORS.institutional;
@@ -867,6 +870,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
     cita.estado,
     Boolean(cita.horario_por_confirmar),
   );
+  const presentacionTrabajo = presentacionCitaTrabajo({
+    estado: cita.estado,
+    estado_operativo: cita.estado_operativo,
+    horario_por_confirmar: cita.horario_por_confirmar,
+    checklist_estado: cita.checklist_estado,
+  });
+  const cobroCita = cobroVisiblePipeline({
+    tipo_entidad: 'cita_personal',
+    estado: cita.estado,
+  });
 
   if (showChecklist) {
     return (
@@ -1024,13 +1037,24 @@ export default function CitaAgendaPersonalDetalleScreen() {
               <ActivityIndicator color={I.primary} />
             </View>
           ) : muestraDocumentoComercial && cotizacionOrigen ? (
-            <CotizacionIaEditor
-              cotizacion={cotizacionOrigen}
-              onChange={ignorarCambioCotizacion}
-              readonly
-              hideSendActions
-              compactHeader
-            />
+            <>
+              <EstadoTrabajoCobro
+                trabajo={presentacionTrabajo.trabajo}
+                trabajoTono={presentacionTrabajo.trabajoTono}
+                cobro={cobroCita}
+                monto={precio}
+              />
+              <InstitutionalText role="caption" color="muted">
+                La cotización figura aparte. El avance del trabajo está arriba.
+              </InstitutionalText>
+              <CotizacionIaEditor
+                cotizacion={cotizacionOrigen}
+                onChange={ignorarCambioCotizacion}
+                readonly
+                hideSendActions
+                compactHeader
+              />
+            </>
           ) : (
             <CitaCasoIdentidad
               servicioNombre={
@@ -1053,6 +1077,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
               vehiculoCilindraje={det.vehiculo_cilindraje}
               onLlamar={handleLlamar}
               montoReferencia={precio}
+              trabajoLabel={presentacionTrabajo.trabajo}
+              trabajoTono={presentacionTrabajo.trabajoTono}
             />
           )}
 

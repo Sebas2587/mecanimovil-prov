@@ -786,9 +786,9 @@ export function CotizacionLibreModal({
       statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
+      <View style={styles.overlay} pointerEvents="box-none">
         <Pressable
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, styles.scrimHit]}
           onPress={() => {
             if (!ocupado) handleClose();
           }}
@@ -809,6 +809,8 @@ export function CotizacionLibreModal({
               marginBottom: Math.max(insets.bottom, 12),
             },
           ]}
+          pointerEvents="auto"
+          onStartShouldSetResponder={() => true}
         >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1142,6 +1144,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  scrimHit: {
+    zIndex: 0,
   },
   scrim: {
     backgroundColor: withOpacity(I.ink, 0.18),
@@ -1152,7 +1158,7 @@ const styles = StyleSheet.create({
   panel: {
     flex: 1,
     zIndex: 2,
-    width: '100%',
+    alignSelf: 'stretch',
     maxWidth: 560,
     marginHorizontal: SPACING.fixed.md,
     borderRadius: BORDERS.radius.xl,

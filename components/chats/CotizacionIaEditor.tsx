@@ -37,6 +37,7 @@ import {
   certezaDe,
   estadoLinea,
   lineaPendientePrecio,
+  COPY_PRECIO_TALLER,
   etiquetaBanda,
   formatRangoClp,
   labelFamilia,
@@ -1675,7 +1676,7 @@ export const CotizacionIaEditor = React.forwardRef<
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.
-          El cliente ve el de margen hasta que fijas uno.
+          {COPY_PRECIO_TALLER.clienteVeMargen}
         </InstitutionalText>
         {repuestos.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>
