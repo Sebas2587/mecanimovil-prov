@@ -20,6 +20,7 @@ import {
   textoMargenReal,
   textoFaltantesResumen,
   textoResultadoCaja,
+  etiquetaTipoMovimiento,
   tituloHumano,
   type CasoCaja,
   type MovimientoCaja,
@@ -209,8 +210,13 @@ export function CajaLibro({
                     <InstitutionalText role="caption" color="muted">Sin nombre de cliente en la respuesta.</InstitutionalText>
                   ) : null}
                   <InstitutionalText role="caption" color="body">
-                    {`${movimiento.tipo} · ${movimiento.componente} · ${movimiento.estado}`}
+                    {`${etiquetaTipoMovimiento(movimiento.tipo)} · ${movimiento.componente} · ${movimiento.estado}`}
                   </InstitutionalText>
+                  {movimiento.tipo === 'contracargo' ? (
+                    <InstitutionalText role="caption" color="muted">
+                      El contracargo lo anotó el servidor. No se suma otro monto.
+                    </InstitutionalText>
+                  ) : null}
                   <InstitutionalText role="bodyBold" color="ink">{pesos(movimiento.monto_clp)}</InstitutionalText>
                   <InstitutionalText role="caption" color="muted">{movimiento.fecha_local}</InstitutionalText>
                   {entradaManualDevolvible(movimiento) && onDevolverEntrada ? (

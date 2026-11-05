@@ -7,7 +7,9 @@ import {
   diasInclusivos,
   entradaManualDevolvible,
   falloDesdeRespuesta,
+  etiquetaTipoMovimiento,
   fechaRealIso,
+  motivoFechaCobro,
   guardarIntentoIncierto,
   textoFaltantesResumen,
   periodoMesHastaHoy,
@@ -41,7 +43,13 @@ describe('caja del taller', () => {
     expect(validarPeriodo('2025-01-01', '2026-01-02')).toMatch(String(DIAS_MAXIMOS));
     expect(validarPeriodo('2026-11-01', '2026-11-05')).toBeNull();
     expect(fechaRealIso('2026-02-31')).toBe(false);
+    expect(fechaRealIso('2026-02-30')).toBe(false);
+    expect(motivoFechaCobro('2026-02-30')).toMatch(/no guarda/i);
+    expect(motivoFechaCobro('2026-02-30T15:04:00')).toMatch(/no guarda/i);
+    expect(motivoFechaCobro('2026-11-05')).toBeNull();
+    expect(motivoFechaCobro('2026-11-05T15:04:00')).toMatch(/YYYY-MM-DD/);
     expect(validarPeriodo('2026-02-31', '2026-03-02')).toMatch(/no existe/i);
+    expect(validarPeriodo('2026-02-30T15:04:00', '2026-03-02')).toMatch(/no existe/i);
   });
 
   it('muestra el neto del API y no calcula el margen con el exigible', () => {
@@ -79,6 +87,9 @@ describe('caja del taller', () => {
     expect(falloDesdeRespuesta(404, {}).clase).toBe('api_ausente');
     expect(falloDesdeRespuesta(404, { code: 'ancla_ajena' }).mensaje).toMatch(/no es de este taller/i);
     expect(falloDesdeRespuesta(409, { code: 'reverso_mp_solo_webhook' }).mensaje).toMatch(/webhook/i);
+    const fecha = falloDesdeRespuesta(400, { code: 'fecha_invalida', detail: 'La fecha efectiva no existe en el calendario.' });
+    expect(fecha.mensaje).toMatch(/no guardó/i);
+    expect(fecha.mensaje).not.toMatch(/no se sabe/i);
     const sinRespuesta = falloDesdeRespuesta(null, null);
     expect(sinRespuesta.clase).toBe('red');
     expect(sinRespuesta.mensaje).toMatch(/no se sabe si/i);
@@ -126,7 +137,23 @@ describe('caja del taller', () => {
       ancla_id: '15',
       cliente_nombre: 'Ana',
       vehiculo_patente: 'ABCD12',
-    }).titulo).toBe('Ana · ABCD12');
+      folio: 'MM-1',
+    }).titulo).toBe('Ana · ABCD12 · MM-1');
+    expect(tituloHumano({
+      ancla_tipo: 'cita',
+      ancla_id: '15',
+      cliente_nombre: null,
+      vehiculo_patente: '  ',
+      folio: '',
+    })).toEqual({ titulo: 'Cita 15', sinNombre: true });
+    expect(tituloHumano({
+      ancla_tipo: 'cita',
+      ancla_id: '15',
+      cliente_nombre: null,
+      vehiculo_patente: null,
+      folio: null,
+    }).titulo).toBe('Cita 15');
+    expect(etiquetaTipoMovimiento('contracargo')).toBe('Contracargo');
     expect(CAMPOS_ETIQUETA_HUMANA).toEqual(['cliente_nombre', 'vehiculo_patente', 'folio']);
   });
 

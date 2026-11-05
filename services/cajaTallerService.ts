@@ -36,8 +36,8 @@ function paramsConsulta(consulta: ConsultaCaja): string {
 }
 
 /**
- * Un solo GET del período. cliente_nombre, vehiculo_patente y folio, si existen,
- * vienen en cada fila. No se pide el caso otra vez para ponerle nombre.
+ * Un solo GET del período. Cada caso y cada movimiento trae cliente_nombre,
+ * vehiculo_patente y folio, o null si no hay dato. No se pide el caso otra vez.
  */
 export async function consultarCaja(consulta: ConsultaCaja): Promise<LibroCaja> {
   try {

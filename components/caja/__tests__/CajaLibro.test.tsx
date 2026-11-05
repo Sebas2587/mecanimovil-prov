@@ -6,7 +6,7 @@ jest.mock('lucide-react-native', () => ({
 }));
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CajaLibro } from '@/components/caja/CajaLibro';
-import { ETIQUETA_NETO, type LibroCaja } from '@/utils/cajaTaller';
+import { ETIQUETA_NETO, type LibroCaja, type MovimientoCaja } from '@/utils/cajaTaller';
 
 const metricas = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
@@ -54,6 +54,24 @@ function libro(parcial: Partial<LibroCaja> = {}): LibroCaja {
         margen_real_clp: null,
       }],
     },
+    ...parcial,
+  };
+}
+
+function movimiento(parcial: Partial<MovimientoCaja> = {}): MovimientoCaja {
+  return {
+    id: 'entrada-30',
+    ancla_tipo: 'cita',
+    ancla_id: '15',
+    componente: 'total',
+    origen: 'manual',
+    tipo: 'entrada',
+    estado: 'confirmado',
+    monto_clp: 30,
+    moneda: 'CLP',
+    contabiliza_clp: true,
+    fecha_efectiva: '2026-11-05',
+    fecha_local: '2026-11-05',
     ...parcial,
   };
 }
@@ -110,15 +128,47 @@ describe('CajaLibro', () => {
 
   it('muestra el nombre que vino en la misma fila', async () => {
     const base = libro();
-    base.casos.results[0] = {
-      ...base.casos.results[0],
+    const identidad = {
       cliente_nombre: 'Ana',
       vehiculo_patente: 'ABCD12',
       folio: 'MM-1',
     };
+    base.casos.results[0] = { ...base.casos.results[0], ...identidad };
+    base.movimientos = {
+      count: 1,
+      page: 1,
+      page_size: 50,
+      next: null,
+      previous: null,
+      results: [movimiento(identidad)],
+    };
     await renderLibro({ libro: base });
-    expect(screen.getByText('Ana · ABCD12 · MM-1')).toBeTruthy();
+    expect(screen.getAllByText('Ana · ABCD12 · MM-1')).toHaveLength(2);
     expect(screen.queryByText('Cita 15')).toBeNull();
+    expect(screen.queryByText('Cliente')).toBeNull();
+  });
+
+  it('un dato null no inventa cliente y el contracargo no se devuelve a mano', async () => {
+    const base = libro();
+    base.casos.results = [];
+    base.casos.count = 0;
+    base.movimientos = {
+      count: 2,
+      page: 1,
+      page_size: 50,
+      next: null,
+      previous: null,
+      results: [
+        movimiento({ cliente_nombre: null, vehiculo_patente: null, folio: null, origen: 'mp' }),
+        movimiento({ id: 'cb-1', tipo: 'contracargo', origen: 'mp', monto_clp: 70 }),
+      ],
+    };
+    await renderLibro({ libro: base });
+    expect(screen.getAllByText('Cita 15').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Cliente')).toBeNull();
+    expect(screen.getByText(/Contracargo/)).toBeTruthy();
+    expect(screen.getByText(/No se suma otro monto/)).toBeTruthy();
+    expect(screen.queryByText('Devolver este cobro')).toBeNull();
   });
 
   it('el mecánico no ve las acciones de registro', async () => {

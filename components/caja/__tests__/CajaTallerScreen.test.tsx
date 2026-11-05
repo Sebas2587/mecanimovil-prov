@@ -209,6 +209,9 @@ describe('CajaTallerScreen', () => {
     await fireEvent.changeText(view.getByLabelText('Fecha efectiva'), '2026-02-31');
     await fireEvent.press(view.getByText('Revisar'));
     await waitFor(() => expect(view.getByText(/no existe/i)).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Fecha efectiva'), '2026-02-30T15:04:00');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByText(/no guarda/i)).toBeTruthy());
     expect(mockRegistrar).not.toHaveBeenCalled();
   });
 

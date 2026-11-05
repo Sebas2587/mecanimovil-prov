@@ -179,6 +179,34 @@ export function fechaRealIso(iso: string): boolean {
     && probe.getUTCDate() === dia;
 }
 
+/** El día de una fecha sola o de un instante. Null si el texto no trae un día. */
+function prefijoDia(valor: string): string | null {
+  const texto = valor.trim();
+  if (!/^\d{4}-\d{2}-\d{2}(?:$|T|\s)/.test(texto)) return null;
+  return texto.slice(0, 10);
+}
+
+/**
+ * null cuando el cobro puede enviarse, solo como YYYY-MM-DD de un día real.
+ * 2026-02-30 y 2026-02-30T15:04:00 no se envían: el servidor responde 400 y no inserta.
+ */
+export function motivoFechaCobro(valor: string): string | null {
+  const texto = valor.trim();
+  if (fechaRealIso(texto)) return null;
+  const dia = prefijoDia(texto);
+  if (dia && !fechaRealIso(dia)) {
+    return 'La fecha efectiva no existe. El servidor no guarda ese cobro.';
+  }
+  return 'La fecha efectiva no existe. Usa un día real, con forma YYYY-MM-DD.';
+}
+
+export function etiquetaTipoMovimiento(tipo: string): string {
+  if (tipo === 'entrada') return 'Cobro';
+  if (tipo === 'reembolso') return 'Devolución';
+  if (tipo === 'contracargo') return 'Contracargo';
+  return tipo;
+}
+
 export function diasInclusivos(desde: string, hasta: string): number | null {
   if (!fechaRealIso(desde) || !fechaRealIso(hasta)) return null;
   const inicio = Date.parse(`${desde}T00:00:00Z`);
@@ -188,10 +216,11 @@ export function diasInclusivos(desde: string, hasta: string): number | null {
 }
 
 export function validarPeriodo(desde: string, hasta: string): string | null {
-  if ((/^\d{4}-\d{2}-\d{2}$/.test(desde) && !fechaRealIso(desde))
-    || (/^\d{4}-\d{2}-\d{2}$/.test(hasta) && !fechaRealIso(hasta))) {
-    return 'La fecha no existe. Revisa el día del mes.';
-  }
+  const imposible = [desde, hasta].some((valor) => {
+    const dia = prefijoDia(valor);
+    return dia != null && !fechaRealIso(dia);
+  });
+  if (imposible) return 'La fecha no existe. Revisa el día del mes.';
   const dias = diasInclusivos(desde, hasta);
   if (dias == null) return 'El período usa fechas YYYY-MM-DD y la fecha final no puede ser anterior.';
   if (dias > DIAS_MAXIMOS) return `El período admite como máximo ${DIAS_MAXIMOS} días.`;
@@ -403,6 +432,15 @@ export function falloDesdeRespuesta(status: number | null, data: unknown): Fallo
   }
   if (status === 409) {
     return { clase: 'conflicto', status, code, detail, mensaje: mensajeConflicto(code, detail) };
+  }
+  if (status === 400 && code === 'fecha_invalida') {
+    return {
+      clase: 'solicitud',
+      status,
+      code,
+      detail,
+      mensaje: 'La fecha no existe. El servidor no guardó el cobro.',
+    };
   }
   return {
     clase: 'solicitud',

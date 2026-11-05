@@ -10,7 +10,7 @@ import {
 import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { fechaRealIso, type AnclaTipo, type CuerpoCobro, type CuerpoCosto, type FalloCaja } from '@/utils/cajaTaller';
+import { motivoFechaCobro, type AnclaTipo, type CuerpoCobro, type CuerpoCosto, type FalloCaja } from '@/utils/cajaTaller';
 
 const I = COLORS.institutional;
 
@@ -80,9 +80,12 @@ export function CajaAlta({
       setAviso('El cobro tiene que ser mayor a cero.');
       return;
     }
-    if (modo === 'cobro' && !fechaRealIso(fecha.trim())) {
-      setAviso('La fecha efectiva no existe. Usa un día real, con forma YYYY-MM-DD.');
-      return;
+    if (modo === 'cobro') {
+      const avisoFecha = motivoFechaCobro(fecha.trim());
+      if (avisoFecha) {
+        setAviso(avisoFecha);
+        return;
+      }
     }
     if (modo === 'cobro' && tipo === 'reembolso' && !origenId.trim()) {
       setAviso('La devolución manual necesita el movimiento de origen. Mercado Pago no se anota aquí.');
