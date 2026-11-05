@@ -41,12 +41,12 @@ function claveDueno(dueno: DuenoCaja | null): string {
 }
 
 type IntentoEnPantalla = { duenoClave: string; intento: IntentoCaja<CuerpoCobro> };
-type CostoEnPantalla = { duenoClave: string; serial: string; aviso: string };
+type CostoEnPantalla = { serial: string; aviso: string };
 
 type RefsAlta = {
   intentoCobro: React.MutableRefObject<IntentoEnPantalla | null>;
   enviandoRef: React.MutableRefObject<string | null>;
-  costoAmbiguo: React.MutableRefObject<CostoEnPantalla | null>;
+  costoAmbiguo: React.MutableRefObject<Map<string, CostoEnPantalla>>;
   duenoPantalla: React.MutableRefObject<string>;
 };
 
@@ -114,10 +114,8 @@ async function confirmarCostoEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cu
   if (refs.enviandoRef.current) return;
   const claveEnvio = acciones.duenoClave;
   const serial = JSON.stringify(cuerpo);
-  const repetido = refs.costoAmbiguo.current?.duenoClave === claveEnvio
-    && refs.costoAmbiguo.current.serial === serial
-    ? refs.costoAmbiguo.current.aviso
-    : null;
+  const propio = refs.costoAmbiguo.current.get(claveEnvio);
+  const repetido = propio?.serial === serial ? propio.aviso : null;
   if (repetido) {
     if (sigueEnPantalla(refs, claveEnvio)) acciones.setFalloAlta({
       ...falloDesdeRespuesta(502, {}),
@@ -129,7 +127,7 @@ async function confirmarCostoEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cu
   if (sigueEnPantalla(refs, claveEnvio)) acciones.setEnviando(true);
   try {
     await registrarCosto(cuerpo);
-    if (refs.costoAmbiguo.current?.duenoClave === claveEnvio) refs.costoAmbiguo.current = null;
+    refs.costoAmbiguo.current.delete(claveEnvio);
     if (!sigueEnPantalla(refs, claveEnvio)) return;
     acciones.setAvisoCosto(null);
     acciones.setFalloAlta(null);
@@ -141,8 +139,8 @@ async function confirmarCostoEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cu
       ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, 'costo') }
       : base;
     const aviso = `Un costo de ${formatearMontoCLP(cuerpo.monto_clp)} quedó sin respuesta. ${falloCosto.mensaje}`;
-    if (resultadoAmbiguo(base.status)) refs.costoAmbiguo.current = { duenoClave: claveEnvio, serial, aviso };
-    else if (refs.costoAmbiguo.current?.duenoClave === claveEnvio) refs.costoAmbiguo.current = null;
+    if (resultadoAmbiguo(base.status)) refs.costoAmbiguo.current.set(claveEnvio, { serial, aviso });
+    else refs.costoAmbiguo.current.delete(claveEnvio);
     if (!sigueEnPantalla(refs, claveEnvio)) return;
     acciones.setAvisoCosto(resultadoAmbiguo(base.status) ? aviso : null);
     acciones.setFalloAlta(falloCosto);
@@ -175,7 +173,7 @@ export default function CajaTallerScreen() {
   const [avisoCosto, setAvisoCosto] = useState<string | null>(null);
   const intentoCobro = useRef<{ duenoClave: string; intento: IntentoCaja<CuerpoCobro> } | null>(null);
   const libroRef = useRef<LibroCaja | null>(null);
-  const costoAmbiguo = useRef<{ duenoClave: string; serial: string; aviso: string } | null>(null);
+  const costoAmbiguo = useRef(new Map<string, CostoEnPantalla>());
   const enviandoRef = useRef<string | null>(null);
   const duenoPantalla = useRef(duenoClave);
   const consultaRef = useRef({ desde, hasta, granularidad, pagina, paginaCasos });
@@ -195,7 +193,7 @@ export default function CajaTallerScreen() {
     setFallo(null);
     setLibro(null);
     setEnviando(false);
-    setAvisoCosto(costoAmbiguo.current?.duenoClave === duenoClave ? costoAmbiguo.current.aviso : null);
+    setAvisoCosto(costoAmbiguo.current.get(duenoClave)?.aviso ?? null);
   }
 
   useLayoutEffect(() => {

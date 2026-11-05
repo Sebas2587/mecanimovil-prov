@@ -450,6 +450,26 @@ describe('CajaTallerScreen', () => {
     await view.rerender(marco(<CajaTallerScreen />));
   }
 
+  async function enviarCosto(
+    view: Awaited<ReturnType<typeof render>>,
+    monto: string,
+    nota: string,
+  ) {
+    await waitFor(() => expect(view.getByLabelText('Registrar costo')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Id del caso')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Id del caso'), '15');
+    await fireEvent.changeText(view.getByLabelText('Monto en pesos'), monto);
+    await fireEvent.changeText(view.getByLabelText('Nota'), nota);
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+  }
+
+  function montoVisible(monto: number) {
+    return new RegExp(formatearMontoCLP(monto).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  }
+
   it('un 502 que llega después del cambio de cuenta no se pinta en la otra', async () => {
     let rechazar: (error: unknown) => void = () => {};
     mockRegistrar.mockImplementation(() => new Promise((_resolve, reject) => {
@@ -570,6 +590,102 @@ describe('CajaTallerScreen', () => {
     expect(view.getByLabelText('Id del caso')).toBeTruthy();
     expect(view.queryByText(/Oferta 9/)).toBeNull();
     expect(view.queryByText(/quedó sin respuesta/i)).toBeNull();
+  });
+
+  it('el 502 tardío de un costo no borra la protección de la otra cuenta', async () => {
+    const pendientes: Array<{ rechazar: (error: unknown) => void }> = [];
+    mockCosto.mockImplementation(() => new Promise((_resolve, reject) => {
+      pendientes.push({ rechazar: reject });
+    }));
+    usarCuenta(7);
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getByText('No hay movimientos en este período.')).toBeTruthy());
+    await enviarCosto(view, '30', 'alfa');
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(1));
+
+    await mostrarCuenta(view, 8);
+    await enviarCosto(view, '40', 'beta');
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      pendientes[1].rechazar(falloDesdeRespuesta(502, {}));
+    });
+    await waitFor(() => expect(view.getByText(/no se sabe si el costo quedó guardado/i)).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    expect(mockCosto).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      pendientes[0].rechazar(falloDesdeRespuesta(502, {}));
+    });
+    await asentar();
+    expect(view.getAllByText(montoVisible(40)).length).toBeGreaterThan(0);
+    expect(view.queryByText(montoVisible(30))).toBeNull();
+    await fireEvent.press(view.getByLabelText('Confirmar envío'));
+    expect(mockCosto).toHaveBeenCalledTimes(2);
+
+    await mostrarCuenta(view, 7);
+    await waitFor(() => expect(view.getAllByText(montoVisible(30)).length).toBeGreaterThan(0));
+    expect(view.queryByText(montoVisible(40))).toBeNull();
+    await enviarCosto(view, '30', 'alfa');
+    expect(mockCosto).toHaveBeenCalledTimes(2);
+  });
+
+  it('un 200, un 400 o un 409 tardíos de costo no tocan el formulario de la otra cuenta', async () => {
+    const pendientes: Array<{
+      resolver: (valor: unknown) => void;
+      rechazar: (error: unknown) => void;
+    }> = [];
+    mockCosto.mockImplementation(() => new Promise((resolve, reject) => {
+      pendientes.push({ resolver: resolve, rechazar: reject });
+    }));
+    usarCuenta(7);
+    const view = await render(marco(<CajaTallerScreen />));
+    await waitFor(() => expect(view.getByText('No hay movimientos en este período.')).toBeTruthy());
+
+    await enviarCosto(view, '30', 'alfa');
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(1));
+    await mostrarCuenta(view, 8);
+    await waitFor(() => expect(view.getByLabelText('Registrar costo')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Nota')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Nota'), 'de-b');
+    await act(async () => {
+      pendientes[0].resolver({ id: 'costo-a' });
+    });
+    await asentar();
+    expect(String(view.getByLabelText('Nota').props.value)).toBe('de-b');
+    expect(view.queryByText(/Un costo de/i)).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await enviarCosto(view, '30', 'alfa');
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(2));
+    await mostrarCuenta(view, 8);
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Nota')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Id del caso'), '15');
+    await fireEvent.changeText(view.getByLabelText('Monto en pesos'), '40');
+    await fireEvent.changeText(view.getByLabelText('Nota'), 'de-b');
+    await fireEvent.press(view.getByText('Revisar'));
+    await waitFor(() => expect(view.getByLabelText('Confirmar envío')).toBeTruthy());
+    await act(async () => {
+      pendientes[1].rechazar(falloDesdeRespuesta(400, { code: 'fecha_invalida' }));
+    });
+    await asentar();
+    expect(view.getByLabelText('Confirmar envío')).toBeTruthy();
+    expect(view.queryByText(/no guardó/i)).toBeNull();
+
+    await mostrarCuenta(view, 7);
+    await enviarCosto(view, '30', 'alfa');
+    await waitFor(() => expect(mockCosto).toHaveBeenCalledTimes(3));
+    await mostrarCuenta(view, 8);
+    await fireEvent.press(view.getByLabelText('Registrar costo'));
+    await waitFor(() => expect(view.getByLabelText('Nota')).toBeTruthy());
+    await fireEvent.changeText(view.getByLabelText('Nota'), 'de-b');
+    await act(async () => {
+      pendientes[2].rechazar(falloDesdeRespuesta(409, { code: 'reverso_ancla_distinta' }));
+    });
+    await asentar();
+    expect(String(view.getByLabelText('Nota').props.value)).toBe('de-b');
+    expect(view.queryByText(/mismo caso/i)).toBeNull();
   });
 
   it('un POST sin respuesta no se edita ni cambia de clave, tampoco al volver a montar', async () => {
