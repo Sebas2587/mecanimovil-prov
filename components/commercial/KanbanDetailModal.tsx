@@ -46,6 +46,7 @@ import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizac
 import agenteIaService from '@/services/agenteIaService';
 import { ChatMessageComposer } from '@/components/chats/ChatMessageComposer';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
+import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { showAlert } from '@/utils/platformAlert';
 
@@ -430,13 +431,16 @@ export function KanbanDetailModal({
                         ) : null}
 
                         {cotizacionDetalle.repuestos.map((rep, idx) => (
-                          <View key={`rep-${idx}`} style={styles.repLine}>
-                            <InstitutionalText role="small">
-                              {rep.nombre} ×{rep.cantidad || 1}
-                            </InstitutionalText>
-                            <InstitutionalText role="captionBold">
-                              {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
-                            </InstitutionalText>
+                          <View key={`rep-${idx}`}>
+                            <View style={styles.repLine}>
+                              <InstitutionalText role="small">
+                                {rep.nombre} ×{rep.cantidad || 1}
+                              </InstitutionalText>
+                              <InstitutionalText role="captionBold">
+                                {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
+                              </InstitutionalText>
+                            </View>
+                            <ReferenciaTiendaLinea rep={rep} />
                           </View>
                         ))}
 

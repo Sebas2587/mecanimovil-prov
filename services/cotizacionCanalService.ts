@@ -154,6 +154,12 @@ export interface RepuestoCotizacion {
   proveedor_nombre?: string;
   /** Link al producto/listado web (solo taller; omitido en vista pública). */
   url_producto?: string;
+  /** Ficha verificada. Vacío si no hay. */
+  url_referencia?: string;
+  /** Nombre humano de esa tienda. Vacío si no hay. */
+  tienda_referencia?: string;
+  /** Precio verificado en la ficha, o null. */
+  precio_verificado_clp?: number | null;
   /** Título de la ficha de tienda (solo taller). */
   nombre_producto?: string;
   /** true si el precio no viene del catálogo/historial del taller (revisar antes de enviar). */
