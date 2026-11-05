@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { COLORS, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
+import { precioPresente } from '@/utils/totalesCotizacion';
+import { textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -22,7 +24,7 @@ const MANO_OBRA_COLLAPSE = 2;
 export interface RepuestoCotizacionBubble {
   nombre: string;
   cantidad: number;
-  precio_unitario_clp: number;
+  precio_unitario_clp?: number | null;
 }
 
 export interface ManoObraLineaBubble {
@@ -41,7 +43,8 @@ export interface CotizacionCanalBubbleProps {
   esTaller?: boolean;
   onVerDetalle?: () => void;
   servicioNombre?: string;
-  totalClp?: number;
+  totalClp?: number | null;
+  totalesCompletos?: boolean | null;
   manoObraClp?: number;
   costoRepuestosClp?: number;
   estado?: string;
@@ -83,7 +86,8 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
     esTaller,
     onVerDetalle,
     servicioNombre = cotizacion?.servicio_nombre || 'Cotización',
-    totalClp = cotizacion?.total_clp || 0,
+    totalClp,
+    totalesCompletos,
     manoObraClp = cotizacion?.mano_obra_clp || 0,
     costoRepuestosClp = cotizacion?.costo_repuestos_clp || 0,
     estado = cotizacion?.estado || 'borrador',
@@ -103,6 +107,9 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
     horariosSugeridos = [],
     onSelectHorario,
   } = props;
+  const textoTotal = textoTotalCotizacion(
+    cotizacion ?? { total_clp: totalClp, totales_completos: totalesCompletos },
+  );
   const [expanded, setExpanded] = useState(false);
   const t = esPropio ? own : soft;
 
@@ -175,11 +182,13 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
       {(expanded || repuestos.length > 0) && repuestosVisible.length > 0 ? (
         <View style={styles.block}>
           {repuestosVisible.map((rep, idx) => {
-            const cant = redondearCLP(rep.cantidad || 1);
-            const unit = redondearCLP(rep.precio_unitario_clp);
+            const cant = Math.max(1, redondearCLP(rep.cantidad || 1));
+            const unit = precioPresente(rep.precio_unitario_clp)
+              ? redondearCLP(rep.precio_unitario_clp)
+              : null;
             return (
               <Text key={`rep-${idx}`} style={[styles.line, t.line]}>
-                {rep.nombre} ×{cant} · {formatearMontoCLP(cant * unit)}
+                {rep.nombre} ×{cant} · {unit == null ? 'Incompleto' : formatearMontoCLP(cant * unit)}
               </Text>
             );
           })}
@@ -265,7 +274,7 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
       ) : null}
 
       <View style={[styles.footer, t.footer]}>
-        <Text style={[styles.total, t.total]}>{formatearMontoCLP(totalClp)}</Text>
+        <Text style={[styles.total, t.total]}>{textoTotal}</Text>
         {showExpand ? (
           <Pressable
             onPress={() => setExpanded((v) => !v)}

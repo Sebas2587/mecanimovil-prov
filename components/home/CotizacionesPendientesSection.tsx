@@ -29,6 +29,7 @@ import { router } from 'expo-router';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { ModalAjusteBorrador } from './ModalAjusteBorrador';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { envioTotalBloqueado, lecturaTotalServidor } from '@/utils/totalesCotizacion';
 import { showAlert } from '@/utils/platformAlert';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import logger from '@/utils/logger';
@@ -57,6 +58,11 @@ export function CotizacionesPendientesSection({
   }, [cotizaciones]);
 
   const handleAprobarRapido = useCallback(async (cotizacion: CotizacionCanal) => {
+    const bloqueo = envioTotalBloqueado(cotizacion);
+    if (bloqueo) {
+      showAlert('Total incompleto', bloqueo);
+      return;
+    }
     try {
       setApprovingId(cotizacion.id);
       await cotizacionCanalService.enviar(cotizacion.id);
@@ -225,7 +231,8 @@ export function CotizacionesPendientesSection({
               {(() => {
                 const manoObra = Number(item.mano_obra_clp) || 0;
                 const repuestos = Number(item.costo_repuestos_clp) || 0;
-                const totalFinal = item.total_clp || (manoObra + repuestos);
+                const lectura = lecturaTotalServidor(item);
+                const totalFinal = lectura.texto;
 
                 return (
                   <View style={styles.montoBox}>
@@ -240,7 +247,7 @@ export function CotizacionesPendientesSection({
                     <View style={[styles.montoRowMini, styles.totalRowBorder]}>
                       <InstitutionalText role="caption">TOTAL FINAL (IVA incl.):</InstitutionalText>
                       <InstitutionalText role="bodyBold" color="primary">
-                        {formatearMontoCLP(totalFinal)}
+                        {totalFinal}
                       </InstitutionalText>
                     </View>
                   </View>

@@ -316,6 +316,13 @@ export interface CotizacionCanal {
   dias_validez?: number;
   fecha_expiracion_publica?: string | null;
   total_clp: number;
+  total_persistido_clp?: number | null;
+  total_conocido_parcial_clp?: number | null;
+  total_alineado?: boolean | null;
+  totales_completos?: boolean | null;
+  totales_faltantes?: string[];
+  totales_fuente?: string | null;
+  precios_iva?: 'incluido' | string | null;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
   notas_internas?: string;

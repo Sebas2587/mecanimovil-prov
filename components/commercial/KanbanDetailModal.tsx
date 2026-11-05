@@ -51,6 +51,8 @@ import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotiza
 import { RevisionCotizador, ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { showAlert } from '@/utils/platformAlert';
+import { envioTotalBloqueado, precioPresente } from '@/utils/totalesCotizacion';
+import { textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
 const K = COLORS.kanban;
@@ -146,6 +148,13 @@ export function KanbanDetailModal({
   // Action 1: Send Quotation to Customer (for customer price approval)
   const handleEnviarSoloCliente = useCallback(async () => {
     if (!leadItem?.cotizacion_id) return;
+    if (cotizacionDetalle) {
+      const bloqueo = envioTotalBloqueado(cotizacionDetalle);
+      if (bloqueo) {
+        showAlert('Total incompleto', bloqueo);
+        return;
+      }
+    }
     setEnviandoCliente(true);
     try {
       await cotizacionCanalService.enviar(leadItem.cotizacion_id);
@@ -160,11 +169,18 @@ export function KanbanDetailModal({
     } finally {
       setEnviandoCliente(false);
     }
-  }, [leadItem, onAprobadoExitoso, onClose]);
+  }, [cotizacionDetalle, leadItem, onAprobadoExitoso, onClose]);
 
   // Action 2: Approve & Trigger Agent 2 (Agenda)
   const handleAprobarYEnviar = useCallback(async () => {
     if (!leadItem?.cotizacion_id) return;
+    if (cotizacionDetalle) {
+      const bloqueo = envioTotalBloqueado(cotizacionDetalle);
+      if (bloqueo) {
+        showAlert('Total incompleto', bloqueo);
+        return;
+      }
+    }
     setAprobando(true);
     try {
       await cotizacionCanalService.enviar(leadItem.cotizacion_id);
@@ -179,7 +195,7 @@ export function KanbanDetailModal({
     } finally {
       setAprobando(false);
     }
-  }, [leadItem, onAprobadoExitoso, onClose]);
+  }, [cotizacionDetalle, leadItem, onAprobadoExitoso, onClose]);
 
   // Attachment Handler: Image & Document Pickers
   const handleAttachPress = useCallback(async () => {
@@ -440,7 +456,9 @@ export function KanbanDetailModal({
                                 {rep.nombre} ×{rep.cantidad || 1}
                               </InstitutionalText>
                               <InstitutionalText role="captionBold">
-                                {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
+                                {precioPresente(rep.precio_unitario_clp)
+                                  ? formatearMontoCLP((rep.cantidad || 1) * Number(rep.precio_unitario_clp))
+                                  : 'Incompleto'}
                               </InstitutionalText>
                             </View>
                             <ValidacionRepuestoLinea rep={rep} />
@@ -457,7 +475,7 @@ export function KanbanDetailModal({
                         </View>
                         <View style={styles.priceRow}>
                           <InstitutionalText role="h4" color="primary">Total Final:</InstitutionalText>
-                          <InstitutionalText role="h4" color="primary">{formatearMontoCLP(cotizacionDetalle.total_clp)}</InstitutionalText>
+                          <InstitutionalText role="h4" color="primary">{textoTotalCotizacion(cotizacionDetalle)}</InstitutionalText>
                         </View>
 
                         <InstitutionalButton

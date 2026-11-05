@@ -27,6 +27,7 @@ import type { InboxChatItem } from '@/services/omnichannelService';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
+import { numeroTotal, precioPresente } from '@/utils/totalesCotizacion';
 import cotizacionCanalService, {
   cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
@@ -587,7 +588,9 @@ export default function ChatOmnicanalScreen() {
                         return {
                           nombre: String(row.nombre || 'Repuesto'),
                           cantidad: Number(row.cantidad || 1),
-                          precio_unitario_clp: Number(row.precio_unitario_clp || 0),
+                          precio_unitario_clp: precioPresente(row.precio_unitario_clp)
+                            ? Number(row.precio_unitario_clp)
+                            : null,
                         };
                       })
                     : [];
@@ -609,7 +612,8 @@ export default function ChatOmnicanalScreen() {
                     <View style={item.es_proveedor ? styles.bubbleWrapOwn : styles.bubbleWrapOther}>
                       <CotizacionCanalBubble
                         servicioNombre={String(meta.servicio_nombre || 'Servicio')}
-                        totalClp={Number(meta.total_clp || 0)}
+                        totalClp={numeroTotal(meta.total_clp)}
+                        totalesCompletos={meta.totales_completos === false ? false : undefined}
                         manoObraClp={Number(meta.mano_obra_clp || 0)}
                         manoObraLineas={manoObraLineas}
                         costoRepuestosClp={Number(meta.costo_repuestos_clp || 0)}
@@ -636,7 +640,10 @@ export default function ChatOmnicanalScreen() {
                           const cot: CotizacionCanal = {
                             id: meta.cotizacion_id ? Number(meta.cotizacion_id) : 0,
                             servicio_nombre: String(meta.servicio_nombre || 'Servicio'),
-                            total_clp: Number(meta.total_clp || 0),
+                            total_clp: numeroTotal(meta.total_clp) ?? 0,
+                            totales_completos: meta.totales_completos === false || numeroTotal(meta.total_clp) == null
+                              ? false
+                              : undefined,
                             mano_obra_clp: Number(meta.mano_obra_clp || 0),
                             mano_obra_lineas: manoObraLineas,
                             costo_repuestos_clp: Number(meta.costo_repuestos_clp || 0),
@@ -650,7 +657,7 @@ export default function ChatOmnicanalScreen() {
                             modalidad: String(meta.modalidad || 'taller'),
                             descripcion_problema: String(meta.descripcion_problema || ''),
                             duracion_minutos: meta.duracion_minutos_estimada != null ? Number(meta.duracion_minutos_estimada) : null,
-                            repuestos,
+                            repuestos: repuestos as CotizacionCanal['repuestos'],
                             advertencias,
                             cliente_nombre: conversationMeta.contactName,
                             cliente_telefono: conversationMeta.contactPhone,
