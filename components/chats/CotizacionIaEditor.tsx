@@ -28,6 +28,7 @@ import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBo
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
+import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -387,6 +388,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
         </InstitutionalText>
       ) : null}
+      <ReferenciaTiendaLinea rep={rep} />
       {rangoCliente ? (
         <InstitutionalText role="caption" color="muted">
           {rangoCliente}
