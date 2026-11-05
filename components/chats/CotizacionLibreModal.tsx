@@ -43,6 +43,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/ap
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import { withWebLineHeight } from '@/utils/webTypography';
 import {
   extraerNueveDigitosDesdeGuardado,
@@ -666,6 +667,11 @@ export function CotizacionLibreModal({
   const handleEnviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
+    const bloqueo = envioTotalBloqueado(fuente);
+    if (bloqueo) {
+      showAlert('Total incompleto', bloqueo);
+      return;
+    }
     const tipoDoc = tipo || tipoEnvioRef.current;
     tipoEnvioRef.current = tipoDoc;
     setEnviando(true);

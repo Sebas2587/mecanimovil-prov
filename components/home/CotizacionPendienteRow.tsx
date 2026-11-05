@@ -12,7 +12,7 @@ import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSema
 import { BORDERS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
-import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
 
@@ -70,7 +70,7 @@ function CotizacionPendienteRowInner({
   const cliente = (item.cliente_nombre || item.cliente_display || '').trim();
   const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo].filter(Boolean).join(' ');
   const patente = (item.vehiculo_patente || '').trim();
-  const total = Number(item.total_clp) || 0;
+  const totalTexto = textoTotalCotizacion(item);
   const fecha = fechaCorta(item.creado_en);
   const metaBits = [
     canal,
@@ -121,11 +121,9 @@ function CotizacionPendienteRowInner({
               {metaBits.join(' · ')}
             </InstitutionalText>
           ) : null}
-          {total > 0 ? (
-            <InstitutionalText role="bodyBold">{formatearMontoCLP(total)}</InstitutionalText>
-          ) : (
-            <InstitutionalText role="caption" color="muted">Sin precio todavía</InstitutionalText>
-          )}
+          <InstitutionalText role={totalTexto === 'Incompleto' ? 'caption' : 'bodyBold'} color={totalTexto === 'Incompleto' ? 'muted' : undefined}>
+            {totalTexto}
+          </InstitutionalText>
         </View>
       </TouchableOpacity>
     );
@@ -148,12 +146,12 @@ function CotizacionPendienteRowInner({
             {item.servicio_nombre || 'Servicio por cotizar'}
           </InstitutionalText>
           <View style={styles.priceChevron}>
-            {total > 0 ? (
-              <InstitutionalText role="numberDisplay" style={styles.precio}>
-                {formatearMontoCLP(total)}
-              </InstitutionalText>
+            {totalTexto === 'Incompleto' ? (
+              <InstitutionalTag label="Incompleto" variant="warning" size="sm" />
             ) : (
-              <InstitutionalTag label="Sin precio" variant="warning" size="sm" />
+              <InstitutionalText role="numberDisplay" style={styles.precio}>
+                {totalTexto}
+              </InstitutionalText>
             )}
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </View>

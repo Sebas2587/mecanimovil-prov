@@ -3,6 +3,7 @@ import {
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
 import { redondearCLP } from '@/utils/formatearMontoCLP';
+import { lecturaTotalServidor, precioPresente } from '@/utils/totalesCotizacion';
 
 export type EstadoCotizacionVista =
   | 'borrador'
@@ -82,7 +83,8 @@ export function fechaLargaCotizacion(iso: string | null | undefined): string {
 export type LineaDesglose = {
   id: string;
   label: string;
-  monto: number;
+  /** Null cuando el precio de la línea no vino. No es cero. */
+  monto: number | null;
   cantidad: number;
 };
 
@@ -92,16 +94,19 @@ export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesg
     lineas.push({
       id: `mo-${linea.id || index}`,
       label: linea.nombre?.trim() || 'Mano de obra',
-      monto: redondearCLP(linea.monto_clp),
+      monto: precioPresente(linea.monto_clp) ? redondearCLP(linea.monto_clp) : null,
       cantidad: 1,
     });
   });
   (cotizacion.repuestos ?? []).forEach((repuesto, index) => {
     const cantidad = Math.max(1, redondearCLP(repuesto.cantidad) || 1);
+    const precio = precioPresente(repuesto.precio_unitario_clp)
+      ? redondearCLP(repuesto.precio_unitario_clp)
+      : null;
     lineas.push({
       id: `rp-${repuesto.id || index}`,
       label: repuesto.nombre?.trim() || 'Repuesto',
-      monto: redondearCLP(cantidad * redondearCLP(repuesto.precio_unitario_clp)),
+      monto: precio == null ? null : redondearCLP(cantidad * precio),
       cantidad,
     });
   });
@@ -110,4 +115,27 @@ export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesg
 
 export function montoCotizacion(cotizacion: Pick<CotizacionCanal, 'total_clp'>): number {
   return redondearCLP(cotizacion.total_clp);
+}
+
+/** No convierte null ni un total incompleto en $0. El cero explícito sí. */
+export function textoTotalCotizacion(cotizacion: {
+  total_clp?: unknown;
+  totales_completos?: boolean | null;
+  total_conocido_parcial_clp?: unknown;
+  total_persistido_clp?: unknown;
+}): string {
+  return lecturaTotalServidor(cotizacion).texto;
+}
+
+export function textoParcialCotizacion(cotizacion: {
+  total_clp?: unknown;
+  totales_completos?: boolean | null;
+  total_conocido_parcial_clp?: unknown;
+}): string | null {
+  const lectura = lecturaTotalServidor(cotizacion);
+  if (!lectura.incompleto || lectura.parcial == null) return null;
+  return lecturaTotalServidor({
+    total_clp: lectura.parcial,
+    totales_completos: true,
+  }).texto;
 }

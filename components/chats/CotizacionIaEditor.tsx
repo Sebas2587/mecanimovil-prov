@@ -79,6 +79,11 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
+import {
+  envioTotalBloqueado,
+  formatearTotalConocido,
+  totalesDesdeLineas,
+} from '@/utils/totalesCotizacion';
 import { abrirOrdenCompraPdf } from '@/utils/abrirOrdenCompraPdf';
 import { cotizacionTieneOrdenCompraPdf } from '@/utils/ordenCompraPdf';
 import {
@@ -811,15 +816,23 @@ export const CotizacionIaEditor = React.forwardRef<
     ],
   );
 
-  const totalCalculado = descuentoLive.total;
+  const canon = totalesDesdeLineas({
+    repuestos,
+    manoObraLineas: lineasMo,
+    descuentoTipo: cotizacion.descuento_tipo,
+    descuentoAlcance: cotizacion.descuento_alcance,
+    descuentoValor: cotizacion.descuento_valor,
+    totalPersistido: cotizacion.total_persistido_clp ?? cotizacion.total_clp,
+  });
+  const totalCanonTexto = canon.totales_completos && canon.total_clp != null
+    ? formatearTotalConocido(canon.total_clp)
+    : 'Incompleto';
+  const desgloseCanon = canon.totales_completos && canon.total_clp != null
+    ? desgloseIvaDesdeTotal(canon.total_clp)
+    : null;
 
   const descuentoActivo = cotizacion.descuento_tipo === 'porcentaje'
     || cotizacion.descuento_tipo === 'monto';
-
-  const desgloseTotal = useMemo(
-    () => desgloseIvaDesdeTotal(totalCalculado),
-    [totalCalculado],
-  );
 
   const esEstimacionEmitida = cotizacion.estado !== 'borrador'
     && (cotizacion.tipo_documento === 'estimacion'
@@ -1099,6 +1112,11 @@ export const CotizacionIaEditor = React.forwardRef<
   const pedirEnvio = useCallback((tipo: 'estimacion' | 'cotizacion') => {
     const current = cotizacionRef.current;
     if (!onEnviar) return;
+    const bloqueo = envioTotalBloqueado(current);
+    if (bloqueo) {
+      showAlert('Total incompleto', bloqueo);
+      return;
+    }
     if (
       current.es_cotizacion_adicional
       && current.ejecucion_adicional === 'nueva_fecha'
@@ -1120,6 +1138,11 @@ export const CotizacionIaEditor = React.forwardRef<
   }), [agregarRepuesto, agregarManoObraLinea]);
 
   const enviarEstimacion = useCallback(() => {
+    const bloqueo = envioTotalBloqueado(cotizacionRef.current);
+    if (bloqueo) {
+      showAlert('Total incompleto', bloqueo);
+      return;
+    }
     if (onEnviarEstimacion) {
       onEnviarEstimacion();
       return;
@@ -1715,7 +1738,7 @@ export const CotizacionIaEditor = React.forwardRef<
             Repuestos
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
-            {formatearMontoCLP(totalRepuestos)}
+            {canon.costo_repuestos_clp == null ? 'Incompleto' : formatearMontoCLP(canon.costo_repuestos_clp)}
           </InstitutionalText>
         </View>
         <ResumenMargenRepuestos repuestos={repuestos} />
@@ -1737,7 +1760,7 @@ export const CotizacionIaEditor = React.forwardRef<
             </InstitutionalText>
           </View>
         ) : null}
-        {esEstimacionEmitida && bandaCliente.hayRango ? null : (
+        {esEstimacionEmitida && bandaCliente.hayRango ? null : desgloseCanon ? (
           <>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
@@ -1745,7 +1768,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 Neto
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseTotal.neto)}
+                {formatearMontoCLP(desgloseCanon.neto)}
               </InstitutionalText>
             </View>
             <View style={styles.summaryRow}>
@@ -1753,10 +1776,14 @@ export const CotizacionIaEditor = React.forwardRef<
                 IVA 19%
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseTotal.iva)}
+                {formatearMontoCLP(desgloseCanon.iva)}
               </InstitutionalText>
             </View>
           </>
+        ) : (
+          <InstitutionalText role="caption" color="muted">
+            Suma parcial {formatearTotalConocido(canon.total_conocido_parcial_clp)}. No es el total.
+          </InstitutionalText>
         )}
         <View style={styles.summaryDivider} />
         {esEstimacionEmitida && bandaCliente.hayRango ? (
@@ -1774,7 +1801,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 Total de trabajo (taller)
               </InstitutionalText>
               <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseTotal.total)}
+                {totalCanonTexto}
               </InstitutionalText>
             </View>
             <InstitutionalText role="caption" color="muted">
@@ -1788,7 +1815,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 Total a pagar
               </InstitutionalText>
               <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-                {formatearMontoCLP(desgloseTotal.total)}
+                {totalCanonTexto}
               </InstitutionalText>
             </View>
             {bandaCliente.hayRango ? (

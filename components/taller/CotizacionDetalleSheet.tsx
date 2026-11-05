@@ -33,7 +33,8 @@ import {
   fechaCortaCotizacion,
   fechaLargaCotizacion,
   lineasDesgloseCotizacion,
-  montoCotizacion,
+  textoParcialCotizacion,
+  textoTotalCotizacion,
 } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
@@ -270,7 +271,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                     <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
                       {linea.label}{linea.cantidad > 1 ? ` × ${linea.cantidad}` : ''}
                     </InstitutionalText>
-                    <InstitutionalText role="caption">{formatearMontoCLP(linea.monto)}</InstitutionalText>
+                    <InstitutionalText role="caption">{linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto)}</InstitutionalText>
                   </View>
                 ))
               )}
@@ -282,8 +283,14 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
               ) : null}
               <View style={styles.total}>
                 <InstitutionalText role="bodyBold">Total</InstitutionalText>
-                <InstitutionalText role="bodyBold">{formatearMontoCLP(montoCotizacion(cotizacion))}</InstitutionalText>
+                <InstitutionalText role="bodyBold">{textoTotalCotizacion(cotizacion)}</InstitutionalText>
               </View>
+              {textoParcialCotizacion(cotizacion) ? (
+                <View style={styles.linea}>
+                  <InstitutionalText role="caption" color="body">Suma parcial</InstitutionalText>
+                  <InstitutionalText role="caption">{textoParcialCotizacion(cotizacion)}</InstitutionalText>
+                </View>
+              ) : null}
             </View>
 
             <Seguimiento cotizacion={cotizacion} />

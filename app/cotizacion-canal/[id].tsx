@@ -47,6 +47,7 @@ import cotizacionCanalService, {
 import { HOLD_REVEAL_PRECIOS_MS, shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import {
   CLIPBOARD_MENSAJE_COPIADO,
   cuerpoEnvioExitoso,
@@ -291,6 +292,11 @@ export default function CotizacionCanalDetalleScreen() {
 
   const enviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
+    const bloqueo = envioTotalBloqueado(draft);
+    if (bloqueo) {
+      showAlert('Total incompleto', bloqueo);
+      return;
+    }
     if (adicionalRequiereFecha(draft)) {
       showAlert(
         'Fecha requerida',
