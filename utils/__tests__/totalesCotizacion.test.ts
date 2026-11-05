@@ -1,52 +1,140 @@
-import { textoObligacionCotizacion, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
-import { resolverObligacionCotizacion, totalesDesdeLineas } from '@/utils/totalesCotizacion';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { lineasDesgloseCotizacion, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
+import type { CotizacionCanal } from '@/services/cotizacionCanalService';
+import {
+  envioTotalBloqueado,
+  lecturaTotalServidor,
+  totalesDesdeLineas,
+} from '@/utils/totalesCotizacion';
 
-describe('totalesDesdeLineas', () => {
-  it('suma precio por cantidad más mano de obra sin agregar otro IVA', () => {
-    const totales = totalesDesdeLineas({
-      repuestos: [{ nombre: 'Filtro', cantidad: 2, precio_unitario_clp: 1000 }],
-      manoObraLineas: [{ monto_clp: 500 }],
-      totalPersistido: 2500,
-    });
-    expect(totales.total_clp).toBe(2500);
-    expect(totales.totales_completos).toBe(true);
-    expect(totales.precios_iva).toBe('incluido');
-    expect(totales.totales_fuente).toBe('lineas_respuesta');
-  });
+function base(parcial: Partial<CotizacionCanal> = {}): CotizacionCanal {
+  return {
+    id: 1,
+    estado: 'borrador',
+    modalidad: 'taller',
+    vehiculo_marca: 'A',
+    vehiculo_modelo: 'B',
+    vehiculo_patente: 'AA',
+    vehiculo_cilindraje: '',
+    vehiculo_vin: '',
+    tipo_motor: '',
+    tipo_motor_label: '',
+    aviso_motor: '',
+    servicio_nombre: 'Servicio',
+    descripcion_problema: '',
+    repuestos: [],
+    mano_obra_clp: 0,
+    costo_repuestos_clp: 0,
+    total_clp: 0,
+    ...parcial,
+  } as CotizacionCanal;
+}
 
-  it('un precio ausente deja el total nulo y la suma parcial aparte', () => {
-    const totales = totalesDesdeLineas({
+describe('totales de cotización con total nulo', () => {
+  it('suma líneas completas y no usa el total guardado si no coincide', () => {
+    const canon = totalesDesdeLineas({
       repuestos: [
-        { nombre: 'Filtro', cantidad: 1, precio_unitario_clp: 1000 },
-        { nombre: 'Aceite', cantidad: 1, precio_unitario_clp: null },
+        { nombre: 'Filtro', cantidad: 2, precio_unitario_clp: 1000 },
+        { nombre: 'Pastillas', cantidad: 1, precio_unitario_clp: 500 },
       ],
-      manoObraLineas: [{ monto_clp: 0 }],
-    });
-    expect(totales.total_clp).toBeNull();
-    expect(totales.totales_completos).toBe(false);
-    expect(totales.total_conocido_parcial_clp).toBe(1000);
-    expect(totales.totales_faltantes).toContain('Aceite');
-    expect(textoTotalCotizacion({
-      total_clp: totales.total_clp,
-      totales_completos: totales.totales_completos,
-    })).toBe('Incompleto');
-  });
-
-  it('un cero explícito sigue siendo un total conocido', () => {
-    expect(textoTotalCotizacion({ total_clp: 0, totales_completos: true })).toMatch(/\$0/);
-  });
-
-  it('una discrepancia deja la obligación en null y no en deuda cero', () => {
-    const obligacion = resolverObligacionCotizacion({
-      estado: 'aceptada',
-      repuestos: [{ nombre: 'Filtro', cantidad: 1, precio_unitario_clp: 2500 }],
-      manoObraLineas: [],
       totalPersistido: 1000,
     });
-    expect(obligacion.obligacion_fuente).toBe('discrepancia');
-    expect(obligacion.obligacion_clp).toBeNull();
-    expect(obligacion.obligacion_conocida).toBe(false);
-    expect(textoObligacionCotizacion(obligacion)).toBe('Obligación desconocida');
-    expect(textoObligacionCotizacion(obligacion)).not.toMatch(/\$0/);
+    expect(canon.total_clp).toBe(2500);
+    expect(canon.total_persistido_clp).toBe(1000);
+    expect(canon.total_alineado).toBe(false);
+    expect(canon.totales_completos).toBe(true);
+    expect(canon.precios_iva).toBe('incluido');
+  });
+
+  it('un precio null o undefined deja el total null y nombra la línea', () => {
+    const nulo = totalesDesdeLineas({
+      repuestos: [
+        { nombre: 'Filtro', cantidad: 1, precio_unitario_clp: 1000 },
+        { nombre: 'Sensor', cantidad: 1, precio_unitario_clp: null },
+      ],
+    });
+    const ausente = totalesDesdeLineas({
+      repuestos: [
+        { nombre: 'Filtro', cantidad: 1, precio_unitario_clp: 1000 },
+        { nombre: 'Sensor', cantidad: 1 },
+      ],
+    });
+    expect(nulo.total_clp).toBeNull();
+    expect(nulo.totales_completos).toBe(false);
+    expect(nulo.total_conocido_parcial_clp).toBe(1000);
+    expect(nulo.totales_faltantes).toContain('Sensor');
+    expect(ausente.total_clp).toBeNull();
+    expect(ausente.totales_faltantes).toContain('Sensor');
+  });
+
+  it('el cero explícito es un total, no una línea faltante', () => {
+    const canon = totalesDesdeLineas({
+      repuestos: [{ nombre: 'Cortesía', cantidad: 1, precio_unitario_clp: 0 }],
+      totalPersistido: 0,
+    });
+    expect(canon.totales_completos).toBe(true);
+    expect(canon.total_clp).toBe(0);
+    expect(canon.total_alineado).toBe(true);
+  });
+
+  it('la lectura del servidor no convierte null, undefined ni el flag en $0', () => {
+    expect(lecturaTotalServidor({ total_clp: null }).texto).toBe('Incompleto');
+    expect(lecturaTotalServidor({ total_clp: undefined }).enviable).toBe(false);
+    expect(lecturaTotalServidor({ total_clp: 2500, totales_completos: false }).texto).toBe('Incompleto');
+    expect(lecturaTotalServidor({ total_clp: 2500, totales_completos: false }).enviable).toBe(false);
+
+    const cero = lecturaTotalServidor({ total_clp: 0 });
+    expect(cero.texto).toBe(formatearMontoCLP(0));
+    expect(cero.enviable).toBe(true);
+
+    const viejo = lecturaTotalServidor({ total_clp: 2500 });
+    expect(viejo.texto).toBe(formatearMontoCLP(2500));
+    expect(viejo.enviable).toBe(true);
+    expect(textoTotalCotizacion({ total_clp: null })).toBe('Incompleto');
+  });
+
+  it('un total guardado distinto no se muestra como el total ni como cero', () => {
+    const lectura = lecturaTotalServidor({
+      total_clp: null,
+      totales_completos: false,
+      total_persistido_clp: 1000,
+      total_conocido_parcial_clp: 2500,
+    });
+    expect(lectura.texto).toBe('Incompleto');
+    expect(lectura.persistido).toBe(1000);
+    expect(lectura.parcial).toBe(2500);
+    expect(lectura.texto).not.toContain('1');
+  });
+
+  it('no deja enviar una línea sin precio y sí deja enviar el cero', () => {
+    expect(envioTotalBloqueado({
+      repuestos: [{ precio_unitario_clp: null }],
+      total_clp: 0,
+    })).toMatch(/No se envía como \$0/);
+    expect(envioTotalBloqueado({
+      repuestos: [{ precio_unitario_clp: undefined }],
+    })).toMatch(/No se envía como \$0/);
+    expect(envioTotalBloqueado({
+      repuestos: [{ precio_unitario_clp: 0 }],
+      total_clp: 0,
+    })).toBeNull();
+    expect(envioTotalBloqueado({ total_clp: null })).toMatch(/incompleto/i);
+    expect(envioTotalBloqueado({ total_clp: undefined })).toMatch(/incompleto/i);
+    expect(envioTotalBloqueado({ total_clp: 0 })).toBeNull();
+    expect(envioTotalBloqueado({ total_clp: 2500 })).toBeNull();
+  });
+
+  it('el desglose de una línea sin precio no es $0', () => {
+    const lineas = lineasDesgloseCotizacion(base({
+      repuestos: [
+        { id: 'a', nombre: 'Sensor', cantidad: 1, precio_unitario_clp: null } as never,
+        { id: 'b', nombre: 'Cortesía', cantidad: 1, precio_unitario_clp: 0 },
+      ],
+      total_clp: 0,
+      totales_completos: false,
+    }));
+    expect(lineas.find((linea) => linea.label === 'Sensor')?.monto).toBeNull();
+    expect(lineas.find((linea) => linea.label === 'Cortesía')?.monto).toBe(0);
+    expect(textoTotalCotizacion(base({ total_clp: null as never, totales_completos: false }))).toBe('Incompleto');
   });
 });

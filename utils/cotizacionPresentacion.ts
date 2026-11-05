@@ -2,8 +2,8 @@ import {
   resolverManoObraLineas,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
-import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
-import { totalConocidoCotizacion } from '@/utils/totalesCotizacion';
+import { redondearCLP } from '@/utils/formatearMontoCLP';
+import { lecturaTotalServidor, precioPresente } from '@/utils/totalesCotizacion';
 
 export type EstadoCotizacionVista =
   | 'borrador'
@@ -83,7 +83,8 @@ export function fechaLargaCotizacion(iso: string | null | undefined): string {
 export type LineaDesglose = {
   id: string;
   label: string;
-  monto: number;
+  /** Null cuando el precio de la línea no vino. No es cero. */
+  monto: number | null;
   cantidad: number;
 };
 
@@ -93,16 +94,19 @@ export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesg
     lineas.push({
       id: `mo-${linea.id || index}`,
       label: linea.nombre?.trim() || 'Mano de obra',
-      monto: redondearCLP(linea.monto_clp),
+      monto: precioPresente(linea.monto_clp) ? redondearCLP(linea.monto_clp) : null,
       cantidad: 1,
     });
   });
   (cotizacion.repuestos ?? []).forEach((repuesto, index) => {
     const cantidad = Math.max(1, redondearCLP(repuesto.cantidad) || 1);
+    const precio = precioPresente(repuesto.precio_unitario_clp)
+      ? redondearCLP(repuesto.precio_unitario_clp)
+      : null;
     lineas.push({
       id: `rp-${repuesto.id || index}`,
       label: repuesto.nombre?.trim() || 'Repuesto',
-      monto: redondearCLP(cantidad * redondearCLP(repuesto.precio_unitario_clp)),
+      monto: precio == null ? null : redondearCLP(cantidad * precio),
       cantidad,
     });
   });
@@ -113,27 +117,25 @@ export function montoCotizacion(cotizacion: Pick<CotizacionCanal, 'total_clp'>):
   return redondearCLP(cotizacion.total_clp);
 }
 
-/** Total de la respuesta. Incompleto no se muestra como $0. */
+/** No convierte null ni un total incompleto en $0. El cero explícito sí. */
 export function textoTotalCotizacion(cotizacion: {
-  total_clp?: number | null;
+  total_clp?: unknown;
   totales_completos?: boolean | null;
+  total_conocido_parcial_clp?: unknown;
+  total_persistido_clp?: unknown;
 }): string {
-  const total = totalConocidoCotizacion(cotizacion);
-  if (total == null) return 'Incompleto';
-  return formatearMontoCLP(total);
+  return lecturaTotalServidor(cotizacion).texto;
 }
 
-/** La obligación null no se muestra como $0. Sin campos nuevos, no se inventa. */
-export function textoObligacionCotizacion(cotizacion: {
-  obligacion_clp?: number | null;
-  obligacion_conocida?: boolean | null;
-  obligacion_fuente?: string | null;
+export function textoParcialCotizacion(cotizacion: {
+  total_clp?: unknown;
+  totales_completos?: boolean | null;
+  total_conocido_parcial_clp?: unknown;
 }): string | null {
-  if (cotizacion.obligacion_conocida == null && cotizacion.obligacion_fuente == null) return null;
-  if (cotizacion.obligacion_clp == null || cotizacion.obligacion_conocida === false) {
-    if (cotizacion.obligacion_fuente === 'incompleto') return 'Obligación incompleta';
-    if (cotizacion.obligacion_fuente === 'no_aceptada') return 'Todavía no es obligación';
-    return 'Obligación desconocida';
-  }
-  return formatearMontoCLP(cotizacion.obligacion_clp);
+  const lectura = lecturaTotalServidor(cotizacion);
+  if (!lectura.incompleto || lectura.parcial == null) return null;
+  return lecturaTotalServidor({
+    total_clp: lectura.parcial,
+    totales_completos: true,
+  }).texto;
 }

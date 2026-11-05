@@ -18,6 +18,7 @@ import { InstitutionalButton } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { envioTotalBloqueado, formatearTotalConocido, totalesDesdeLineas } from '@/utils/totalesCotizacion';
 import { showAlert } from '@/utils/platformAlert';
 import logger from '@/utils/logger';
 
@@ -90,14 +91,20 @@ export function ModalAjusteBorrador({
   // Cálculos dinámicos (100% Coincidentes con la Cotización Pública Vercel y la API)
   const manoObraNum = parseCLP(manoObraStr);
 
-  const totalRepuestosCalc = useMemo(() => {
-    return repuestos.reduce(
-      (acc, item) => acc + (parseCLP(item.precio_unitario_clp) * (Number(item.cantidad) || 1)),
-      0
-    );
-  }, [repuestos]);
-
-  const totalGeneralCalc = manoObraNum + totalRepuestosCalc;
+  const canon = useMemo(
+    () => totalesDesdeLineas({
+      repuestos,
+      manoObraLineas: [{ monto_clp: manoObraNum }],
+      totalPersistido: cotizacion?.total_persistido_clp ?? cotizacion?.total_clp,
+    }),
+    [repuestos, manoObraNum, cotizacion?.total_persistido_clp, cotizacion?.total_clp],
+  );
+  const totalVisible = canon.totales_completos && canon.total_clp != null
+    ? formatearTotalConocido(canon.total_clp)
+    : 'Incompleto';
+  const repuestosVisibles = canon.costo_repuestos_clp == null
+    ? 'Incompleto'
+    : formatearMontoCLP(canon.costo_repuestos_clp);
 
   // Handlers con formateo en tiempo real al escribir
   const handleManoObraChange = (text: string) => {
@@ -154,13 +161,24 @@ export function ModalAjusteBorrador({
 
   const handleGuardarYAprobar = useCallback(async () => {
     if (!cotizacion) return;
+    const bloqueo = envioTotalBloqueado({
+      repuestos,
+      mano_obra_lineas: [{ monto_clp: manoObraNum }],
+      total_clp: cotizacion.total_clp,
+      totales_completos: cotizacion.totales_completos,
+      total_persistido_clp: cotizacion.total_persistido_clp,
+    });
+    if (bloqueo || canon.total_clp == null) {
+      showAlert('Total incompleto', bloqueo || 'Falta el precio de una línea. No se envía como $0.');
+      return;
+    }
     try {
       setSaving(true);
 
       const patchData: Partial<CotizacionCanal> = {
         mano_obra_clp: manoObraNum,
-        costo_repuestos_clp: totalRepuestosCalc,
-        total_clp: totalGeneralCalc,
+        costo_repuestos_clp: canon.costo_repuestos_clp ?? 0,
+        total_clp: canon.total_clp,
         repuestos,
         notas_internas: notasInternas,
       };
@@ -176,7 +194,7 @@ export function ModalAjusteBorrador({
     } finally {
       setSaving(false);
     }
-  }, [cotizacion, manoObraNum, totalRepuestosCalc, totalGeneralCalc, repuestos, notasInternas, onSuccess, onClose]);
+  }, [cotizacion, manoObraNum, canon.total_clp, canon.costo_repuestos_clp, repuestos, notasInternas, onSuccess, onClose]);
 
   if (!cotizacion) return null;
 
@@ -354,12 +372,12 @@ export function ModalAjusteBorrador({
 
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Repuestos:</Text>
-                <Text style={styles.totalVal}>{formatearMontoCLP(totalRepuestosCalc)}</Text>
+                <Text style={styles.totalVal}>{repuestosVisibles}</Text>
               </View>
 
               <View style={[styles.totalRow, styles.totalRowGrand]}>
                 <Text style={styles.grandTotalLabel}>TOTAL FINAL (IVA incl.):</Text>
-                <Text style={styles.grandTotalVal}>{formatearMontoCLP(totalGeneralCalc)}</Text>
+                <Text style={styles.grandTotalVal}>{totalVisible}</Text>
               </View>
             </View>
           </ScrollView>
@@ -367,7 +385,7 @@ export function ModalAjusteBorrador({
           {/* Footer de Aprobación */}
           <View style={styles.footer}>
             <InstitutionalButton
-              label={`Aprobar y Enviar (${formatearMontoCLP(totalGeneralCalc)})`}
+              label={`Aprobar y Enviar (${totalVisible})`}
               onPress={handleGuardarYAprobar}
               disabled={saving}
               loading={saving}

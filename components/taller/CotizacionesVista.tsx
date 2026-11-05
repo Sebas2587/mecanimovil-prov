@@ -46,7 +46,7 @@ import {
   textoTotalCotizacion,
   type EstadoCotizacionVista,
 } from '@/utils/cotizacionPresentacion';
-import { totalConocidoCotizacion } from '@/utils/totalesCotizacion';
+import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -123,15 +123,15 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const sumaEstados = (estados: EstadoCotizacionVista[]) => {
     const buscados = new Set(estados);
     return cotizaciones
-    .filter((cotizacion) => buscados.has(estadoCotizacionVista(cotizacion)))
-    .reduce(
-      (acc, cotizacion) => {
-        const total = totalConocidoCotizacion(cotizacion);
-        if (total == null) return { ...acc, incompletos: acc.incompletos + 1 };
-        return { ...acc, total: acc.total + total };
-      },
-      { total: 0, incompletos: 0 },
-    );
+      .filter((cotizacion) => buscados.has(estadoCotizacionVista(cotizacion)))
+      .reduce(
+        (acc, cotizacion) => {
+          const lectura = lecturaTotalServidor(cotizacion);
+          if (lectura.total == null) return { ...acc, incompletos: acc.incompletos + 1 };
+          return { ...acc, total: acc.total + lectura.total };
+        },
+        { total: 0, incompletos: 0 },
+      );
   };
   const esperando = sumaEstados(['enviada']);
   const aceptado = sumaEstados(['aceptada', 'agendada', 'entregada']);

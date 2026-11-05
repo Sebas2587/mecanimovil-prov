@@ -13,6 +13,8 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { router } from 'expo-router';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
+import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 
 const I = COLORS.institutional;
 
@@ -26,7 +28,14 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
   }, [cotizaciones]);
 
   const totalMontoEnviado = useMemo(() => {
-    return enviadas.reduce((acc, curr) => acc + (Number(curr.total_clp) || 0), 0);
+    return enviadas.reduce(
+      (acc, curr) => {
+        const lectura = lecturaTotalServidor(curr);
+        if (lectura.total == null) return { ...acc, incompletos: acc.incompletos + 1 };
+        return { ...acc, total: acc.total + lectura.total };
+      },
+      { total: 0, incompletos: 0 },
+    );
   }, [enviadas]);
 
   const handleIrABandeja = useCallback(() => {
@@ -50,7 +59,10 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
             <Send size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={{ flex: 1 }}>
-            <InstitutionalText role="h2">{formatearMontoCLP(totalMontoEnviado)}</InstitutionalText>
+            <InstitutionalText role="h2">{formatearMontoCLP(totalMontoEnviado.total)}</InstitutionalText>
+            {totalMontoEnviado.incompletos > 0 ? (
+              <InstitutionalText role="caption" color="muted">Hay totales incompletos. No se suman como $0.</InstitutionalText>
+            ) : null}
             <InstitutionalText role="caption" color="body">
               {enviadas.length} {enviadas.length === 1 ? 'cotización enviada' : 'cotizaciones enviadas'} en negociación activa
             </InstitutionalText>
@@ -75,7 +87,7 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
                     {item.cliente_nombre || 'Cliente'} • {item.vehiculo_marca} {item.vehiculo_modelo}
                   </InstitutionalText>
                   <InstitutionalText role="caption" color="body" numberOfLines={1}>
-                    {item.servicio_nombre} ({formatearMontoCLP(item.total_clp)})
+                    {item.servicio_nombre} ({textoTotalCotizacion(item)})
                   </InstitutionalText>
                 </View>
                 <InstitutionalTag
