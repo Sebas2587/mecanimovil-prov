@@ -6,7 +6,9 @@ import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import type { EstadoOperativoUnificado } from '@/utils/estadoOperativo';
-import { ESTADO_OPERATIVO_LABELS } from '@/utils/estadoOperativo';
+import { ESTADO_OPERATIVO_LABELS, ESTADO_OPERATIVO_VARIANT } from '@/utils/estadoOperativo';
+import { resolverCobroTrabajo } from '@/utils/cobroTrabajo';
+import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 
 const I = COLORS.institutional;
@@ -29,6 +31,8 @@ export type CitaCasoIdentidadProps = {
   vehiculoVin?: string | null;
   vehiculoCilindraje?: string | null;
   onLlamar?: () => void;
+  /** Precio de referencia de la cita. No es un cobro. */
+  montoReferencia?: string | null;
 };
 
 export function CitaCasoIdentidad({
@@ -49,6 +53,7 @@ export function CitaCasoIdentidad({
   vehiculoVin,
   vehiculoCilindraje,
   onLlamar,
+  montoReferencia,
 }: CitaCasoIdentidadProps) {
   const { width } = useWindowDimensions();
   const stacked = width < 520;
@@ -57,6 +62,8 @@ export function CitaCasoIdentidad({
     .join(' ')
     .trim();
   const cilindraje = cilindrajeEfectivo(vehiculoCilindraje, vehiculoMarca, vehiculoModelo);
+  const trabajo = horarioPorConfirmar ? 'Horario por confirmar' : ESTADO_OPERATIVO_LABELS[estadoOperativo];
+  const cobro = resolverCobroTrabajo({ origen: 'cita' });
 
   return (
     <View style={styles.root}>
@@ -72,18 +79,12 @@ export function CitaCasoIdentidad({
             fechaHoraLabel,
           ].filter(Boolean).join(' · ')}
         </InstitutionalText>
-        <View style={styles.estadoQuieto}>
-          <View
-            style={[
-              styles.estadoPunto,
-              (estadoOperativo === 'cancelado') && styles.estadoPuntoBaja,
-              (estadoOperativo === 'completado' || estadoOperativo === 'cerrado') && styles.estadoPuntoAlta,
-            ]}
-          />
-          <InstitutionalText role="captionBold">
-            {horarioPorConfirmar ? 'Horario por confirmar' : ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-          </InstitutionalText>
-        </View>
+        <EstadoTrabajoCobro
+          trabajo={trabajo}
+          trabajoTono={horarioPorConfirmar ? 'warning' : ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+          cobro={cobro}
+          monto={montoReferencia}
+        />
         {folioLabel ? (
           <InstitutionalText role="caption" color="muted">{folioLabel}</InstitutionalText>
         ) : null}

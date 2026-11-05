@@ -38,6 +38,7 @@ import {
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
 import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
@@ -202,6 +203,10 @@ const CasoListing = React.memo(function CasoListing({
       ? 'Incluye 1 trabajo adicional'
       : `Incluye ${extrasCount} trabajos adicionales`
     : null;
+  const cobroCaso = cobroVisiblePipeline({
+    tipo_entidad: caso.tipo_entidad,
+    estado: caso.estado_raw,
+  });
 
   return (
     <TouchableOpacity
@@ -228,7 +233,13 @@ const CasoListing = React.memo(function CasoListing({
           <InstitutionalTag label={ejecucion.label} variant={ejecucion.variant} size="sm" />
         ) : null}
         {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
-        <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
+        <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" uppercase={false} />
+        <InstitutionalTag
+          label={cobroCaso.etiqueta}
+          variant={cobroCaso.tono}
+          size="sm"
+          uppercase={false}
+        />
       </View>
       <Text style={styles.casoDesde} numberOfLines={2}>
         {PASO_FRASE[paso]}

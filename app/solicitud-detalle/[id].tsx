@@ -65,6 +65,12 @@ import {
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import creditosService from '@/services/creditosService';
 import logger from '@/utils/logger';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapOrdenEstadoToOperativo,
+} from '@/utils/estadoOperativo';
+import { cobroVisibleOferta } from '@/utils/cobroTrabajo';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -93,25 +99,25 @@ const shadowFooter = platformShadow({
 function textoEstadoOferta(estado: string): string {
   switch (estado) {
     case 'pendiente_confirmacion':
-      return 'Pendiente tu confirmación';
+      return 'Falta tu confirmación';
     case 'enviada':
       return 'Enviada';
     case 'vista':
-      return 'Vista por cliente';
+      return 'Vista por el cliente';
     case 'en_chat':
       return 'En conversación';
     case 'pendiente_creditos':
-      return 'Pendiente créditos';
+      return 'Faltan créditos de la app';
     case 'aceptada':
       return 'Aceptada';
     case 'pendiente_pago':
-      return 'Cliente pagando…';
+      return 'Agendado';
     case 'pagada':
-      return 'Pagada';
+      return 'Agendado';
     case 'en_ejecucion':
       return 'En ejecución';
     case 'completada':
-      return 'Completada';
+      return 'Completado';
     case 'rechazada':
       return 'Rechazada';
     case 'retirada':
@@ -119,9 +125,9 @@ function textoEstadoOferta(estado: string): string {
     case 'expirada':
       return 'Expirada';
     case 'pagada_parcialmente':
-      return 'Pago parcial';
+      return 'Agendado';
     default:
-      return estado;
+      return ESTADO_OPERATIVO_LABELS[mapOrdenEstadoToOperativo(estado)];
   }
 }
 
@@ -1205,7 +1211,18 @@ export default function SolicitudDetalleScreen() {
                   </Text>
                 ) : null}
                 <View style={styles.estadoOfertaRow}>
-                  <InstitutionalTag label={textoEstadoOferta(miOferta.estado)} variant="neutral" size="sm" />
+                  <InstitutionalTag
+                    label={textoEstadoOferta(miOferta.estado)}
+                    variant={ESTADO_OPERATIVO_VARIANT[mapOrdenEstadoToOperativo(miOferta.estado)]}
+                    size="sm"
+                    uppercase={false}
+                  />
+                  <InstitutionalTag
+                    label={cobroVisibleOferta(miOferta).etiqueta}
+                    variant={cobroVisibleOferta(miOferta).tono}
+                    size="sm"
+                    uppercase={false}
+                  />
                 </View>
                 <Text style={styles.ofertaPrecio}>
                   {parseFloat(miOferta.precio_total_ofrecido).toLocaleString('es-CL', {
@@ -1267,7 +1284,11 @@ export default function SolicitudDetalleScreen() {
                                 minimumFractionDigits: 0,
                               })}
                             </Text>
-                            <Text style={styles.ofertaSecundariaEstado}>{textoEstadoOferta(ofertaSec.estado)}</Text>
+                            <Text style={styles.ofertaSecundariaEstado}>
+                              {textoEstadoOferta(ofertaSec.estado)}
+                              {' · '}
+                              {cobroVisibleOferta(ofertaSec).etiqueta}
+                            </Text>
                           </View>
                           <View
                             style={[

@@ -19,6 +19,13 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { calcularDesgloseIvaOferta, resolverDesgloseIvaMostrado } from '@/utils/ofertaPrecioDesglose';
 import { getResumenTipoPagoCliente } from '@/utils/tipoPagoClienteLabel';
+import { cobroVisibleOferta } from '@/utils/cobroTrabajo';
+import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapOrdenEstadoToOperativo,
+} from '@/utils/estadoOperativo';
 import type { OfertaProveedor } from '@/services/solicitudesService';
 import type { ChecklistInstance } from '@/services/checklistService';
 import type { BannerConfig } from '@/utils/ofertaDetalleProveedorUi';
@@ -117,8 +124,17 @@ export function SolicitudDetalleEjecucion({
   });
   const merged = resolverDesgloseIvaMostrado(miOferta.desglose_iva, desgloseCalc);
 
+  const estadoTrabajo = mapOrdenEstadoToOperativo(miOferta.estado);
+  const cobroOferta = cobroVisibleOferta(miOferta);
+
   return (
     <>
+      <EstadoTrabajoCobro
+        trabajo={ESTADO_OPERATIVO_LABELS[estadoTrabajo]}
+        trabajoTono={ESTADO_OPERATIVO_VARIANT[estadoTrabajo]}
+        cobro={cobroOferta}
+        monto={miOferta.precio_total_ofrecido ? formatearPrecio(miOferta.precio_total_ofrecido) : null}
+      />
       {estadoInfo ? (
         <View style={styles.badgesContainer}>
           <View style={[styles.estadoBadge, { backgroundColor: withOpacity(estadoInfo.accent, 0.12) }]}>

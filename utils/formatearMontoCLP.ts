@@ -10,6 +10,25 @@ export function redondearCLP(monto: number | string | null | undefined): number 
   return Math.round(num as number);
 }
 
+/**
+ * Monto para mostrar en la ficha. Null, vacío o no numérico no se ven como $0.
+ * El cero explícito sí se formatea.
+ */
+export function montoConocidoCLP(monto: unknown): string | null {
+  if (monto == null) return null;
+  if (typeof monto === 'number') {
+    if (!Number.isFinite(monto)) return null;
+    return formatearMontoCLP(monto);
+  }
+  if (typeof monto === 'string') {
+    if (!monto.trim()) return null;
+    const n = Number(monto.trim());
+    if (!Number.isFinite(n)) return null;
+    return formatearMontoCLP(n);
+  }
+  return null;
+}
+
 /** Formatea montos CLP como peso entero (sin decimales). */
 export function formatearMontoCLP(monto: number | string | null | undefined): string {
   if (monto == null || monto === '') return '$0';

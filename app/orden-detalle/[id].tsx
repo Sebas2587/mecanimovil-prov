@@ -32,6 +32,14 @@ import {
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
+import { montoConocidoCLP } from '@/utils/formatearMontoCLP';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapOrdenEstadoToOperativo,
+} from '@/utils/estadoOperativo';
+import { cobroVisibleOrden } from '@/utils/cobroTrabajo';
+import { EstadoTrabajoCobro } from '@/components/trabajo/EstadoTrabajoCobro';
 import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
@@ -541,7 +549,11 @@ export default function OrdenDetalleScreen() {
     );
   }
 
-  const colorEstado = ordenesProveedorService.obtenerColorEstado(orden.estado);
+  const estadoTrabajo = mapOrdenEstadoToOperativo(orden.estado);
+  const tonoTrabajo = ESTADO_OPERATIVO_VARIANT[estadoTrabajo];
+  const colorTrabajo = institutionalStatusColors(tonoTrabajo);
+  const cobro = cobroVisibleOrden(orden);
+  const montoOrden = montoConocidoCLP(orden.total);
   const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnOrden({
     esMecanicoEquipo,
     esProveedorDomicilio,
@@ -568,13 +580,19 @@ export default function OrdenDetalleScreen() {
               {orden.vehiculo_detail.marca} {orden.vehiculo_detail.modelo}
             </Text>
           </View>
-          <View style={[styles.estadoBadge, { backgroundColor: colorEstado }]}>
-            <Text style={styles.estadoTexto}>{orden.estado_display}</Text>
+          <View style={[styles.estadoBadge, { backgroundColor: colorTrabajo.bg, borderColor: colorTrabajo.border }]}>
+            <Text style={[styles.estadoTexto, { color: colorTrabajo.text }]}>{ESTADO_OPERATIVO_LABELS[estadoTrabajo]}</Text>
           </View>
         </View>
       </SafeAreaView>
 
       <ScrollView style={hostScreenStyles.scroll} contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollInner]} showsVerticalScrollIndicator={false}>
+        <EstadoTrabajoCobro
+          trabajo={ESTADO_OPERATIVO_LABELS[estadoTrabajo]}
+          trabajoTono={ESTADO_OPERATIVO_VARIANT[estadoTrabajo]}
+          cobro={cobro}
+          monto={montoOrden}
+        />
         {/* Información del cliente */}
         <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
@@ -766,12 +784,6 @@ export default function OrdenDetalleScreen() {
           )}
         </HostPaperSection>
 
-        {/* Total */}
-        <HostPaperSection style={styles.totalSection}>
-          <Text style={styles.totalLabel}>Total a cobrar:</Text>
-          <Text style={styles.totalAmount}>${orden.total}</Text>
-        </HostPaperSection>
-
         {/* Notas */}
         {orden.notas_cliente && (
           <HostPaperSection style={styles.section}>
@@ -951,8 +963,10 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   titleContainer: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 18,
@@ -964,12 +978,14 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   estadoBadge: {
+    flexShrink: 1,
+    maxWidth: '46%',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   estadoTexto: {
-    color: I.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },

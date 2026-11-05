@@ -60,6 +60,7 @@ import {
   ESTADO_OPERATIVO_VARIANT,
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
+import { cobroVisiblePipeline } from '@/utils/cobroTrabajo';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
@@ -208,6 +209,10 @@ const LeadCard = React.memo(function LeadCard({
   const vehiculo = item.vehiculo_resumen?.trim();
   const leadCat = leadCategoriaOf(item);
   const showLeadTag = shouldShowLeadCategoria(item);
+  const cobroFila = cobroVisiblePipeline({
+    tipo_entidad: item.tipo_entidad,
+    estado: item.estado_raw,
+  });
   const operativoTag = leadOperativoTag(
     item,
     ESTADO_OPERATIVO_LABELS[estadoOperativo],
@@ -260,9 +265,16 @@ const LeadCard = React.memo(function LeadCard({
             label={operativoTag.label}
             variant={operativoTag.variant}
             size="sm"
+            uppercase={false}
+          />
+          <InstitutionalTag
+            label={cobroFila.etiqueta}
+            variant={cobroFila.tono}
+            size="sm"
+            uppercase={false}
           />
           {item.template_generado_por_ia ? (
-            <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
+            <InstitutionalTag label="Lista con IA" variant="info" size="sm" uppercase={false} />
           ) : null}
           {item.es_cotizacion_adicional ? (
             <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
