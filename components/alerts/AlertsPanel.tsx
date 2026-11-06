@@ -18,6 +18,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { Card } from '@/app/design-system/components';
+import { showConfirm } from '@/utils/platformAlert';
 import {
   institutionalStatusColors,
   type InstitutionalStatusTone,
@@ -88,7 +89,11 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
   };
 
   const handleEliminarAlerta = (id: string) => {
-    eliminarAlerta(id);
+    showConfirm('Quitar alerta', 'Se quita de la lista. Cancelar la deja.', {
+      confirmText: 'Quitar',
+      cancelText: 'Cancelar',
+      onConfirm: () => eliminarAlerta(id),
+    });
   };
 
   const getIconoAlerta = (tipo: Alerta['tipo']) => {

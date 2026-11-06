@@ -16,8 +16,18 @@ The home tab SHALL be labeled "Hoy" and follow this architecture:
 
 Agenda, órdenes y pipeline detallado viven en sus tabs (`Agenda`, `Servicios`, `bandeja`). Hoy SHALL NOT listar citas con horario por confirmar como servicios del día ni como órdenes activas.
 
+#### Scenario: Hoy no mezcla la agenda operativa
+- GIVEN una cita con horario por confirmar
+- WHEN se abre Hoy
+- THEN no se lista como servicio del día ni como orden activa
+
 ### Requirement: Accesos rápidos
 Atajos SHALL NOT duplicate primary tabs (Agenda vive en tab Agenda). Solicitudes B2C marketplace SHALL be reachable via `/solicitudes-disponibles` when radar is on.
+
+#### Scenario: Agenda no se duplica
+- GIVEN el tab Agenda
+- WHEN se mira Hoy
+- THEN no hay un atajo que repita ese tab
 
 ### Requirement: Seguimiento comercial unificado
 Hoy SHALL surface follow-up counts from `pipeline-comercial` and link to `/(tabs)/bandeja` with optional `?filtro=` (estado, `esperando_24h` o `por_agendar`).
@@ -44,5 +54,63 @@ Hoy SHALL surface follow-up counts from `pipeline-comercial` and link to `/(tabs
 ### Requirement: Vista mecánico
 WHEN el usuario es mecánico de equipo (`esMecanicoEquipo`), THEN Hoy SHALL renderizar `MecanicoHomeView` en lugar del dashboard mandante.
 
+#### Scenario: El mecánico ve su inicio
+- GIVEN un mecánico de equipo
+- WHEN abre Hoy
+- THEN ve `MecanicoHomeView`
+- AND no ve el dashboard del mandante
+
 ### Requirement: Finanzas desacopladas
-KPI, saldo, rendimiento y suscripción SHALL NOT appear as bloques principales en Hoy; SHALL estar en Menú → Dinero.
+KPI, saldo, rendimiento y suscripción SHALL NOT appear as bloques principales en Hoy; viven en el menú.
+
+#### Scenario: Hoy no muestra el bloque de dinero
+- GIVEN el mandante abre Hoy
+- WHEN mira la pantalla
+- THEN no ve KPI, saldo, rendimiento ni suscripción como bloque principal
+- AND esas entradas siguen en el menú
+
+### Requirement: Carga honesta de Hoy
+
+Mientras Hoy no tiene respuesta, la pantalla MUST mostrar carga y MUST NOT pintar contadores en 0 ni un vacío. El vacío solo aparece con la respuesta. Un 0 ya respondido MUST verse como 0. «Por agendar» MUST contarse desde las cotizaciones de esa lista. El pipeline de Hoy MUST limitarse a las acciones visibles y MUST NOT pedir 100 filas para ese número.
+
+#### Scenario: Hoy todavía carga
+
+- GIVEN las cotizaciones del día aún no respondieron
+- WHEN se abre Hoy
+- THEN los contadores no muestran 0
+- AND no aparece «Nada pendiente»
+
+#### Scenario: Hoy vacío de verdad
+
+- GIVEN las consultas de Hoy ya respondieron y no hay acciones
+- WHEN se mira «Siguiente acción»
+- THEN aparece el vacío «Nada pendiente»
+
+#### Scenario: Por agendar sin barrer el pipeline
+
+- GIVEN hay cotizaciones aceptadas en la lista del taller
+- WHEN Hoy calcula «Por agendar»
+- THEN el número sale de esas cotizaciones
+- AND no depende de traer 100 filas del pipeline
+
+### Requirement: Lista de cotizaciones con carga y pruebas
+
+La lista de cotizaciones MUST distinguir «Cargando cotizaciones» de «Sin resultados». Mientras carga, MUST NOT mostrar la suma de dinero como $0. Un total 0 explícito, ya cargado, sigue siendo $0. Un total null sigue «Incompleto».
+
+La lista MUST ofrecer un filtro reversible que oculta cotizaciones cuyo título contiene la palabra TEST. Ocultarlas MUST NOT borrar el registro. Volver a mostrarlas MUST devolverlas a la lista.
+
+#### Scenario: Suma mientras carga
+
+- GIVEN la lista de cotizaciones todavía no respondió
+- WHEN se abre la lista
+- THEN no se muestra un total $0 como si no hubiera dinero
+- AND el texto dice que está cargando
+
+#### Scenario: Ocultar y mostrar una prueba
+
+- GIVEN una cotización titulada «TEST pastillas» y otra titulada «Cambio de aceite»
+- WHEN el filtro de pruebas está activo
+- THEN solo se ve «Cambio de aceite»
+- AND el registro TEST sigue existiendo
+- WHEN se desactiva el filtro
+- THEN «TEST pastillas» vuelve a la lista

@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: FF.sansRegular,
-    fontSize: 14,
+    fontSize: 16,
     color: I.ink,
     paddingVertical: 8,
   },

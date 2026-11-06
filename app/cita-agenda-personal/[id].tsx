@@ -75,7 +75,6 @@ import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBot
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import { CitaResumenEconomicoCard } from '@/components/agenda/CitaResumenEconomicoCard';
 import { CitaCasoIdentidad } from '@/components/agenda/CitaCasoIdentidad';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { checklistService } from '@/services/checklistService';
@@ -116,6 +115,12 @@ const stackOptions = {
   headerShown: false,
 };
 
+const CotizacionIaEditor = React.lazy(() =>
+  import('@/components/chats/CotizacionIaEditor').then((mod) => ({
+    default: mod.CotizacionIaEditor,
+  })),
+);
+
 export default function CitaAgendaPersonalDetalleScreen() {
   const { id, agendar } = useLocalSearchParams<{ id: string; agendar?: string }>();
   const autoAgendarRef = useRef(false);
@@ -142,7 +147,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     data: cotizacionOrigen,
     isPending: cotizacionOrigenPending,
     isError: cotizacionOrigenError,
-  } = useCotizacionCanalDetalleQuery(cotizacionOrigenId);
+  } = useCotizacionCanalDetalleQuery(cotizacionOrigenId, true, { seguirBusqueda: false });
   const ignorarCambioCotizacion = useCallback(() => undefined, []);
 
   const [procesando, setProcesando] = useState(false);
@@ -850,7 +855,33 @@ export default function CitaAgendaPersonalDetalleScreen() {
     );
   }
 
-  if (!cita) return null;
+  if (citaError || !cita) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={stackOptions} />
+        <Header
+          title="Cita"
+          titleRole="h4"
+          showBack
+          onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
+        <View style={styles.screenRoot}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>No se pudo cargar la cita.</Text>
+            <TouchableOpacity
+              onPress={() => void refetchCita()}
+              accessibilityRole="button"
+              accessibilityLabel="Reintentar carga de la cita"
+            >
+              <Text style={styles.loadingText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   const det = cita.detalle;
   const nombreServicio = nombreServicioCita(cita);
@@ -1050,13 +1081,21 @@ export default function CitaAgendaPersonalDetalleScreen() {
               <InstitutionalText role="caption" color="muted">
                 La cotización figura aparte. El avance del trabajo está arriba.
               </InstitutionalText>
-              <CotizacionIaEditor
-                cotizacion={cotizacionOrigen}
-                onChange={ignorarCambioCotizacion}
-                readonly
-                hideSendActions
-                compactHeader
-              />
+              <React.Suspense
+                fallback={(
+                  <View style={styles.documentoCargando}>
+                    <ActivityIndicator color={I.primary} />
+                  </View>
+                )}
+              >
+                <CotizacionIaEditor
+                  cotizacion={cotizacionOrigen}
+                  onChange={ignorarCambioCotizacion}
+                  readonly
+                  hideSendActions
+                  compactHeader
+                />
+              </React.Suspense>
             </>
           ) : (
             <CitaCasoIdentidad

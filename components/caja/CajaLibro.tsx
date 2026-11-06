@@ -19,6 +19,8 @@ import {
   textoMargenEstimado,
   textoMargenReal,
   textoFaltantesResumen,
+  textoFilasSinEfecto,
+  textoPagosFuenteFuera,
   textoResultadoCaja,
   etiquetaTipoMovimiento,
   tituloHumano,
@@ -98,6 +100,7 @@ export function CajaLibro({
   const movimientos = libro?.movimientos;
   const casos = libro?.casos;
   const libroVacio = Boolean(libro && movimientos && movimientos.count === 0 && casos && casos.count === 0);
+  const pagosFuente = resumen ? textoPagosFuenteFuera(resumen.legacy_no_contabilizado) : null;
 
   return (
     <View style={styles.marco}>
@@ -181,9 +184,9 @@ export function CajaLibro({
                 {textoFaltantesResumen(resumen.faltantes)}
               </InstitutionalText>
             ) : null}
-            {resumen.legacy_no_contabilizado > 0 ? (
+            {pagosFuente ? (
               <InstitutionalText role="caption" color="muted">
-                {`${resumen.legacy_no_contabilizado} pagos de fuente no entran al libro.`}
+                {pagosFuente}
               </InstitutionalText>
             ) : null}
           </Card>
@@ -318,9 +321,9 @@ function CasoFila({ caso }: { caso: CasoCaja }) {
       {nota ? <InstitutionalText role="caption" color="muted">{nota}</InstitutionalText> : null}
       <Fila label={ETIQUETA_NETO} valor={pesos(caso.neto_acumulado_clp)} />
       <Fila label="Saldo" valor={saldo} />
-      {caso.filas_sin_efecto_contable ? (
+      {textoFilasSinEfecto(caso.filas_sin_efecto_contable) ? (
         <InstitutionalText role="caption" color="muted">
-          {`${caso.filas_sin_efecto_contable} filas no entran al libro.`}
+          {textoFilasSinEfecto(caso.filas_sin_efecto_contable)}
         </InstitutionalText>
       ) : null}
       {caso.pendientes_no_sumados_clp != null ? (

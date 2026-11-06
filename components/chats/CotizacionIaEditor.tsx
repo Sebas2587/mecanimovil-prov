@@ -78,7 +78,7 @@ import {
   type EjecucionAdicional,
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -249,7 +249,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
         {editable ? (
           <TouchableOpacity
             style={styles.deleteBtn}
-            onPress={() => onDelete(index)}
+            onPress={() => showConfirm(
+              'Eliminar repuesto',
+              'Se quita de esta cotización. Cancelar lo deja como está.',
+              { confirmText: 'Eliminar', cancelText: 'Cancelar', onConfirm: () => onDelete(index) },
+            )}
             accessibilityRole="button"
             accessibilityLabel="Eliminar repuesto"
             hitSlop={8}
@@ -526,7 +530,11 @@ const ManoObraLineaRow = React.memo(function ManoObraLineaRow({
         {editable ? (
           <TouchableOpacity
             style={styles.deleteBtn}
-            onPress={() => onDelete(index)}
+            onPress={() => showConfirm(
+              'Eliminar mano de obra',
+              'Se quita de esta cotización. Cancelar lo deja como está.',
+              { confirmText: 'Eliminar', cancelText: 'Cancelar', onConfirm: () => onDelete(index) },
+            )}
             accessibilityRole="button"
             accessibilityLabel="Eliminar mano de obra"
             hitSlop={8}

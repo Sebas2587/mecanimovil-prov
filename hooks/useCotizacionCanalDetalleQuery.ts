@@ -18,7 +18,9 @@ const MAX_POLL_MS = 70_000;
 export function useCotizacionCanalDetalleQuery(
   id: number | null | undefined,
   enabled = true,
+  opciones?: { seguirBusqueda?: boolean },
 ) {
+  const seguirBusqueda = opciones?.seguirBusqueda !== false;
   const queryClient = useQueryClient();
   const startedAt = useRef<number | null>(null);
   const estadoPollRef = useRef<string | undefined>(undefined);
@@ -30,7 +32,7 @@ export function useCotizacionCanalDetalleQuery(
     staleTime: 0,
     refetchOnMount: 'always',
     refetchInterval: (q) => {
-      if (!enabled) return false;
+      if (!enabled || !seguirBusqueda) return false;
       const estado = q.state.data?.metadata?.busqueda_web_estado;
       if (estado !== 'pendiente') {
         estadoPollRef.current = estado;

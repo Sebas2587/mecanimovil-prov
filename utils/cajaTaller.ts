@@ -8,6 +8,19 @@ export const ZONA_CAJA = 'America/Santiago';
 export const DIAS_MAXIMOS = 366;
 export const ETIQUETA_NETO = 'Cobros menos devoluciones';
 
+/** Un 0 del libro ya cargado sigue siendo cero. Este texto solo concuerda el conteo. */
+export function textoPagosFuenteFuera(cantidad: number | null | undefined): string | null {
+  if (cantidad == null || !Number.isFinite(cantidad) || cantidad <= 0) return null;
+  if (cantidad === 1) return '1 pago de fuente no entra al libro.';
+  return `${cantidad} pagos de fuente no entran al libro.`;
+}
+
+export function textoFilasSinEfecto(cantidad: number | null | undefined): string | null {
+  if (cantidad == null || !Number.isFinite(cantidad) || cantidad <= 0) return null;
+  if (cantidad === 1) return '1 fila no entra al libro.';
+  return `${cantidad} filas no entran al libro.`;
+}
+
 /** Nombres que el API puede agregar para no pedir cada caso. */
 export const CAMPOS_ETIQUETA_HUMANA = ['cliente_nombre', 'vehiculo_patente', 'folio'] as const;
 

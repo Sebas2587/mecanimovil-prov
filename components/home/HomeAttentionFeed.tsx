@@ -36,6 +36,7 @@ import { estadoCotizacionVista } from '@/utils/cotizacionPresentacion';
 import { parseFechaLocal, startOfDay } from '@/utils/fechaLocal';
 import { carrilDeCita, type CarrilCita } from '@/utils/tableroTaller';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { consultaSinDatos, textoLista } from '@/utils/cargaHonesta';
 import {
   HOME_DECISIONES_QUERY_KEY,
   resumenDecision,
@@ -79,6 +80,7 @@ type MetricaHoy = {
   icon: LucideIcon;
   accent: boolean;
   href: Href;
+  cargando?: boolean;
 };
 
 const ORDEN_VERBO: Record<VerboAccion, number> = {
@@ -159,7 +161,7 @@ export function HomeAttentionFeed({
   const accionesRef = useRef<Map<string, () => void>>(new Map());
 
   const pipelineQuery = usePipelineComercialQuery(
-    { limite: 100, fetchAllEstados: true },
+    { limite: 8, fetchAllEstados: true },
     { enabled },
   );
   const cotizacionesQuery = useCotizacionesCanalTallerQuery(enabled);
@@ -463,6 +465,28 @@ export function HomeAttentionFeed({
 
   accionesRef.current = modelo.accionesMapa;
 
+  const cargandoCifras = consultaSinDatos(cotizacionesQuery) || consultaSinDatos(citasActivasQuery);
+  const cargandoAcciones = cargandoCifras
+    || consultaSinDatos(pipelineQuery)
+    || consultaSinDatos(decisionesQuery);
+  const cargandoActividad = consultaSinDatos(cotizacionesQuery);
+  const cargandoMensajes = consultaSinDatos(chatsQuery);
+  const textoAcciones = textoLista(
+    cargandoAcciones,
+    modelo.acciones.length,
+    'Cargando lo que necesita tu atención.',
+    'Nada pendiente. Cuando entre una cotización o una aceptación, aparece aquí.',
+  );
+  const textoActividad = textoLista(
+    cargandoActividad,
+    modelo.actividad.length,
+    'Cargando la actividad reciente.',
+    'Todavía no hay cotizaciones en el taller.',
+  );
+  const metricas = modelo.metricas.map((metrica) => (
+    cargandoCifras ? { ...metrica, cargando: true, accent: false } : metrica
+  ));
+
   const onPressAccion = useCallback((id: string) => {
     accionesRef.current.get(id)?.();
   }, []);
@@ -548,7 +572,7 @@ export function HomeAttentionFeed({
       </View>
 
       <View style={styles.metricas}>
-        {modelo.metricas.map((metrica) => (
+        {metricas.map((metrica) => (
           <MetricaCard
             key={metrica.id}
             metrica={metrica}
@@ -579,10 +603,10 @@ export function HomeAttentionFeed({
             </Pressable>
           </View>
 
-          {modelo.acciones.length === 0 ? (
+          {textoAcciones ? (
             <View style={styles.vacio}>
               <InstitutionalText role="body" color="body">
-                Nada pendiente. Cuando entre una cotización o una aceptación, aparece aquí.
+                {textoAcciones}
               </InstitutionalText>
             </View>
           ) : (
@@ -602,7 +626,7 @@ export function HomeAttentionFeed({
             Mensajes que requieren respuesta
           </InstitutionalText>
           <InstitutionalText role="body" color={I.onDarkSoft}>
-            {fraseMensajes(modelo.chatsPendientes)}
+            {cargandoMensajes ? 'Cargando mensajes.' : fraseMensajes(modelo.chatsPendientes)}
           </InstitutionalText>
           <Pressable
             onPress={verMensajes}
@@ -626,9 +650,9 @@ export function HomeAttentionFeed({
           </View>
           <Users size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
-        {modelo.actividad.length === 0 ? (
+        {textoActividad ? (
           <InstitutionalText role="body" color="body">
-            Todavía no hay cotizaciones en el taller.
+            {textoActividad}
           </InstitutionalText>
         ) : (
           <View style={styles.actividadGrid}>
@@ -744,7 +768,7 @@ const MetricaCard = memo(function MetricaCard({
       onPress={handlePress}
       style={[styles.metrica, ancha ? styles.metricaAncha : styles.metricaEstrecha]}
       accessibilityRole="button"
-      accessibilityLabel={`${metrica.value} ${metrica.label}`}
+      accessibilityLabel={metrica.cargando ? `Cargando ${metrica.label}` : `${metrica.value} ${metrica.label}`}
     >
       <Icono
         size={20}
@@ -752,7 +776,7 @@ const MetricaCard = memo(function MetricaCard({
         strokeWidth={ICON_STROKE_WIDTH}
       />
       <InstitutionalText role="h2" style={styles.metricaValor}>
-        {String(metrica.value)}
+        {metrica.cargando ? '…' : String(metrica.value)}
       </InstitutionalText>
       <InstitutionalText role="caption" color="body" numberOfLines={2}>
         {metrica.label}

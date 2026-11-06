@@ -16,7 +16,7 @@ export async function fetchCitaPersonalBundle(citaId: number): Promise<CitaAgend
   if (!res.success || !res.data) {
     throw new Error(res.message || 'No se pudo cargar la cita.');
   }
-  return enriquecerCitaConTecnico(res.data);
+  return res.data;
 }
 
 export function findCitaPersonalSeed(
@@ -61,15 +61,25 @@ export function prefetchCitaPersonal(
 }
 
 export function useCitaPersonalQuery(citaId: number | null | undefined) {
+  const queryClient = useQueryClient();
   const key = citaPersonalQueryKey(citaId);
+  const id = Number(citaId);
+  const semilla = key ? findCitaPersonalSeed(queryClient, id) : undefined;
 
   return useQuery({
     queryKey: key ?? ['cita-personal', '__disabled__'],
-    queryFn: () => fetchCitaPersonalBundle(Number(citaId)),
+    queryFn: async () => {
+      const cita = await fetchCitaPersonalBundle(id);
+      void enriquecerCitaConTecnico(cita).then((enriquecida) => {
+        if (enriquecida !== cita && key) queryClient.setQueryData(key, enriquecida);
+      });
+      return cita;
+    },
     enabled: key != null,
     staleTime: DASHBOARD_QUERY_STALE_MS,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: false,
+    ...(semilla ? { initialData: semilla, initialDataUpdatedAt: 0 } : {}),
     placeholderData: (previous) => previous,
   });
 }
