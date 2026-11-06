@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   },
   recomendadoText: {
     color: COLORS.selection.text,
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
   },

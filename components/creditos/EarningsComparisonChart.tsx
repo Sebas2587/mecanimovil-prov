@@ -179,7 +179,7 @@ const st = StyleSheet.create({
     marginBottom: 14,
   },
   title: { fontSize: 16, fontWeight: '700', color: I.ink },
-  subtitle: { fontSize: 11, color: I.body, marginTop: 2 },
+  subtitle: { fontSize: 13, color: I.body, marginTop: 2 },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,7 +191,7 @@ const st = StyleSheet.create({
   badgeUp: { backgroundColor: withOpacity(COLORS.success.light, 0.6), borderWidth: 1, borderColor: COLORS.success[200] },
   badgeDown: { backgroundColor: withOpacity(COLORS.error.light, 0.6), borderWidth: 1, borderColor: COLORS.error[200] },
   badgeNeutral: { backgroundColor: withOpacity(I.surfaceStrong, 0.6), borderWidth: 1, borderColor: withOpacity(I.hairline, 0.5) },
-  badgeTxt: { fontSize: 11, fontWeight: '700' },
+  badgeTxt: { fontSize: 13, fontWeight: '700' },
   badgeTxtUp: { color: I.semanticUp },
   badgeTxtDown: { color: I.semanticDown },
   badgeTxtNeutral: { color: I.mutedSoft },
@@ -212,13 +212,13 @@ const st = StyleSheet.create({
       elevation: 3,
     }),
   },
-  tooltipLabel: { fontSize: 10, color: I.body, textAlign: 'center', textTransform: 'capitalize' },
+  tooltipLabel: { fontSize: 13, color: I.body, textAlign: 'center', textTransform: 'capitalize' },
   tooltipVal: { fontSize: 16, fontWeight: '800', color: I.ink, textAlign: 'center' },
   chartWrap: {
     marginTop: 4,
     alignItems: 'center',
   },
-  axisText: { color: I.mutedSoft, fontSize: 10 },
+  axisText: { color: I.mutedSoft, fontSize: 13 },
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,7 +230,7 @@ const st = StyleSheet.create({
   legendItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   legendDivider: { width: 1, height: 32, backgroundColor: withOpacity(I.hairline, 0.5), marginHorizontal: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontSize: 11, color: I.body, textTransform: 'capitalize' },
+  legendLabel: { fontSize: 13, color: I.body, textTransform: 'capitalize' },
   legendVal: { fontSize: 13, fontWeight: '700', color: I.ink, marginTop: 1 },
   diffRow: {
     flexDirection: 'row',

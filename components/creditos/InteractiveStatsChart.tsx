@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   summaryHint: {
     marginTop: 4,
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     color: I.body,
     lineHeight: 15,

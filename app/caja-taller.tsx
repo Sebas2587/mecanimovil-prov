@@ -33,6 +33,8 @@ import {
 } from '@/utils/cajaTaller';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { AvisoSinSenal } from '@/components/ui/AvisoSinSenal';
+import { useWebVisualViewport } from '@/hooks/useWebVisualViewport';
 
 const periodoInicial = periodoMesHastaHoy();
 
@@ -152,6 +154,7 @@ async function confirmarCostoEnCuenta(refs: RefsAlta, acciones: AccionesAlta, cu
 
 export default function CajaTallerScreen() {
   const insets = useSafeAreaInsets();
+  const webViewport = useWebVisualViewport();
   const { esMecanicoEquipo, usuario, estadoProveedor } = useAuth();
   const puedeRegistrar = !esMecanicoEquipo;
   const dueno = duenoCaja(usuario?.id, estadoProveedor?.proveedor_id);
@@ -300,8 +303,9 @@ export default function CajaTallerScreen() {
   };
 
   return (
-    <View style={[styles.pantalla, { paddingBottom: insets.bottom }]}>
+    <View style={[styles.pantalla, { paddingBottom: insets.bottom + webViewport.obscuredBottom }]}>
       <Header title="Caja del taller" showBack />
+      <AvisoSinSenal ambito="caja" />
       {avisoCosto && alta !== 'costo' ? (
         <View style={styles.aviso}>
           <InstitutionalText role="caption" color="ink">{avisoCosto}</InstitutionalText>

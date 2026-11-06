@@ -138,14 +138,14 @@ export function AgendaComercial() {
     for (const evento of [...mesActual.eventos, ...mesProx.eventos]) {
       calendario.set(`${evento.origen}-${evento.id}`, evento);
     }
-    const comerciales = citasActivas.isSuccess
+    const comerciales: EventoAgendaUnificado[] = citasActivas.isSuccess
       ? desdeCitas
-      : citasAgendadas.map((evento) => {
+      : citasAgendadas.flatMap((evento) => {
         const cal = calendario.get(`${evento.origen}-${evento.id}`);
         const checklistId = cal?.checklist_id ?? null;
         const estadoCita = (cal?.estado || '').toLowerCase();
-        if (estadoCita === 'cerrada' || CANCELADOS.has(estadoCita)) return null;
-        return {
+        if (estadoCita === 'cerrada' || CANCELADOS.has(estadoCita)) return [];
+        const siguiente: EventoAgendaUnificado = {
           ...evento,
           fecha_servicio: evento.fecha_servicio || cal?.fecha_servicio || '',
           hora_servicio: evento.hora_servicio || cal?.hora_servicio || '',
@@ -153,7 +153,8 @@ export function AgendaComercial() {
           checklist_estado: cal?.checklist_estado ?? null,
           tiene_checklist: Boolean(checklistId),
         };
-      }).filter((evento): evento is EventoAgendaUnificado => evento != null);
+        return [siguiente];
+      });
     const clavesComerciales = new Set(comerciales.map((evento) => `${evento.origen}-${evento.id}`));
     const extras = soloEnAgenda
       ? []
