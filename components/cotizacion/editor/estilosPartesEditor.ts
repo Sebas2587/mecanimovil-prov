@@ -4,6 +4,14 @@ import { BORDERS, COLORS, SPACING, TYPOGRAPHY, withOpacity } from '@/app/design-
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
 
+/**
+ * Piso de la columna de precio unitario.
+ * Cantidad (72) + subtotal (104) + dos separaciones (12) + este piso no caben
+ * en el ancho útil de un viewport de 320 px, así que el subtotal baja de línea
+ * y el monto queda visible. A ~390 px las tres columnas siguen juntas.
+ */
+export const ANCHO_MIN_PRECIO_UNITARIO = 112;
+
 /** Estilos de las partes extraídas del editor. Mismos valores que el editor. */
 export const estilosPartes = StyleSheet.create({
 cantidadAlign: {
@@ -63,8 +71,11 @@ gridColCant: {
     flexShrink: 0,
   },
 gridColPrecio: {
-    flex: 1,
-    minWidth: 0,
+    flexGrow: 1,
+    flexShrink: 0,
+    flexBasis: ANCHO_MIN_PRECIO_UNITARIO,
+    minWidth: ANCHO_MIN_PRECIO_UNITARIO,
+    maxWidth: '100%',
     gap: SPACING.fixed.xxs,
   },
 gridColSubtotal: {
@@ -107,6 +118,7 @@ repuestoCard: {
   },
 repuestoGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-end',
     width: '100%',
     gap: SPACING.fixed.sm,
