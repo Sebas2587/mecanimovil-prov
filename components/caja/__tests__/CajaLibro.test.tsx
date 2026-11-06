@@ -202,4 +202,14 @@ describe('CajaLibro', () => {
     });
     expect(screen.getByText('No hay movimientos en este período.')).toBeTruthy();
   });
+
+  it('dice 1 pago y conserva el neto en $0', async () => {
+    const base = libro();
+    base.resumen = { ...base.resumen, neto_clp: 0, cobros_brutos_clp: 0, reembolsos_clp: 0, legacy_no_contabilizado: 1 };
+    await renderLibro({ libro: base });
+    expect(screen.getByText('1 pago de fuente no entra al libro.')).toBeTruthy();
+    expect(screen.queryByText(/1 pagos/)).toBeNull();
+    expect(screen.getAllByText(/\$0/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Incompleto')).toBeNull();
+  });
 });

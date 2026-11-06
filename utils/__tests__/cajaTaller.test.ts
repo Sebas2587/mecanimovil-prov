@@ -17,6 +17,8 @@ import {
   olvidarIntentosCaja,
   resultadoAmbiguo,
   textoFaltantesResumen,
+  textoFilasSinEfecto,
+  textoPagosFuenteFuera,
   periodoMesHastaHoy,
   textoMargenContratado,
   textoMargenReal,
@@ -271,5 +273,15 @@ describe('caja del taller', () => {
     expect(leerIntentoIncierto(dueno)).toBeNull();
     expect(sessionStorage.getItem('mecanimovil.caja.intento-incierto')).toBeNull();
     guardarIntentoIncierto(ajeno, null);
+  });
+});
+
+describe('pagos de fuente', () => {
+  it('concuerda 1 pago y varios pagos', () => {
+    expect(textoPagosFuenteFuera(1)).toBe('1 pago de fuente no entra al libro.');
+    expect(textoPagosFuenteFuera(3)).toBe('3 pagos de fuente no entran al libro.');
+    expect(textoPagosFuenteFuera(0)).toBeNull();
+    expect(textoFilasSinEfecto(1)).toBe('1 fila no entra al libro.');
+    expect(textoFilasSinEfecto(2)).toBe('2 filas no entran al libro.');
   });
 });

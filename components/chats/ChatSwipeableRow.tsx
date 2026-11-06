@@ -82,7 +82,7 @@ export function ChatSwipeableRow({
         <Animated.View style={[styles.actionContainer, { transform: [{ translateX }] }]}>
           <Pressable
             style={styles.actionPressable}
-            onPress={runDelete}
+            onPress={() => confirmChatDeletion(runDelete)}
             accessibilityRole="button"
             accessibilityLabel="Eliminar conversación"
           >
@@ -132,7 +132,6 @@ export function ChatSwipeableRow({
       rightThreshold={OPEN_THRESHOLD}
       renderRightActions={renderRightActions}
       onSwipeableWillOpen={() => closeOtherRows(rowKey)}
-      onSwipeableOpen={runDelete}
       enabled={!disabled && !deleting}
       containerStyle={styles.swipeContainer}
     >

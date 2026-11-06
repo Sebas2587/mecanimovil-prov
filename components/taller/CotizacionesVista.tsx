@@ -47,6 +47,7 @@ import {
   type EstadoCotizacionVista,
 } from '@/utils/cotizacionPresentacion';
 import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
+import { esCotizacionDePrueba } from '@/utils/filtroCotizacionPrueba';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -77,6 +78,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     setFiltro(filtroInicial(estadoInicial));
   }, [estadoInicial]);
   const [busqueda, setBusqueda] = useState('');
+  const [ocultarPruebas, setOcultarPruebas] = useState(true);
   const [buscadorEnfocado, setBuscadorEnfocado] = useState(false);
   const [abiertaId, setAbiertaId] = useState<number | null>(null);
   const progresoBuscador = useRef(new Animated.Value(1)).current;
@@ -85,10 +87,15 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const query = useCotizacionesCanalTallerQuery();
   const queryClient = useQueryClient();
   const cotizaciones = query.data ?? [];
+  const cargandoLista = query.isPending && query.data == null;
+  const pruebas = cotizaciones.filter((cotizacion) => esCotizacionDePrueba(cotizacion));
+  const baseLista = ocultarPruebas
+    ? cotizaciones.filter((cotizacion) => !esCotizacionDePrueba(cotizacion))
+    : cotizaciones;
 
   const conteos = useMemo(() => {
     const base: Record<Filtro, number> = {
-      todas: cotizaciones.length,
+      todas: baseLista.length,
       borrador: 0,
       enviada: 0,
       aceptada: 0,
@@ -96,16 +103,16 @@ export function CotizacionesVista({ estadoInicial }: Props) {
       entregada: 0,
       rechazada: 0,
     };
-    for (const cotizacion of cotizaciones) {
+    for (const cotizacion of baseLista) {
       const estado = estadoCotizacionVista(cotizacion);
       base[estado] = (base[estado] ?? 0) + 1;
     }
     return base;
-  }, [cotizaciones]);
+  }, [baseLista]);
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return cotizaciones.filter((cotizacion) => {
+    return baseLista.filter((cotizacion) => {
       if (filtro !== 'todas' && estadoCotizacionVista(cotizacion) !== filtro) return false;
       if (!q) return true;
       return [
@@ -118,11 +125,11 @@ export function CotizacionesVista({ estadoInicial }: Props) {
         cotizacion.vehiculo_patente,
       ].some((campo) => (campo || '').toLowerCase().includes(q));
     });
-  }, [busqueda, cotizaciones, filtro]);
+  }, [baseLista, busqueda, filtro]);
 
   const sumaEstados = (estados: EstadoCotizacionVista[]) => {
     const buscados = new Set(estados);
-    return cotizaciones
+    return baseLista
       .filter((cotizacion) => buscados.has(estadoCotizacionVista(cotizacion)))
       .reduce(
         (acc, cotizacion) => {
@@ -274,7 +281,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
                 key={item.value}
                 item={item}
                 activo={filtro === item.value}
-                conteo={conteos[item.value]}
+                conteo={cargandoLista ? null : conteos[item.value]}
                 onPress={setFiltro}
               />
             ))}
@@ -291,7 +298,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
                 key={item.value}
                 item={item}
                 activo={filtro === item.value}
-                conteo={conteos[item.value]}
+                conteo={cargandoLista ? null : conteos[item.value]}
                 onPress={setFiltro}
               />
             ))}
@@ -320,10 +327,30 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             {filtro !== 'todas' ? (
               <InstitutionalText role="h4">{TITULO_FILTRO[filtro]}</InstitutionalText>
             ) : null}
-            <InstitutionalText role="caption" color="body" style={styles.resumen}>
-              {formatearMontoCLP(esperando.total)} esperando respuesta · {formatearMontoCLP(aceptado.total)} aceptado
-              {incompletos > 0 ? ' · hay totales incompletos' : ''}
-            </InstitutionalText>
+            {cargandoLista ? (
+              <InstitutionalText role="caption" color="body" style={styles.resumen}>
+                Cargando cotizaciones. Los totales aparecen cuando llega la lista.
+              </InstitutionalText>
+            ) : (
+              <InstitutionalText role="caption" color="body" style={styles.resumen}>
+                {formatearMontoCLP(esperando.total)} esperando respuesta · {formatearMontoCLP(aceptado.total)} aceptado
+                {incompletos > 0 ? ' · hay totales incompletos' : ''}
+              </InstitutionalText>
+            )}
+            {!cargandoLista && pruebas.length > 0 ? (
+              <Pressable
+                onPress={() => setOcultarPruebas((actual) => !actual)}
+                style={styles.limpiar}
+                accessibilityRole="button"
+                accessibilityLabel={ocultarPruebas ? 'Ver cotizaciones de prueba' : 'Ocultar cotizaciones de prueba'}
+              >
+                <InstitutionalText role="captionBold">
+                  {ocultarPruebas
+                    ? `${pruebas.length === 1 ? '1 cotización de prueba oculta' : `${pruebas.length} cotizaciones de prueba ocultas`}. Verlas`
+                    : 'Ocultar cotizaciones de prueba'}
+                </InstitutionalText>
+              </Pressable>
+            ) : null}
             {puedeLimpiarLista && visibles.length > 0 ? (
               <Pressable
                 onPress={limpiarLista}
@@ -394,7 +421,7 @@ const FiltroChip = memo(function FiltroChip({
 }: {
   item: (typeof FILTROS)[number];
   activo: boolean;
-  conteo: number;
+  conteo: number | null;
   onPress: (value: Filtro) => void;
 }) {
   const handlePress = useCallback(() => onPress(item.value), [item.value, onPress]);
@@ -408,7 +435,7 @@ const FiltroChip = memo(function FiltroChip({
     >
       <Icono size={22} color={activo ? I.ink : I.muted} strokeWidth={1.5} />
       <InstitutionalText role="captionBold" color={activo ? 'ink' : 'body'}>
-        {item.label} ({conteo})
+        {conteo == null ? item.label : `${item.label} (${conteo})`}
       </InstitutionalText>
     </Pressable>
   );
@@ -554,7 +581,7 @@ const styles = StyleSheet.create({
   },
   input: {
     fontFamily: FF.sansRegular,
-    fontSize: 14,
+    fontSize: 16,
     color: I.ink,
     backgroundColor: 'transparent',
     paddingVertical: 0,

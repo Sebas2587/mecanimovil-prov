@@ -374,6 +374,14 @@ export default function PerfilScreen() {
         onPress: () => router.push('/gestion-equipo'),
       });
     }
+    if (!cuentaAprobadaPorAdmin) {
+      rows.push({
+        Icon: TrendingUp,
+        title: 'Rendimiento',
+        subtitle: 'KPIs e insignias del taller',
+        onPress: () => router.push('/rendimiento-kpis'),
+      });
+    }
     if (!esSupervisor || puede('horarios')) {
       rows.push({
         Icon: Clock,
@@ -383,40 +391,39 @@ export default function PerfilScreen() {
       });
     }
     return rows;
-  }, [esMecanicoEquipo, esSupervisor, puede]);
+  }, [cuentaAprobadaPorAdmin, esMecanicoEquipo, esSupervisor, puede]);
 
-  // Airbnb Hosts: Dinero — pantallas dedicadas (sin hub saturado).
-  const dineroRows: SettingRow[] = useMemo(() => {
+  const creditoRows: SettingRow[] = useMemo(() => {
     if (esSupervisor || esMecanicoEquipo) return [];
     return [
       {
         Icon: CreditCard,
         title: 'Plan y créditos',
-        subtitle: 'Suscripción mensual y tienda',
+        subtitle: 'Suscripción y recarga. No es la caja del mes',
         onPress: () => router.push('/creditos'),
       },
       {
         Icon: Wallet,
-        title: 'Saldo',
-        subtitle: 'Créditos, uso del plan y liquidación',
+        title: 'Saldo de créditos',
+        subtitle: 'Cuánto queda y la liquidación',
         onPress: () => router.push('/creditos/saldo' as never),
       },
       {
         Icon: History,
-        title: 'Historial',
-        subtitle: 'Compras y consumos de créditos',
+        title: 'Historial de créditos',
+        subtitle: 'Compras y consumos',
         onPress: () => router.push('/creditos/historial' as never),
       },
-      {
-        Icon: TrendingUp,
-        title: 'Rendimiento',
-        subtitle: 'KPIs e insignias del taller',
-        onPress: () => router.push('/rendimiento-kpis'),
-      },
+    ];
+  }, [esSupervisor, esMecanicoEquipo]);
+
+  const cobroRows: SettingRow[] = useMemo(() => {
+    if (esSupervisor || esMecanicoEquipo) return [];
+    return [
       {
         Icon: Landmark,
         title: 'Mercado Pago',
-        subtitle: 'Cobros y cuenta',
+        subtitle: 'Cuenta para cobrar',
         onPress: () => router.push('/configuracion-mercadopago'),
       },
     ];
@@ -466,10 +473,11 @@ export default function PerfilScreen() {
   const menuSections = useMemo((): MenuSection[] => {
     const sections: MenuSection[] = [];
     if (gestionRows.length > 0) sections.push({ kicker: 'Operar', rows: gestionRows });
-    if (dineroRows.length > 0) sections.push({ kicker: 'Dinero', rows: dineroRows });
+    if (creditoRows.length > 0) sections.push({ kicker: 'Créditos', rows: creditoRows });
+    if (cobroRows.length > 0) sections.push({ kicker: 'Cobros', rows: cobroRows });
     if (herramientasRows.length > 0) sections.push({ kicker: 'Herramientas', rows: herramientasRows });
     return sections;
-  }, [gestionRows, dineroRows, herramientasRows]);
+  }, [cobroRows, creditoRows, gestionRows, herramientasRows]);
 
   const renderMenuRow = (item: SettingRow, showDivider: boolean, rowKey: string) => (
     <TouchableOpacity

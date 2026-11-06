@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useAlerts, type Alerta, type TipoAlerta } from '@/context/AlertsContext';
+import { showConfirm } from '@/utils/platformAlert';
 import Header from '@/components/Header';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import {
@@ -229,7 +230,11 @@ export default function NotificacionesScreen() {
         rightComponent={
           alertasVisibles.length > 0 ? (
             <TouchableOpacity
-              onPress={limpiarAlertas}
+              onPress={() => showConfirm(
+                'Limpiar alertas',
+                'Se quitan de esta lista. No borra trabajos ni cotizaciones.',
+                { confirmText: 'Limpiar', cancelText: 'Cancelar', onConfirm: limpiarAlertas },
+              )}
               style={styles.headerIconHit}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -282,7 +287,11 @@ export default function NotificacionesScreen() {
               key={alerta.id}
               alerta={alerta}
               onPress={() => handlePress(alerta)}
-              onDelete={() => eliminarAlerta(alerta.id)}
+              onDelete={() => showConfirm(
+                'Quitar alerta',
+                'Se quita de la lista. Cancelar la deja.',
+                { confirmText: 'Quitar', cancelText: 'Cancelar', onConfirm: () => eliminarAlerta(alerta.id) },
+              )}
             />
           ))
         )}

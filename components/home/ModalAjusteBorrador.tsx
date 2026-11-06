@@ -19,7 +19,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { envioTotalBloqueado, formatearTotalConocido, totalesDesdeLineas } from '@/utils/totalesCotizacion';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
@@ -290,7 +290,11 @@ export function ModalAjusteBorrador({
                         </View>
                         <TouchableOpacity
                           style={styles.deleteBtn}
-                          onPress={() => handleEliminarRepuesto(idx)}
+                          onPress={() => showConfirm(
+                            'Eliminar repuesto',
+                            'Se quita de esta cotización. Cancelar lo deja como está.',
+                            { confirmText: 'Eliminar', cancelText: 'Cancelar', onConfirm: () => handleEliminarRepuesto(idx) },
+                          )}
                           activeOpacity={0.7}
                         >
                           <Trash2 size={18} color={COLORS.institutional.semanticDown} />
