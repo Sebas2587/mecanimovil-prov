@@ -233,15 +233,15 @@ export default function CajaTallerScreen() {
         page: pedido.pagina,
         casosPage: pedido.paginaCasos,
       });
-      if (duenoPantalla.current !== claveEnvio) return;
       if (seq !== consultaSeq.current) return;
+      if (duenoPantalla.current !== claveEnvio) return;
       if (respuesta.desde !== pedido.desde || respuesta.hasta !== pedido.hasta) return;
       libroRef.current = respuesta;
       setLibro(respuesta);
       setFallo(null);
     } catch (error) {
-      if (duenoPantalla.current !== claveEnvio) return;
       if (seq !== consultaSeq.current) return;
+      if (duenoPantalla.current !== claveEnvio) return;
       const base = esFalloCaja(error) ? error : falloDesdeRespuesta(null, null);
       if (!resultadoAmbiguo(base.status)) {
         libroRef.current = null;
@@ -251,7 +251,7 @@ export default function CajaTallerScreen() {
         ? { ...base, mensaje: mensajeResultadoAmbiguo(base.status, mismoPeriodo ? 'mismo' : 'otro') }
         : base);
     } finally {
-      if (duenoPantalla.current === claveEnvio && seq === consultaSeq.current) setCargando(false);
+      if (seq === consultaSeq.current) setCargando(false);
     }
   }, []);
 
@@ -264,9 +264,7 @@ export default function CajaTallerScreen() {
   useEffect(() => {
     if (!duenoListo) return;
     if (duenoCargado.current === duenoClave) return;
-    const habiaCuenta = duenoCargado.current !== null;
     duenoCargado.current = duenoClave;
-    if (!habiaCuenta) return;
     libroRef.current = null;
     setLibro(null);
     void cargar();
