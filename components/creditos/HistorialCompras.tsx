@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.sm,
   },
   sectionPillText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   emptyPillText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,

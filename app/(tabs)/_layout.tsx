@@ -168,7 +168,7 @@ export default function TabLayout() {
             }),
           },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 13,
           fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
           marginTop: 2,
         },

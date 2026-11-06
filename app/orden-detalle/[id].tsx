@@ -13,7 +13,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
-import { ordenesProveedorService, type Orden } from '@/services/ordenesProveedor';
+
+function datosCliente(cliente: ClienteProtegido | ClienteCompleto) {
+  if ('nombre' in cliente) {
+    return {
+      nombre: `${cliente.nombre} ${cliente.apellido || ''}`.trim(),
+      telefono: cliente.telefono || '',
+      email: cliente.email || '',
+    };
+  }
+  return {
+    nombre: cliente.nombre_ofuscado,
+    telefono: cliente.telefono_ofuscado || '',
+    email: '',
+  };
+}
+
+function direccionServicio(orden: Orden): string {
+  return (orden.ubicacion_servicio_segura || '').trim();
+}
+import {
+  ordenesProveedorService,
+  type ClienteCompleto,
+  type ClienteProtegido,
+  type Orden,
+} from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
@@ -170,14 +194,16 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleLlamarCliente = () => {
-    if (orden?.cliente_detail.telefono) {
-      Linking.openURL(`tel:${orden.cliente_detail.telefono}`);
+    const telefono = orden ? datosCliente(orden.cliente_detail).telefono : '';
+    if (telefono) {
+      Linking.openURL(`tel:${telefono}`);
     }
   };
 
   const handleAbrirMapa = () => {
-    if (orden?.ubicacion_servicio) {
-      const address = encodeURIComponent(orden.ubicacion_servicio);
+    const direccion = orden ? direccionServicio(orden) : '';
+    if (direccion) {
+      const address = encodeURIComponent(direccion);
       Linking.openURL(`https://maps.google.com/?q=${address}`);
     }
   };
@@ -198,7 +224,7 @@ export default function OrdenDetalleScreen() {
               const response = await ordenesProveedorService.aceptarOrden(orden.id, {});
               
               if (response.success) {
-                Alert.alert('Éxito', response.data.message || 'Orden aceptada correctamente');
+                Alert.alert('Éxito', response.data?.message || 'Orden aceptada correctamente');
                 await cargarOrden(); // Recargar datos
               } else {
                 Alert.alert('Error', response.message || 'No se pudo aceptar la orden');
@@ -230,7 +256,7 @@ export default function OrdenDetalleScreen() {
             });
             
             if (response.success) {
-              Alert.alert('Orden rechazada', response.data.message || 'La orden ha sido rechazada');
+              Alert.alert('Orden rechazada', response.data?.message || 'La orden ha sido rechazada');
               await cargarOrden(); // Recargar datos
             } else {
               Alert.alert('Error', response.message || 'No se pudo rechazar la orden');
@@ -323,7 +349,7 @@ export default function OrdenDetalleScreen() {
               const response = await ordenesProveedorService.actualizarEstado(orden.id, 'completado');
               
               if (response.success) {
-                Alert.alert('Servicio completado', response.data.message || 'El servicio ha sido marcado como completado');
+                Alert.alert('Servicio completado', response.data?.message || 'El servicio ha sido marcado como completado');
                 await cargarOrden();
               } else {
                 Alert.alert('Error', response.message || 'No se pudo completar el servicio');
@@ -604,20 +630,20 @@ export default function OrdenDetalleScreen() {
           <View style={styles.infoRow}>
             <InstitutionalIcon name="person" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.infoText}>
-              {orden.cliente_detail.nombre} {orden.cliente_detail.apellido || ''}
+              {datosCliente(orden.cliente_detail).nombre}
             </Text>
           </View>
           <TouchableOpacity style={styles.infoRow} onPress={handleLlamarCliente}>
             <InstitutionalIcon name="phone" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.infoText, styles.linkText]}>{orden.cliente_detail.telefono}</Text>
+            <Text style={[styles.infoText, styles.linkText]}>{datosCliente(orden.cliente_detail).telefono}</Text>
             <InstitutionalIcon name="call" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
-          {orden.cliente_detail.email && (
+          {datosCliente(orden.cliente_detail).email ? (
             <View style={styles.infoRow}>
               <InstitutionalIcon name="email" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.infoText}>{orden.cliente_detail.email}</Text>
+              <Text style={styles.infoText}>{datosCliente(orden.cliente_detail).email}</Text>
             </View>
-          )}
+          ) : null}
         </HostPaperSection>
 
         {/* Información del vehículo */}
@@ -674,11 +700,11 @@ export default function OrdenDetalleScreen() {
             leading={<InstitutionalIcon name={orden.tipo_servicio === 'domicilio' ? 'home' : 'business'} size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
           />
           
-          {orden.tipo_servicio === 'domicilio' && orden.ubicacion_servicio ? (
+          {orden.tipo_servicio === 'domicilio' && direccionServicio(orden) ? (
             <TouchableOpacity style={styles.addressContainer} onPress={handleAbrirMapa}>
               <View style={styles.infoRow}>
                 <InstitutionalIcon name="location-on" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.infoText, styles.linkText]}>{orden.ubicacion_servicio}</Text>
+                <Text style={[styles.infoText, styles.linkText]}>{direccionServicio(orden)}</Text>
                 <InstitutionalIcon name="open-in-new" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <Text style={styles.addressHint}>Toca para abrir en Google Maps</Text>

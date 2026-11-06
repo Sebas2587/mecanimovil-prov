@@ -5,9 +5,8 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Linking,
-  ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle, FileDown, MapPin, MessageCircle, Phone, Sparkles, Trash2 } from 'lucide-react-native';
+import { AlertTriangle, FileDown, MapPin, MessageCircle, Phone } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import {
   HINT_CLIENTE_SIN_CANAL_CON_TELEFONO,
@@ -22,38 +21,26 @@ import { InstitutionalScreenTabs } from '@/app/design-system/components/Institut
 import { Card } from '@/app/design-system/components';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
-import { CotizacionPreciosEstadoBanner } from '@/components/cotizacion/CotizacionPreciosEstadoBanner';
+import { CotizacionEditorEncabezado } from '@/components/cotizacion/editor/CotizacionEditorEncabezado';
+import { CotizacionEditorManoObra } from '@/components/cotizacion/editor/CotizacionEditorManoObra';
+import { CotizacionEditorRepuestos, subtotalRepuesto } from '@/components/cotizacion/editor/CotizacionEditorRepuestos';
+import { CotizacionEditorResumen } from '@/components/cotizacion/editor/CotizacionEditorResumen';
+import { AvisoSinSenal } from '@/components/ui/AvisoSinSenal';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
-import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
-import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
-import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
-import { RevisionCotizador, ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
+import { RevisionCotizador } from '@/components/cotizacion/ValidacionCotizacion';
 import {
-  badgeConsolidacion,
-  casaRepuestosLabel,
-  certezaDe,
-  estadoLinea,
   lineaPendientePrecio,
   COPY_PRECIO_TALLER,
-  etiquetaBanda,
   formatRangoClp,
-  labelFamilia,
-  metaLineaTexto,
   montosFichaYTecho,
-  motivoSeleccionCasa,
-  motivoSinPrecio,
-  opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
 import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { router } from 'expo-router';
-import {
-  formatearMontoCLP,
-  redondearCLP,
-} from '@/utils/formatearMontoCLP';
+import { redondearCLP } from '@/utils/formatearMontoCLP';
 import type { CotizacionCanal, ManoObraLinea, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
   MAX_MANO_OBRA_LINEAS,
@@ -61,7 +48,6 @@ import cotizacionCanalService, {
   clampDiasValidez,
   cotizacionPermiteEdicionCompleta,
   mergeRepuestosPreservandoEdicion,
-  patchPrecioEscritoPorTaller,
   resolverManoObraLineas,
   sumaManoObraLineas,
   type ProgresoBusquedaWeb,
@@ -78,7 +64,7 @@ import {
   type EjecucionAdicional,
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
-import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { showAlert } from '@/utils/platformAlert';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -97,465 +83,12 @@ import type { CatalogoFechaHoraValue } from '@/components/solicitudes/CatalogoFe
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
 
-function subtotalRepuesto(rep: RepuestoCotizacion): number {
-  return redondearCLP(redondearCLP(rep.cantidad || 1) * redondearCLP(rep.precio_unitario_clp));
-}
-
 function desgloseIvaDesdeTotal(totalIvaIncl: number): { neto: number; iva: number; total: number } {
   const total = redondearCLP(totalIvaIncl);
   const neto = Math.round(total / 1.19);
   const iva = total - neto;
   return { neto, iva, total };
 }
-
-function proveedorLabel(rep: RepuestoCotizacion): string | null {
-  const nombre = (rep.proveedor_nombre || '').trim();
-  if (nombre) return nombre;
-  const tienda = (rep.tienda_ml || '').trim();
-  if (tienda) return tienda;
-  return null;
-}
-
-/** Una sola etiqueta de origen (tienda, proveedor o canal). */
-function origenTagLabel(rep: RepuestoCotizacion): string | null {
-  const nombre = proveedorLabel(rep);
-  if (nombre) return nombre;
-  const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
-  if (key === 'web') return 'Búsqueda web';
-  if (key === 'catalogo' || key === 'catálogo') return 'Catálogo del taller';
-  if (key === 'historial') return 'Historial del taller';
-  if (key === 'mercadolibre') return 'Mercado Libre';
-  return null;
-}
-
-const ESTADO_VARIANT: Record<
-  CotizacionCanal['estado'],
-  'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
-> = {
-  borrador: 'neutral',
-  enviada: 'info',
-  aceptada: 'success',
-  rechazada: 'error',
-  expirada: 'warning',
-  cancelada: 'error',
-};
-
-const ESTADO_LABEL: Record<CotizacionCanal['estado'], string> = {
-  borrador: 'Por revisar',
-  enviada: 'Enviada',
-  aceptada: 'Aceptada',
-  rechazada: 'Rechazada',
-  expirada: 'Expirada',
-  cancelada: 'Cancelada',
-};
-
-const RepuestoRow = React.memo(function RepuestoRow({
-  rep,
-  index,
-  editable,
-  buscandoPrecio = false,
-  vehiculoAnio,
-  onUpdate,
-  onDelete,
-  onConfirmar,
-  onEspecificacion,
-  onBuscarIa,
-  puedeBuscarIa = false,
-  rangoCliente = null,
-  onConsultarCasas,
-  consultandoCasas = false,
-}: {
-  rep: RepuestoCotizacion;
-  index: number;
-  editable: boolean;
-  buscandoPrecio?: boolean;
-  vehiculoAnio?: number | string | null;
-  onUpdate: (index: number, patch: Partial<RepuestoCotizacion>) => void;
-  onDelete: (index: number) => void;
-  onConfirmar: (rep: RepuestoCotizacion) => void;
-  onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
-  onBuscarIa?: (rep: RepuestoCotizacion) => void;
-  puedeBuscarIa?: boolean;
-  rangoCliente?: string | null;
-  onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
-  consultandoCasas?: boolean;
-}) {
-  const precioUnit = redondearCLP(rep.precio_unitario_clp);
-  const subtotal = subtotalRepuesto(rep);
-  const precioPendiente = buscandoPrecio && precioUnit <= 0;
-  const origenLabel = origenTagLabel(rep);
-  const urlProducto = (rep.url_producto || '').trim();
-  const certeza = certezaDe(rep);
-  const specOps = opcionesFamilia(rep);
-  const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
-  const minP = Math.round(Number(rep.precio_min_clp) || 0);
-  const maxP = Math.round(Number(rep.precio_max_clp) || 0);
-  const mostrarRango = Boolean(rango) && (
-    certeza === 'sin_precio' || (minP > 0 && maxP > 0 && minP !== maxP)
-  );
-  const fichaClp = Math.round(Number(rep.precio_marketplace_clp) || 0);
-  const hayPrecioParaConfirmar = Boolean(
-    editable
-    && certeza !== 'confirmado'
-    && certeza !== 'asumido'
-    && (precioUnit > 0 || minP > 0 || maxP > 0 || fichaClp > 0),
-  );
-  const estado = estadoLinea(rep);
-  const metaTexto = metaLineaTexto(rep);
-  const casaLabel = casaRepuestosLabel(rep);
-  const motivo = motivoSinPrecio(rep);
-  const motivoSeleccion = motivoSeleccionCasa(rep);
-  const consolidacionBadge = badgeConsolidacion(rep);
-  const nombreGuardado = (rep.nombre || '').trim();
-
-  const [nombreFocused, setNombreFocused] = useState(false);
-  const [nombreDraft, setNombreDraft] = useState(nombreGuardado);
-  const cantidadGuardada = Math.max(1, Math.round(Number(rep.cantidad) || 1));
-  const [cantFocused, setCantFocused] = useState(false);
-  const [cantDraft, setCantDraft] = useState(String(cantidadGuardada));
-
-  useEffect(() => {
-    if (nombreFocused) return;
-    setNombreDraft(nombreGuardado);
-  }, [nombreGuardado, nombreFocused]);
-
-  useEffect(() => {
-    if (cantFocused) return;
-    setCantDraft(String(cantidadGuardada));
-  }, [cantidadGuardada, cantFocused]);
-
-  return (
-    <Card elevated padding="host" style={styles.repuestoCard}>
-      <View style={styles.repuestoTopRow}>
-        <View style={styles.nombreField}>
-          <InstitutionalField
-            label="Nombre"
-            value={nombreDraft}
-            onChangeText={(t) => {
-              setNombreDraft(t);
-              onUpdate(index, { nombre: t });
-            }}
-            onFocus={() => setNombreFocused(true)}
-            onBlur={() => {
-              const next = nombreDraft.trim();
-              onUpdate(index, { nombre: next });
-              setNombreDraft(next);
-              setNombreFocused(false);
-            }}
-            placeholder="Nombre del repuesto"
-            editable={editable}
-          />
-        </View>
-        {editable ? (
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => showConfirm(
-              'Eliminar repuesto',
-              'Se quita de esta cotización. Cancelar lo deja como está.',
-              { confirmText: 'Eliminar', cancelText: 'Cancelar', onConfirm: () => onDelete(index) },
-            )}
-            accessibilityRole="button"
-            accessibilityLabel="Eliminar repuesto"
-            hitSlop={8}
-          >
-            <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <View style={styles.estadoRow}>
-        <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
-        {consolidacionBadge ? (
-          <InstitutionalTag
-            label={consolidacionBadge}
-            variant="info"
-            size="sm"
-            uppercase={false}
-          />
-        ) : null}
-        {metaTexto ? (
-          <InstitutionalText
-            role="caption"
-            color="muted"
-            numberOfLines={1}
-            style={styles.metaTexto}
-          >
-            {metaTexto}
-          </InstitutionalText>
-        ) : null}
-        {rep.seleccion_cliente ? (
-          <InstitutionalTag
-            label="Elegido por el cliente"
-            variant="success"
-            size="sm"
-            uppercase={false}
-          />
-        ) : null}
-        {casaLabel ? (
-          urlProducto ? (
-            <TouchableOpacity
-              onPress={() => {
-                Linking.openURL(urlProducto).catch(() => undefined);
-              }}
-              accessibilityRole="link"
-              accessibilityLabel={`Abrir fuente en ${origenLabel || casaLabel}`}
-              hitSlop={6}
-            >
-              <InstitutionalTag
-                label={casaLabel}
-                variant="neutral"
-                size="sm"
-                uppercase={false}
-              />
-            </TouchableOpacity>
-          ) : (
-            <InstitutionalTag
-              label={casaLabel}
-              variant="neutral"
-              size="sm"
-              uppercase={false}
-            />
-          )
-        ) : null}
-      </View>
-
-      {motivoSeleccion ? (
-        <View style={styles.motivoSeleccionRow}>
-          <InstitutionalText
-            role="caption"
-            color="muted"
-            style={styles.motivoSeleccionTexto}
-          >
-            💡 {motivoSeleccion}
-          </InstitutionalText>
-        </View>
-      ) : null}
-
-      <ValidacionRepuestoLinea rep={rep} />
-
-      <View style={styles.repuestoGrid}>
-        <View style={styles.gridColCant}>
-          <InstitutionalField
-            label="Cant."
-            compact
-            mono
-            value={cantDraft}
-            onChangeText={(t) => {
-              const digits = t.replace(/\D/g, '');
-              setCantDraft(digits);
-              const n = parseInt(digits, 10);
-              if (n >= 1) onUpdate(index, { cantidad: n });
-            }}
-            onFocus={() => setCantFocused(true)}
-            onBlur={() => {
-              const n = Math.max(1, parseInt(cantDraft, 10) || 1);
-              onUpdate(index, { cantidad: n });
-              setCantDraft(String(n));
-              setCantFocused(false);
-            }}
-            keyboardType="numeric"
-            editable={editable}
-            inputStyle={styles.cantidadAlign}
-          />
-        </View>
-
-        <View style={styles.gridColPrecio}>
-          <InstitutionalText role="label" color="muted" style={styles.colLabel}>
-            Precio unit.
-          </InstitutionalText>
-          <ClpMoneyInput
-            key={`precio-${rep.id ?? index}`}
-            compact
-            value={precioUnit}
-            editable={editable && !precioPendiente}
-            placeholder={
-              precioPendiente
-                ? 'Buscando'
-                : (certeza === 'sin_precio'
-                  ? (rango || 'Buscar')
-                  : '0')
-            }
-            onChangeValue={(next) => onUpdate(index, patchPrecioEscritoPorTaller(next))}
-          />
-        </View>
-
-        <View style={styles.gridColSubtotal}>
-          <InstitutionalText role="label" color="muted" style={[styles.colLabel, styles.colLabelRight]}>
-            Subtotal
-          </InstitutionalText>
-          <View
-            key={`sub-${rep.id ?? index}-${subtotal}`}
-            style={styles.subtotalBox}
-          >
-            {precioPendiente ? (
-              <ActivityIndicator size="small" color={I.muted} />
-            ) : (
-              <InstitutionalText role="numberDisplay" color="ink" style={styles.subtotalValue}>
-                {subtotal > 0 ? formatearMontoCLP(subtotal) : '—'}
-              </InstitutionalText>
-            )}
-          </View>
-        </View>
-      </View>
-      {cantidadGuardada > 1 && precioUnit > 0 && !precioPendiente ? (
-        <InstitutionalText role="caption" color="muted">
-          {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
-        </InstitutionalText>
-      ) : null}
-      <ReferenciaTiendaLinea rep={rep} />
-      <MargenRepuestoLinea rep={rep} />
-      {rangoCliente ? (
-        <InstitutionalText role="caption" color="muted">
-          {rangoCliente}
-        </InstitutionalText>
-      ) : null}
-      {editable && puedeBuscarIa && onBuscarIa && !precioPendiente ? (
-        <TallerPildora
-          label="Buscar precio"
-          tono="suave"
-          onPress={() => onBuscarIa?.(rep)}
-          leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-        />
-      ) : null}
-      {editable && onConsultarCasas && !precioPendiente && (certeza === 'sin_precio' || rep.consulta_casas?.puede_consultar_otras) ? (
-        <TallerPildora
-          label={rep.consulta_casas?.puede_consultar_otras ? 'Consultar otras casas' : 'Consultar casas'}
-          tono="suave"
-          loading={consultandoCasas}
-          disabled={consultandoCasas}
-          onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
-        />
-      ) : null}
-      {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre ? (
-        <InstitutionalText role="caption" color="muted">
-          Precio de {rep.proveedor_nombre}
-        </InstitutionalText>
-      ) : null}
-      {rep.consulta_casas?.estado === 'sin_respuesta' && rep.consulta_casas.casa ? (
-        <InstitutionalText role="caption" color="muted">
-          {rep.consulta_casas.casa} no respondió. La cotización sigue en espera.
-        </InstitutionalText>
-      ) : null}
-      {mostrarRango || hayPrecioParaConfirmar ? (
-        <View style={styles.precioMetaRow}>
-          {mostrarRango ? (
-            <InstitutionalText role="caption" color="muted" style={styles.precioMetaTexto}>
-              {etiquetaBanda(rep)} {rango}
-            </InstitutionalText>
-          ) : (
-            <View style={styles.precioMetaTexto} />
-          )}
-          {hayPrecioParaConfirmar ? (
-            <TallerPildora
-              label="Confirmar precio"
-              tono="coral"
-              onPress={() => onConfirmar(rep)}
-            />
-          ) : null}
-        </View>
-      ) : null}
-      {motivo ? (
-        <InstitutionalText role="caption" color="muted">
-          {motivo}
-        </InstitutionalText>
-      ) : null}
-      <FuenteFichaInterna rep={rep} vehiculoAnio={vehiculoAnio} />
-      {rep.especificacion_pendiente && specOps.length && editable ? (
-        <View style={styles.specBlock}>
-          <InstitutionalText role="caption" color="muted">
-            {labelFamilia(rep)}
-          </InstitutionalText>
-          <View style={styles.specChips}>
-            {specOps.map((op) => (
-              <TouchableOpacity
-                key={op}
-                style={styles.specChip}
-                onPress={() => onEspecificacion(rep, op)}
-                accessibilityRole="button"
-              >
-                <InstitutionalText role="caption" color="ink">{op}</InstitutionalText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </Card>
-  );
-});
-
-const ManoObraLineaRow = React.memo(function ManoObraLineaRow({
-  line,
-  index,
-  editable,
-  onUpdate,
-  onDelete,
-}: {
-  line: ManoObraLinea;
-  index: number;
-  editable: boolean;
-  onUpdate: (index: number, patch: Partial<ManoObraLinea>) => void;
-  onDelete: (index: number) => void;
-}) {
-  const nombreGuardado = (line.nombre || '').trim();
-  const [nombreFocused, setNombreFocused] = useState(false);
-  const [nombreDraft, setNombreDraft] = useState(nombreGuardado);
-
-  useEffect(() => {
-    if (nombreFocused) return;
-    setNombreDraft(nombreGuardado);
-  }, [nombreGuardado, nombreFocused]);
-
-  return (
-    <Card elevated padding="host" style={styles.repuestoCard}>
-      <View style={styles.repuestoTopRow}>
-        <View style={styles.nombreField}>
-          <InstitutionalField
-            label="Trabajo"
-            value={nombreDraft}
-            onChangeText={(t) => {
-              setNombreDraft(t);
-              onUpdate(index, { nombre: t });
-            }}
-            onFocus={() => setNombreFocused(true)}
-            onBlur={() => {
-              const next = nombreDraft.trim();
-              onUpdate(index, { nombre: next });
-              setNombreDraft(next);
-              setNombreFocused(false);
-            }}
-            placeholder="Ej. Diagnóstico, cambio de pastillas"
-            editable={editable}
-          />
-        </View>
-        {editable ? (
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => showConfirm(
-              'Eliminar mano de obra',
-              'Se quita de esta cotización. Cancelar lo deja como está.',
-              { confirmText: 'Eliminar', cancelText: 'Cancelar', onConfirm: () => onDelete(index) },
-            )}
-            accessibilityRole="button"
-            accessibilityLabel="Eliminar mano de obra"
-            hitSlop={8}
-          >
-            <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      <View>
-        <InstitutionalText role="label" color="muted" style={styles.colLabel}>
-          Precio
-        </InstitutionalText>
-        <ClpMoneyInput
-          value={redondearCLP(line.monto_clp)}
-          editable={editable}
-          onChangeValue={(next) => onUpdate(index, { monto_clp: next })}
-        />
-      </View>
-    </Card>
-  );
-});
 
 const DESCUENTO_TIPO_TABS = [
   { key: 'none' as const, label: 'Ninguno' },
@@ -1283,102 +816,13 @@ export const CotizacionIaEditor = React.forwardRef<
 
   return (
     <View style={styles.root}>
+      <AvisoSinSenal ambito="cotizacion" />
       {!sinHeader ? (
-      <View style={styles.headerRow}>
-        {compactHeader ? (
-          <View style={styles.headerTagsCol}>
-            <InstitutionalText role="h3" numberOfLines={3}>
-              {(cotizacion.servicio_nombre || '').trim()
-                || (cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización')}
-            </InstitutionalText>
-            <InstitutionalText role="caption" color="body">
-              {[
-                vehiculoTitulo,
-                cotizacion.vehiculo_patente ? `Patente ${cotizacion.vehiculo_patente.toUpperCase()}` : '',
-                cotizacion.modalidad === 'domicilio' ? 'A domicilio' : cotizacion.modalidad ? 'En el taller' : '',
-              ].filter(Boolean).join(' · ')}
-            </InstitutionalText>
-            <View style={styles.estadoQuieto}>
-              <View
-                style={[
-                  styles.estadoPunto,
-                  (cotizacion.estado === 'cancelada' || cotizacion.estado === 'rechazada') && styles.estadoPuntoBaja,
-                  cotizacion.estado === 'aceptada' && styles.estadoPuntoAlta,
-                ]}
-              />
-              <InstitutionalText role="captionBold">
-                {ESTADO_LABEL[cotizacion.estado] || cotizacion.estado}
-              </InstitutionalText>
-            </View>
-            <View style={styles.headerTags}>
-              {cotizacion.metadata?.origen === 'agente_ia' ? (
-                <InstitutionalTag label="IA" variant="neutral" size="sm" />
-              ) : null}
-              {cotizacion.es_cotizacion_adicional ? (
-                <InstitutionalTag label="Adicional" variant="neutral" size="sm" />
-              ) : null}
-              {cotizacion.estado !== 'borrador'
-                && (cotizacion.tipo_documento === 'estimacion'
-                  || cotizacion.tipo_documento_emitido === 'estimacion') ? (
-                <InstitutionalTag label="Estimación" variant="neutral" size="sm" />
-              ) : null}
-            </View>
-            {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
-              <InstitutionalText role="caption" color="muted" numberOfLines={2}>
-                Desde: {cotizacion.servicio_principal_nombre}
-              </InstitutionalText>
-            ) : null}
-            {cotizacion.es_cotizacion_adicional && cotizacion.motivo_servicio_adicional ? (
-              <InstitutionalText role="caption" color="muted" numberOfLines={3}>
-                Motivo: {cotizacion.motivo_servicio_adicional}
-              </InstitutionalText>
-            ) : null}
-          </View>
-        ) : (
-          <>
-            <View style={styles.headerText}>
-              <InstitutionalText role="h4">
-                {(cotizacion.servicio_nombre || '').trim()
-                  || (cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización')}
-              </InstitutionalText>
-              {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
-                <InstitutionalText role="caption" color="muted" numberOfLines={2}>
-                  Desde: {cotizacion.servicio_principal_nombre}
-                </InstitutionalText>
-              ) : cotizacion.numero_publico ? (
-                <InstitutionalText role="caption" color="muted" numberOfLines={1}>
-                  #{cotizacion.numero_publico}
-                </InstitutionalText>
-              ) : null}
-              {cotizacion.es_cotizacion_adicional && cotizacion.motivo_servicio_adicional ? (
-                <InstitutionalText role="caption" color="muted" numberOfLines={3}>
-                  Motivo: {cotizacion.motivo_servicio_adicional}
-                </InstitutionalText>
-              ) : null}
-            </View>
-            <View style={styles.headerTags}>
-              {cotizacion.metadata?.origen === 'agente_ia' ? (
-                <InstitutionalTag
-                  label="Generada por IA — revisa antes de enviar"
-                  variant="warning"
-                  size="sm"
-                />
-              ) : null}
-              {cotizacion.metadata?.respaldo_sin_gemini ? (
-                <InstitutionalTag label="Completar precios" variant="info" size="sm" />
-              ) : null}
-              {cotizacion.es_cotizacion_adicional ? (
-                <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
-              ) : null}
-              <InstitutionalTag
-                label={cotizacion.estado}
-                variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
-                size="sm"
-              />
-            </View>
-          </>
-        )}
-      </View>
+        <CotizacionEditorEncabezado
+          cotizacion={cotizacion}
+          compactHeader={compactHeader}
+          vehiculoTitulo={vehiculoTitulo}
+        />
       ) : null}
 
       {editable && cotizacion.estado === 'borrador' && cotizacion.metadata?.reabierta_por_taller ? (
@@ -1652,193 +1096,46 @@ export const CotizacionIaEditor = React.forwardRef<
 
       <RevisionCotizador alertas={cotizacion.alertas_validacion} />
 
-      <View style={styles.section}>
-        <InstitutionalSectionHeader
-          title="Mano de obra"
-          count={lineasMo.length > 0 ? lineasMo.length : undefined}
-        />
-        <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          Precio final al cliente (el IVA se desglosa en el resumen).
-          {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo
-            ? ' Valores estimados: confirma precios y marcas antes de enviar.'
-            : ''}
-        </InstitutionalText>
-        {lineasMo.length >= MAX_MANO_OBRA_LINEAS ? (
-          <InstitutionalText role="small" color="muted">
-            Máximo {MAX_MANO_OBRA_LINEAS} líneas de mano de obra.
-          </InstitutionalText>
-        ) : null}
-        {lineasMo.length === 0 ? (
-          <Card elevated padding="host" style={styles.emptyRepuestos}>
-            <InstitutionalText role="caption" color="muted">
-              Sin líneas de trabajo
-            </InstitutionalText>
-          </Card>
-        ) : (
-          <View style={styles.repuestosList}>
-            {lineasMo.map((line, idx) => (
-              <ManoObraLineaRow
-                key={line.id ?? `mo-${idx}`}
-                line={line}
-                index={idx}
-                editable={editable}
-                onUpdate={actualizarManoObraLinea}
-                onDelete={eliminarManoObraLinea}
-              />
-            ))}
-          </View>
-        )}
-      </View>
+      <CotizacionEditorManoObra
+        lineasMo={lineasMo}
+        editable={editable}
+        valoresEstimados={Boolean(cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo)}
+        onUpdate={actualizarManoObraLinea}
+        onDelete={eliminarManoObraLinea}
+      />
 
-      <View style={styles.section}>
-        <InstitutionalSectionHeader
-          title="Repuestos"
-          count={repuestos.length > 0 ? repuestos.length : undefined}
-        />
-        <CotizacionPreciosEstadoBanner
-          pendiente={busquedaPendiente}
-          conTienda={resumenPrecios.conTienda}
-          total={resumenPrecios.total}
-          sinTienda={resumenPrecios.sinTienda}
-          buscando={cotizandoItems}
-          onBuscar={editable ? () => void cotizarItemsConIa() : undefined}
-          respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
-          fichaExigente={resumenPrecios.fichaExigente}
-        />
-        <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.
-          {COPY_PRECIO_TALLER.clienteVeMargen}
-        </InstitutionalText>
-        {repuestos.length === 0 ? (
-          <Card elevated padding="host" style={styles.emptyRepuestos}>
-            <InstitutionalText role="caption" color="muted">
-              Sin repuestos listados
-            </InstitutionalText>
-          </Card>
-        ) : (
-          <View style={styles.repuestosList}>
-            {repuestos.map((rep, idx) => (
-              <RepuestoRow
-                key={rep.id ?? `rep-${idx}`}
-                rep={rep}
-                index={idx}
-                editable={editable}
-                buscandoPrecio={lineaEnBusquedaWeb(rep)}
-                vehiculoAnio={cotizacion.vehiculo_anio}
-                onUpdate={actualizarRepuesto}
-                onDelete={eliminarRepuesto}
-                onConfirmar={abrirConfirmarRepuesto}
-                onEspecificacion={definirEspecificacionLinea}
-                onBuscarIa={cotizarItemsConIa}
-                puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
-                rangoCliente={captionRangoCliente(rep, esEstimacionEmitida, editable)}
-                onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
-                consultandoCasas={consultandoRepuestoId === String(rep.id || '')}
-              />
-            ))}
-          </View>
-        )}
-      </View>
+      <CotizacionEditorRepuestos
+        repuestos={repuestos}
+        editable={editable}
+        vehiculoAnio={cotizacion.vehiculo_anio}
+        busquedaPendiente={busquedaPendiente}
+        resumenPrecios={resumenPrecios}
+        cotizandoItems={cotizandoItems}
+        onBuscar={editable ? () => { void cotizarItemsConIa(); } : undefined}
+        respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
+        avisoMargen={COPY_PRECIO_TALLER.clienteVeMargen}
+        onUpdate={actualizarRepuesto}
+        onDelete={eliminarRepuesto}
+        onConfirmar={abrirConfirmarRepuesto}
+        onEspecificacion={definirEspecificacionLinea}
+        onBuscarIa={cotizarItemsConIa}
+        lineaEnBusquedaWeb={lineaEnBusquedaWeb}
+        lineaNecesitaBusquedaPrecio={lineaNecesitaBusquedaPrecio}
+        captionRango={(rep) => captionRangoCliente(rep, esEstimacionEmitida, editable)}
+        onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
+        consultandoRepuestoId={consultandoRepuestoId}
+      />
 
-      <Card elevated padding="host" style={styles.summaryBox}>
-        <View style={styles.summaryRow}>
-          <InstitutionalText role="caption" color="muted">
-            Repuestos
-          </InstitutionalText>
-          <InstitutionalText role="captionBold" color="ink">
-            {canon.costo_repuestos_clp == null ? 'Incompleto' : formatearMontoCLP(canon.costo_repuestos_clp)}
-          </InstitutionalText>
-        </View>
-        <ResumenMargenRepuestos repuestos={repuestos} />
-        <View style={styles.summaryRow}>
-          <InstitutionalText role="caption" color="muted">
-            Mano de obra
-          </InstitutionalText>
-          <InstitutionalText role="captionBold" color="ink">
-            {formatearMontoCLP(manoObra)}
-          </InstitutionalText>
-        </View>
-        {descuentoLive.descuentoClp > 0 ? (
-          <View style={styles.summaryRow}>
-            <InstitutionalText role="caption" color="muted" style={styles.descuentoLabel}>
-              {descuentoLive.etiqueta}
-            </InstitutionalText>
-            <InstitutionalText role="captionBold" color="primary">
-              −{formatearMontoCLP(descuentoLive.descuentoClp)}
-            </InstitutionalText>
-          </View>
-        ) : null}
-        {esEstimacionEmitida && bandaCliente.hayRango ? null : desgloseCanon ? (
-          <>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <InstitutionalText role="caption" color="muted">
-                Neto
-              </InstitutionalText>
-              <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseCanon.neto)}
-              </InstitutionalText>
-            </View>
-            <View style={styles.summaryRow}>
-              <InstitutionalText role="caption" color="muted">
-                IVA 19%
-              </InstitutionalText>
-              <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(desgloseCanon.iva)}
-              </InstitutionalText>
-            </View>
-          </>
-        ) : (
-          <InstitutionalText role="caption" color="muted">
-            Suma parcial {formatearTotalConocido(canon.total_conocido_parcial_clp)}. No es el total.
-          </InstitutionalText>
-        )}
-        <View style={styles.summaryDivider} />
-        {esEstimacionEmitida && bandaCliente.hayRango ? (
-          <>
-            <View style={styles.summaryRow}>
-              <InstitutionalText role="h5" color="ink">
-                Total estimado
-              </InstitutionalText>
-              <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-                {formatRangoClp(bandaCliente.min, bandaCliente.max)}
-              </InstitutionalText>
-            </View>
-            <View style={styles.summaryRow}>
-              <InstitutionalText role="caption" color="muted">
-                Total de trabajo (taller)
-              </InstitutionalText>
-              <InstitutionalText role="captionBold" color="ink">
-                {totalCanonTexto}
-              </InstitutionalText>
-            </View>
-            <InstitutionalText role="caption" color="muted">
-              El cliente ve el rango. Los montos de línea no cambian.
-            </InstitutionalText>
-          </>
-        ) : (
-          <>
-            <View style={styles.summaryRow}>
-              <InstitutionalText role="h5" color="ink">
-                Total a pagar
-              </InstitutionalText>
-              <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-                {totalCanonTexto}
-              </InstitutionalText>
-            </View>
-            {bandaCliente.hayRango ? (
-              <InstitutionalText role="caption" color="muted">
-                Si envías estimación, el cliente verá{' '}
-                {formatRangoClp(bandaCliente.min, bandaCliente.max)}.
-              </InstitutionalText>
-            ) : (
-              <InstitutionalText role="caption" color="muted">
-                Los precios de línea ya incluyen IVA. El desglose neto/IVA es informativo.
-              </InstitutionalText>
-            )}
-          </>
-        )}
-      </Card>
+      <CotizacionEditorResumen
+        canon={canon}
+        repuestos={repuestos}
+        manoObra={manoObra}
+        descuentoLive={descuentoLive}
+        esEstimacionEmitida={esEstimacionEmitida}
+        bandaCliente={bandaCliente}
+        desgloseCanon={desgloseCanon}
+        totalCanonTexto={totalCanonTexto}
+      />
 
       <SeccionOpcional
         title="Ajustes opcionales"

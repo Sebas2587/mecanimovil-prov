@@ -1489,7 +1489,7 @@ const createStyles = () => {
       backgroundColor: Ig.surfaceStrong,
     },
     sectionBadgeText: {
-      fontSize: 10,
+      fontSize: 13,
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
       letterSpacing: TYPOGRAPHY.letterSpacing.wider,
@@ -1554,7 +1554,7 @@ const createStyles = () => {
       gap: 4,
     },
     statusBadgeText: {
-      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontSize: 13,
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
@@ -1567,7 +1567,7 @@ const createStyles = () => {
       borderRadius: BORDERS.radius.sm,
     },
     statusTagText: {
-      fontSize: 10,
+      fontSize: 13,
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
       letterSpacing: 0.4,

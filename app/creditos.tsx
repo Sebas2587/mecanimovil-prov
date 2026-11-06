@@ -1615,7 +1615,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.pill,
   },
   badgePillKickerText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
@@ -1718,7 +1718,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
-  cobroNetInst: { fontSize: TYPOGRAPHY.fontSize.xs },
+  cobroNetInst: { fontSize: 13 },
   cobroTagPill: {
     marginTop: 2,
     paddingHorizontal: 8,
@@ -1726,7 +1726,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.pill,
   },
   cobroTagPillText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
@@ -1997,7 +1997,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
   },
   planTierKickerText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
@@ -2009,7 +2009,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.sm,
   },
   planTierBadgeTuPlanText: {
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: 0.4,
@@ -2221,7 +2221,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0,
     paddingHorizontal: 12, paddingVertical: 5, borderBottomRightRadius: 12,
   },
-  badgeSmallText: { color: COLORS.institutional.onPrimary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  badgeSmallText: { color: COLORS.institutional.onPrimary, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   planNombre: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontFamily: FF.sansSemiBold,
