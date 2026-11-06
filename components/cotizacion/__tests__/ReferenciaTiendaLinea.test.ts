@@ -46,11 +46,13 @@ describe('margenLineaRepuesto', () => {
     const base = { costo_unitario_clp: 6000, cantidad: 2, precio_cobrado_clp: 10000 };
     const antes = margenLineaRepuesto({ ...base, precio_unitario_clp: 10000 });
     expect(antes.margenClp).toBe(8000);
-    expect(antes.margenPct).toBe(40);
+    // margenPct ahora es markup on cost: (8000 / 12000) * 100 = 66.67
+    expect(Math.round((antes.margenPct || 0) * 100) / 100).toBeCloseTo(66.67, 1);
 
     const despues = margenLineaRepuesto({ ...base, precio_unitario_clp: 8000 });
     expect(despues.margenClp).toBe(4000);
-    expect(despues.margenPct).toBe(25);
+    // margenPct ahora es markup on cost: (4000 / 12000) * 100 = 33.33
+    expect(Math.round((despues.margenPct || 0) * 100) / 100).toBeCloseTo(33.33, 1);
     expect(despues.cobradoUnitario).toBe(8000);
   });
 
@@ -85,7 +87,8 @@ describe('resumenMargenRepuestos', () => {
     expect(r.ganancia).toBe(4000);
     expect(r.cobradoTotal).toBe(21000);
     expect(r.costoTotal).toBe(12000);
-    expect(r.margenPct).toBe(25);
+    // margenPct ahora es markup on cost: (4000 / 12000) * 100 = 33.33
+    expect(Math.round((r.margenPct || 0) * 100) / 100).toBeCloseTo(33.33, 1);
     expect(r.haySinCosto).toBe(true);
   });
 });
