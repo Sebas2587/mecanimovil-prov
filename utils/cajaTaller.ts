@@ -42,6 +42,12 @@ export type ResumenCaja = {
   /** Códigos, por ejemplo legacy_sin_movimiento o moneda_no_clp. No es un contador. */
   faltantes: string[];
   legacy_no_contabilizado: number;
+  /** Desglose de ventas de refacciones (cuando el backend lo provee) */
+  repuestos_cobrados_clp?: number | null;
+  repuestos_costo_clp?: number | null;
+  repuestos_margen_clp?: number | null;
+  /** Desglose de mano de obra */
+  mano_obra_cobrada_clp?: number | null;
 };
 
 export type BucketCaja = {

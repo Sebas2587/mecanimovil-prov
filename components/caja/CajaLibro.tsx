@@ -189,6 +189,30 @@ export function CajaLibro({
                 {pagosFuente}
               </InstitutionalText>
             ) : null}
+
+            {/* Desglose de refacciones vs mano de obra (cuando el API lo provee) */}
+            {(resumen.repuestos_cobrados_clp != null || resumen.mano_obra_cobrada_clp != null) ? (
+              <View style={styles.desgloseMargen}>
+                <InstitutionalText role="captionBold" color="ink">Desglose de ventas</InstitutionalText>
+                {resumen.repuestos_cobrados_clp != null ? (
+                  <>
+                    <Fila label="Ventas de refacciones" valor={pesos(resumen.repuestos_cobrados_clp)} />
+                    {resumen.repuestos_costo_clp != null ? (
+                      <Fila label="  Costo repuestos" valor={pesos(resumen.repuestos_costo_clp)} />
+                    ) : null}
+                    {resumen.repuestos_margen_clp != null ? (
+                      <Fila 
+                        label="  Margen repuestos" 
+                        valor={pesos(resumen.repuestos_margen_clp)}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+                {resumen.mano_obra_cobrada_clp != null ? (
+                  <Fila label="Mano de obra" valor={pesos(resumen.mano_obra_cobrada_clp)} />
+                ) : null}
+              </View>
+            ) : null}
           </Card>
         ) : null}
 
@@ -455,6 +479,13 @@ const styles = StyleSheet.create({
   },
   estado: { alignItems: 'center', gap: SPACING.fixed.sm, paddingVertical: SPACING.fixed.md },
   bloque: { gap: SPACING.fixed.xs },
+  desgloseMargen: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: 1,
+    borderTopColor: I.hairline,
+    gap: SPACING.fixed.xxs,
+  },
   fila: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.fixed.sm, alignItems: 'center' },
   filaLabel: { flex: 1 },
   filaCaso: { gap: SPACING.fixed.xs },

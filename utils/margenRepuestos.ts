@@ -54,12 +54,13 @@ export function margenLineaRepuesto(rep: LineaMargenInput): MargenLinea {
     };
   }
   const margenClp = (cobradoUnitario - costoUnitario) * cantidad;
-  const margenPct = cobradoLinea > 0 ? (margenClp / cobradoLinea) * 100 : null;
+  const costoLinea = costoUnitario * cantidad;
+  const margenPct = costoLinea > 0 ? (margenClp / costoLinea) * 100 : null;
   return {
     cantidad,
     costoUnitario,
     cobradoUnitario,
-    costoLinea: costoUnitario * cantidad,
+    costoLinea,
     cobradoLinea,
     margenClp,
     margenPct,
@@ -98,7 +99,7 @@ export function resumenMargenRepuestos(lineas: LineaMargenInput[]): ResumenMarge
     costoTotal: costoConocido,
     cobradoTotal,
     ganancia: gananciaConocida,
-    margenPct: cobradoConCosto > 0 ? (gananciaConocida / cobradoConCosto) * 100 : null,
+    margenPct: costoConocido > 0 ? (gananciaConocida / costoConocido) * 100 : null,
     haySinCosto,
   };
 }
