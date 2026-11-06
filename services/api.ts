@@ -377,6 +377,8 @@ export interface EstadoProveedor {
     ubicacion_lat?: number;
     ubicacion_lng?: number;
     tipo_cobertura_marca?: 'especialista' | 'multimarca';
+    margen_ganancia_pct?: number | null;
+    modalidad_atencion?: 'en_taller' | 'a_domicilio' | 'ambas';
     direccion_fisica?: {
       direccion_completa?: string;
       calle?: string;

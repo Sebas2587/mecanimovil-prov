@@ -103,6 +103,9 @@ export default function GestionarTallerScreen() {
   const [modalidad, setModalidad] = useState<Modalidad>('en_taller');
   const soloDomicilio = modalidad === 'a_domicilio';
 
+  // Margen de ganancia (porcentaje)
+  const [margenGananciaPct, setMargenGananciaPct] = useState<string>('');
+
   // Estados para búsqueda de direcciones
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,6 +200,12 @@ export default function GestionarTallerScreen() {
           setModalidad(modalidadActual);
         }
 
+        // Cargar margen de ganancia
+        const margenActual = estadoProveedor.datos_proveedor.margen_ganancia_pct;
+        if (margenActual != null && Number.isFinite(margenActual)) {
+          setMargenGananciaPct(String(margenActual));
+        }
+
         logger.log('📍 Datos de dirección cargados:', {
           direccion_completa: direccionCompleta,
           comuna: comuna,
@@ -224,6 +233,15 @@ export default function GestionarTallerScreen() {
     if (value === modalidad) return;
     setModalidad(value);
     setHasChanges(true);
+  };
+
+  const handleMargenGananciaChange = (value: string) => {
+    const cleaned = value.replace(/[^\d.,]/g, '').replace(',', '.');
+    const num = Number(cleaned);
+    if (cleaned === '' || (Number.isFinite(num) && num >= 0 && num <= 999)) {
+      setMargenGananciaPct(cleaned);
+      setHasChanges(true);
+    }
   };
 
   const MODALIDAD_OPCIONES: { value: Modalidad; titulo: string; descripcion: string; icon: string }[] = [
@@ -754,13 +772,21 @@ export default function GestionarTallerScreen() {
         }
       }
 
-      // ✅ ACTUALIZAR EN EL BACKEND REAL (INCLUYENDO COORDENADAS Y MODALIDAD)
+      // ✅ ACTUALIZAR EN EL BACKEND REAL (INCLUYENDO COORDENADAS, MODALIDAD Y MARGEN)
       // Usar la API real para actualizar el perfil del proveedor
       const datosActualizados: Record<string, any> = {
         nombre: datosTaller.nombre,
         descripcion: datosTaller.descripcion,
         modalidad_atencion: modalidad,
       };
+
+      // Incluir margen de ganancia si está configurado
+      const margenNum = margenGananciaPct.trim() ? Number(margenGananciaPct) : null;
+      if (margenNum != null && Number.isFinite(margenNum)) {
+        datosActualizados.margen_ganancia_pct = margenNum;
+      } else {
+        datosActualizados.margen_ganancia_pct = null;
+      }
       if (datosTaller.direccion.trim()) {
         datosActualizados.direccion = datosTaller.direccion;
         datosActualizados.comuna = datosTaller.comuna;
@@ -876,6 +902,37 @@ export default function GestionarTallerScreen() {
                   </TouchableOpacity>
                 );
               })}
+          </HostPaperSection>
+
+          {/* Margen de ganancia */}
+          <HostSectionKicker label="Margen de ganancia" />
+          <HostPaperSection>
+              <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
+                Define el porcentaje de ganancia que aplicarás sobre el costo de los repuestos. El agente IA lo usará al calcular el precio de venta al cliente. Ejemplo: con 30%, un repuesto de $10.000 se cotizará a $13.000.
+              </Text>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: textPrimary }]}>Porcentaje (%)</Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      color: textPrimary,
+                      backgroundColor: inputBg,
+                      borderColor: inputBorder,
+                      fontSize: 16,
+                    },
+                  ]}
+                  value={margenGananciaPct}
+                  onChangeText={handleMargenGananciaChange}
+                  placeholder="Ej: 30"
+                  placeholderTextColor={textSubtle}
+                  keyboardType="decimal-pad"
+                  maxLength={6}
+                />
+                <Text style={[styles.margenHint, { color: textSubtle }]}>
+                  💡 Deja vacío si no quieres un margen predeterminado. Podrás editarlo en cada cotización.
+                </Text>
+              </View>
           </HostPaperSection>
 
           {/* Accesos rápidos del taller */}
@@ -1553,5 +1610,10 @@ const styles = StyleSheet.create({
   instructionBold: {
     fontWeight: '700',
     color: warningStatus.text,
+  },
+  margenHint: {
+    fontSize: 13,
+    marginTop: 8,
+    lineHeight: 18,
   },
 });
