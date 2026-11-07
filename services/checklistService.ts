@@ -941,6 +941,28 @@ class ChecklistService {
     }
   }
 
+  private ordenIdOf(row: ChecklistInstance): number | null {
+    const orden = row.orden as number | { id?: number } | null | undefined;
+    if (typeof orden === 'number') return orden;
+    if (orden && typeof orden === 'object' && typeof orden.id === 'number') return orden.id;
+    return null;
+  }
+
+  private async findInstanceForOrden(
+    page: { results?: ChecklistInstance[]; next?: string | null },
+    ordenId: number,
+  ): Promise<ChecklistInstance | null> {
+    let current: { results?: ChecklistInstance[]; next?: string | null } | null = page;
+    for (let guard = 0; current && guard < 10; guard += 1) {
+      const match = (current.results || []).find((row) => this.ordenIdOf(row) === Number(ordenId));
+      if (match) return match;
+      if (!current.next) return null;
+      const next = await api.get(current.next);
+      current = next.data;
+    }
+    return null;
+  }
+
   async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
       logger.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
@@ -949,11 +971,12 @@ class ChecklistService {
       const response = await api.get(`/checklists/instances/?orden_id=${ordenId}`);
       logger.log('📋 Response from API:', response.data);
       
-      if (response.data.count > 0 && response.data.results[0]) {
-        logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.results[0].id);
+      const match = await this.findInstanceForOrden(response.data, ordenId);
+      if (match) {
+        logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', match.id);
         return {
           success: true,
-          data: response.data.results[0],
+          data: match,
           message: 'Checklist encontrado exitosamente',
           isEmpty: false
         };
@@ -1225,31 +1248,56 @@ class ChecklistService {
         };
       } catch (onlineError: any) {
         const status = onlineError?.response?.status;
-        // Auth / validación: no fingir éxito offline (rompe el progreso en UI).
-        if (status === 400 || status === 403 || status === 404) {
-          if (!response.id && response.item_template) {
-            const recovered = await this.recoverExistingResponse(
-              instanceId,
-              response.item_template,
-            );
-            if (recovered) {
-              await this.offlineManager.saveResponse(recovered, instanceId);
-              return { success: true, data: recovered };
+        // Unicidad: la fila ya existe. Un PATCH del mismo id escribe el valor pedido
+        // sin crear otra respuesta. Si ese PATCH no llega, no se reporta como guardado.
+        if ((status === 400 || status === 404) && !response.id && response.item_template) {
+          const recovered = await this.recoverExistingResponse(
+            instanceId,
+            response.item_template,
+          );
+          if (recovered?.id) {
+            try {
+              const patched = await api.patch(`${this.baseUrl}/responses/${recovered.id}/`, {
+                checklist_instance: instanceId,
+                ...response,
+                id: recovered.id,
+              });
+              return { success: true, data: patched.data };
+            } catch (patchError: any) {
+              const patchStatus = patchError?.response?.status;
+              if (patchStatus === 400 || patchStatus === 403 || patchStatus === 404) {
+                return this.handleServiceError(patchError, 'guardar respuesta');
+              }
+              const pending = { ...response, id: recovered.id };
+              await this.offlineManager.saveResponse(pending, instanceId);
+              return {
+                success: true,
+                data: pending,
+                message: 'Respuesta guardada localmente, se sincronizará cuando tengas conexión',
+              };
             }
           }
+        }
+
+        if (status === 400 || status === 403 || status === 404) {
           return this.handleServiceError(onlineError, 'guardar respuesta');
         }
 
-        // Create sin id: no fingir éxito (disparaba loop ensurePhoto + botón eterno).
-        // Si el servidor escribió pero el cliente abortó (499), recuperar la fila.
+        // Sin confirmación del servidor no se muestra como guardado.
+        // Si la fila ya existe, el reintento usa ese id (PATCH) y no abre otra.
         if (!response.id && response.item_template) {
           const recovered = await this.recoverExistingResponse(
             instanceId,
             response.item_template,
           );
-          if (recovered) {
-            await this.offlineManager.saveResponse(recovered, instanceId);
-            return { success: true, data: recovered };
+          if (recovered?.id) {
+            const pending = { ...response, id: recovered.id };
+            await this.offlineManager.saveResponse(pending, instanceId);
+            return {
+              success: true,
+              data: pending,
+              message: 'Respuesta guardada localmente, se sincronizará cuando tengas conexión',
+            };
           }
           return {
             success: false,

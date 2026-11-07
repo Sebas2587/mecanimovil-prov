@@ -33,6 +33,7 @@ test('Checklist button must show', async ({ page, context, request }) => {
   })).json();
   
   console.log(`✓ Mechanic logged in`);
+  await page.setViewportSize({ width: 390, height: 844 });
 
   await context.addInitScript(({token, user, apiUrl}) => {
     localStorage.setItem('FORCE_LOCAL_API', 'true');
@@ -109,8 +110,11 @@ test('Checklist button must show', async ({ page, context, request }) => {
   console.log(`Navigation result: ${urlBefore === urlAfter ? 'FAILED - URL did not change' : 'SUCCESS - navigated'}`);
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-AFTER-CLICK.png', fullPage: true });
   
+  const question = page.getByTestId('checklist-item-question');
+  await expect(question).toHaveText('Revisar nivel de aceite');
+
   // Select "bajo" option (observable change from any previous state)
-  const bajoOption = page.locator('text=bajo').first();
+  const bajoOption = page.getByTestId('checklist-option-bajo');
   await bajoOption.waitFor({ timeout: 5000 });
   await bajoOption.click();
   await page.waitForTimeout(1000);
@@ -155,7 +159,8 @@ test('Checklist button must show', async ({ page, context, request }) => {
     headers: { 'Authorization': `Token ${auth.token}` }
   });
   const getData = await getResponse.json();
-  const savedResponses = getData.results[0].respuestas;
+  const orderInstance = getData.results.find((row: { orden?: number | null }) => row.orden === ORDER_ID);
+  const savedResponses = orderInstance?.respuestas || [];
   const firstItemResponse = savedResponses.find((r: any) => r.item_template === 5);
   
   console.log(`✅ GET verification: Response ID ${firstItemResponse?.id}, seleccion="${firstItemResponse?.respuesta_seleccion}"`);
@@ -180,77 +185,52 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.waitForTimeout(2000);
   
   console.log('✅ Reopened item detail');
+  await expect(page.getByTestId('checklist-item-question')).toHaveText('Revisar nivel de aceite');
+  const bajoSelected = page.getByTestId('checklist-option-bajo');
+  await expect(bajoSelected).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('checklist-option-bueno')).toHaveAttribute('aria-selected', 'false');
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-VALUE-PERSISTED.png', fullPage: true });
-  
-  // Verify "bajo" is pre-selected (look for checkmark or dark background indicating selection)
-  // The selected option has a checkmark icon and dark background
-  const bajoWithCheckmark = page.locator('text=bajo').locator('xpath=ancestor::div').filter({
-    has: page.locator('[data-icon="check-circle"]')
-  });
-  const bajoPreselected = await bajoWithCheckmark.count();
-  
-  console.log(`✅ "bajo" pre-selected in UI (with checkmark): ${bajoPreselected > 0}`);
-  
-  if (bajoPreselected === 0) {
-    console.log('⚠️  No checkmark found, checking if bajo option is visible (might be in dropdown)');
-    // If no checkmark, at least verify the item detail loaded and bajo is an option
-    const bajoVisible = await page.locator('text=bajo').isVisible();
-    if (!bajoVisible) {
-      throw new Error('Value "bajo" not found in UI after reload');
-    }
-    console.log('✅ "bajo" option visible in UI');
+  console.log('✅✅✅ MILESTONE 1: saved value is the selected option after reload');
+
+  // Item detail is a route; the checklist list is local state on the order
+  // screen, so returning lands on the order and the list must be reopened.
+  await page.goBack();
+  await page.waitForURL(/\/orden-detalle\//);
+  const pauseButton = page.getByRole('button', { name: 'Pausar checklist' });
+  if (!(await pauseButton.isVisible().catch(() => false))) {
+    await page.getByTestId('checklist-cta-button').click();
   }
-  
-  console.log('✅✅✅ MILESTONE 1: Partial save + GET persist + reload verified!');
-  
-  // Test pause/resume persists state
-  console.log('\n🔄 Testing pause/resume...');
-  
-  const pauseResponse = await page.request.post(`${API_URL}/api/checklists/instances/2/pause/`, {
-    headers: { 'Authorization': `Token ${auth.token}` }
-  });
-  const pauseStatus = pauseResponse.status();
-  const pauseData = await pauseResponse.json();
-  console.log(`✅ Pause API: POST /pause/ → ${pauseStatus}, estado: ${pauseData.estado || 'check instance'}`);
-  
-  // Verify paused state
-  const pausedCheck = await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
-    headers: { 'Authorization': `Token ${auth.token}` }
-  });
-  const pausedState = (await pausedCheck.json()).estado;
-  console.log(`✅ Instance estado after pause: ${pausedState}`);
-  
-  if (pausedState !== 'PAUSADO') {
-    throw new Error(`Expected PAUSADO, got ${pausedState}`);
-  }
-  
-  // Resume
-  const resumeResponse = await page.request.post(`${API_URL}/api/checklists/instances/2/resume/`, {
-    headers: { 'Authorization': `Token ${auth.token}` }
-  });
-  const resumeStatus = resumeResponse.status();
-  const resumeData = await resumeResponse.json();
-  console.log(`✅ Resume API: POST /resume/ → ${resumeStatus}, message: ${resumeData.message}`);
-  
-  // Verify resumed state
-  const resumedCheck = await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
-    headers: { 'Authorization': `Token ${auth.token}` }
-  });
-  const resumedState = (await resumedCheck.json()).estado;
-  const resumedResponses = (await resumedCheck.json()).respuestas;
-  const firstItemAfterResume = resumedResponses.find((r: any) => r.item_template === 5);
-  
-  console.log(`✅ Instance estado after resume: ${resumedState}`);
-  console.log(`✅ Response still persisted: ID ${firstItemAfterResume?.id}, seleccion="${firstItemAfterResume?.respuesta_seleccion}"`);
-  
-  if (resumedState !== 'EN_PROGRESO') {
-    throw new Error(`Expected EN_PROGRESO, got ${resumedState}`);
-  }
-  
-  if (firstItemAfterResume?.respuesta_seleccion !== 'bajo') {
-    throw new Error(`Response lost after pause/resume: expected "bajo", got "${firstItemAfterResume?.respuesta_seleccion}"`);
-  }
-  
-  console.log('✅✅✅ MILESTONE 2: Pause/resume verified - state persists!');
-  console.log('\n🎉 ALL MILESTONES COMPLETE!');
+  await expect(pauseButton).toBeVisible();
+  const pauseResponse = page.waitForResponse(
+    (resp) => resp.url().includes('/pause/') && resp.request().method() === 'POST',
+  );
+  await pauseButton.click();
+  await page.getByRole('button', { name: 'Pausar', exact: true }).click();
+  expect((await pauseResponse).status()).toBe(200);
+  await expect(page.getByText('Checklist pausado')).toBeVisible();
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-PAUSED.png', fullPage: true });
+
+  const paused = await (await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+    headers: { Authorization: `Token ${auth.token}` },
+  })).json();
+  const pausedAnswer = paused.respuestas.find((r: { item_template: number }) => r.item_template === 5);
+  console.log(`PAUSE estado=${paused.estado} response=${pausedAnswer?.id} seleccion=${pausedAnswer?.respuesta_seleccion}`);
+  expect(paused.estado).toBe('PAUSADO');
+  expect(pausedAnswer?.respuesta_seleccion).toBe('bajo');
+
+  await page.getByRole('button', { name: 'Continuar checklist' }).click();
+  await expect(page.getByRole('button', { name: 'Pausar checklist' })).toBeVisible();
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-RESUMED.png', fullPage: true });
+
+  const resumed = await (await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+    headers: { Authorization: `Token ${auth.token}` },
+  })).json();
+  const resumedAnswer = resumed.respuestas.find((r: { item_template: number }) => r.item_template === 5);
+  console.log(`RESUME estado=${resumed.estado} response=${resumedAnswer?.id} seleccion=${resumedAnswer?.respuesta_seleccion}`);
+  expect(resumed.estado).toBe('EN_PROGRESO');
+  expect(resumedAnswer?.respuesta_seleccion).toBe('bajo');
+
+  const textNodeWarnings = consoleLogs.filter((t) => t.includes('Unexpected text node'));
+  expect(textNodeWarnings, textNodeWarnings.join('\n')).toEqual([]);
+  console.log('✅✅✅ MILESTONE 2: pause/resume via UI, value still persisted, no text-node warning');
 });

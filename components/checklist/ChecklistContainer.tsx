@@ -873,7 +873,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
                     <View style={styles.checklistItemInfo}>
                       <Text style={styles.checklistItemTitle}>
-                        {item.pregunta_texto || item.catalog_item?.nombre || 'Pregunta sin título'}
+                        {(item.pregunta_texto || '').trim() || (item.catalog_item?.nombre || '').trim() || 'Pregunta sin título'}
                       </Text>
                       {item.descripcion_ayuda ? (
                         <Text style={styles.checklistItemDescription} numberOfLines={2}>
@@ -916,17 +916,28 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         )}
       </ScrollView>
 
-      {instance.estado === 'EN_PROGRESO' && !isCompleted && canFinalize && (
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TallerPildora
-            label="Finalizar checklist"
-            tono="coral"
-            forma="hoja"
-            onPress={handleFinalize}
-            disabled={finalizing}
-            loading={finalizing}
-            style={styles.footerPrimaryButton}
-          />
+      {instance.estado === 'EN_PROGRESO' && !isCompleted && (canPause || canFinalize) && (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), gap: SPACING.fixed.sm }]}>
+          {canPause ? (
+            <TallerPildora
+              label="Pausar checklist"
+              tono="suave"
+              forma="hoja"
+              onPress={handlePause}
+              style={styles.footerPrimaryButton}
+            />
+          ) : null}
+          {canFinalize ? (
+            <TallerPildora
+              label="Finalizar checklist"
+              tono="coral"
+              forma="hoja"
+              onPress={handleFinalize}
+              disabled={finalizing}
+              loading={finalizing}
+              style={styles.footerPrimaryButton}
+            />
+          ) : null}
         </View>
       )}
 

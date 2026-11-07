@@ -948,6 +948,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       return (
         <TouchableOpacity
           key={index}
+          accessibilityRole="button"
+          accessibilityLabel={String(opcion)}
+          accessibilityState={{ selected, disabled: readOnly }}
+          aria-selected={selected}
+          testID={`checklist-option-${String(opcion)}`}
           style={[
             styles.modernOptionButton,
             selected && styles.modernOptionButtonSelected,
@@ -1632,7 +1637,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             </View>
             <View style={styles.questionContent}>
               <Text style={styles.questionText}>
-                {item.pregunta_texto || item.catalog_item?.nombre || 'Pregunta sin título'}
+                {(item.pregunta_texto || '').trim() || (item.catalog_item?.nombre || '').trim() || 'Pregunta sin título'}
               </Text>
               {(item.descripcion_ayuda || item.catalog_item?.descripcion_ayuda) && (
                 <Text style={styles.helpText}>

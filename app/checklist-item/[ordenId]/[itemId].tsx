@@ -176,7 +176,17 @@ export default function ChecklistItemDetailScreen() {
       if (result.data) {
         setLocalResponse(result.data ?? null);
       }
-      if (!options?.silent) {
+      const localOnly = Boolean(result.message?.includes('localmente'));
+      if (!options?.silent && localOnly) {
+        showAlertButtons(
+          'Sin conexión',
+          'El servidor no confirmó el cambio. Quedó solo en este dispositivo. No está guardado en el taller hasta que el reintento responda.',
+          [
+            { text: 'Reintentar', onPress: () => { void handleSave(responseData); } },
+            { text: 'Seguir aquí', style: 'cancel' },
+          ],
+        );
+      } else if (!options?.silent) {
         showAlertButtons(
           'Guardado',
           'Tu respuesta ha sido guardada exitosamente.',
@@ -270,8 +280,8 @@ export default function ChecklistItemDetailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <InstitutionalText role="h3" style={styles.heroTitle}>
-            {item.pregunta_texto || item.catalog_item?.nombre || 'Pregunta sin título'}
+          <InstitutionalText role="h3" style={styles.heroTitle} testID="checklist-item-question">
+            {(item.pregunta_texto || '').trim() || (item.catalog_item?.nombre || '').trim() || 'Pregunta sin título'}
           </InstitutionalText>
           {item.descripcion_ayuda ? (
             <InstitutionalText role="body" color="body" style={styles.heroSupport}>

@@ -207,6 +207,7 @@ export default function RootLayout() {
                   <Stack.Screen name="politica-privacidad" options={{ headerShown: false }} />
                   <Stack.Screen name="terminos" options={{ headerShown: false }} />
                   <Stack.Screen name="privacidad-datos" options={{ headerShown: false }} />
+                  <Stack.Screen name="cotizacion/[token]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
                   </Stack>
                   <StatusBar style="auto" />

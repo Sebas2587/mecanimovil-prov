@@ -645,33 +645,33 @@ export default function OrdenDetalleScreen() {
               </Text>
               <Text style={styles.vehicleYear}>Año {orden.vehiculo_detail.año}</Text>
             </View>
-            {orden.vehiculo_detail.placa && (
+            {orden.vehiculo_detail.placa ? (
               <View style={styles.plateContainer}>
                 <Text style={styles.plateText}>{orden.vehiculo_detail.placa}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           
           {/* Detalles adicionales del vehículo */}
           <View style={styles.vehicleDetails}>
-            {orden.vehiculo_detail.color && (
+            {orden.vehiculo_detail.color ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Color:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.color}</Text>
               </View>
-            )}
-            {orden.vehiculo_detail.numero_motor && (
+            ) : null}
+            {orden.vehiculo_detail.numero_motor ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Motor:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.numero_motor}</Text>
               </View>
-            )}
-            {orden.vehiculo_detail.numero_chasis && (
+            ) : null}
+            {orden.vehiculo_detail.numero_chasis ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Chasis:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.numero_chasis}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </HostPaperSection>
 
@@ -795,16 +795,16 @@ export default function OrdenDetalleScreen() {
             style={styles.sectionHeader}
             leading={<InstitutionalIcon name="payment" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
           />
-          {orden.metodo_pago && (
+          {orden.metodo_pago ? (
             <View style={styles.infoRow}>
               <InstitutionalIcon name="credit-card" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
-          )}
+          ) : null}
         </HostPaperSection>
 
         {/* Notas */}
-        {orden.notas_cliente && (
+        {orden.notas_cliente ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Cliente"
@@ -814,14 +814,14 @@ export default function OrdenDetalleScreen() {
           />
             <Text style={styles.notasText}>{orden.notas_cliente}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
 
         {puedeUsarAsistenteIa ? (
           <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
         ) : null}
 
         {/* Notas del proveedor */}
-        {orden.notas_proveedor && (
+        {orden.notas_proveedor ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Proveedor"
@@ -831,10 +831,10 @@ export default function OrdenDetalleScreen() {
           />
             <Text style={styles.notasText}>{orden.notas_proveedor}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
 
         {/* Motivo de rechazo */}
-        {orden.motivo_rechazo && (
+        {orden.motivo_rechazo ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
               title="Motivo de Rechazo"
@@ -844,7 +844,7 @@ export default function OrdenDetalleScreen() {
             />
             <Text style={styles.motivoRechazo}>{orden.motivo_rechazo}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* Botones de acción */}
@@ -878,23 +878,23 @@ export default function OrdenDetalleScreen() {
                   <View style={styles.nextActionBanner}>
                     <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <View style={styles.nextActionContent}>
-                      <InstitutionalText variant="body-bold" color="primary">
+                      <InstitutionalText role="bodyBold" color="primary">
                         Próximos pasos
                       </InstitutionalText>
-                      <InstitutionalText variant="caption" color="muted">
-                        {!orden.mecanico_asignado 
+                      <InstitutionalText role="caption" color="muted">
+                        {!orden.mecanico_asignado_id
                           ? 'Asigna un técnico e inicia el servicio'
-                          : `Técnico asignado: ${orden.mecanico_asignado.nombre}`
+                          : `Técnico asignado: ${mecanicoDetalle?.nombre || 'técnico'}`
                         }
                       </InstitutionalText>
                     </View>
                   </View>
                   
-                  {!orden.mecanico_asignado && (
+                  {!orden.mecanico_asignado_id && (
                     <InstitutionalButton
                       label="Asignar Técnico"
                       variant="secondary"
-                      onPress={() => setModalAsignarTecnico({ tipo: 'orden', ordenId: orden.id, miembroActualId: orden.mecanico_asignado?.id })}
+                      onPress={() => setAsignarVisible(true)}
                       style={styles.actionButtonFlex}
                       leading={<InstitutionalIcon name="person" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
                     />
@@ -905,7 +905,7 @@ export default function OrdenDetalleScreen() {
               {/* Iniciar Servicio: available to owner OR assigned mechanic */}
               {(!esMecanicoEquipo || miembroId === orden.mecanico_asignado_id) && (
                 <InstitutionalButton
-                  label={orden.mecanico_asignado ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
+                  label={orden.mecanico_asignado_id ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
                   variant="primary"
                   onPress={handleIniciarServicio}
                   disabled={procesando}
@@ -989,7 +989,8 @@ export default function OrdenDetalleScreen() {
               }
             : null
         }
-        onAsignado={async (mecanicoId?: number) => {
+        onAsignado={(mecanicoId: number | null) => {
+          void (async () => {
           await cargarOrden();
           
           if (mecanicoId && orden) {
@@ -1007,6 +1008,7 @@ export default function OrdenDetalleScreen() {
               logger.error('Error verificando conflictos:', error);
             }
           }
+          })();
         }}
       />
 
