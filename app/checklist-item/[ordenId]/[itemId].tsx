@@ -271,7 +271,7 @@ export default function ChecklistItemDetailScreen() {
           showsVerticalScrollIndicator={false}
         >
           <InstitutionalText role="h3" style={styles.heroTitle}>
-            {item.pregunta_texto}
+            {item.pregunta_texto || item.catalog_item?.nombre || 'Pregunta sin título'}
           </InstitutionalText>
           {item.descripcion_ayuda ? (
             <InstitutionalText role="body" color="body" style={styles.heroSupport}>

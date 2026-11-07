@@ -72,53 +72,124 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-EDITOR-OPENED.png', fullPage: true });
   console.log('✅ Checklist editor opened');
 
-  // Find and click first checklist item (SELECT type: "Revisar nivel de aceite") - navigates to detail screen
-  const firstItem = page.locator('text=Revisar nivel de aceite').first();
-  await firstItem.scrollIntoViewIfNeeded();
+  // Find the checklist item row - try multiple approaches
+  console.log('Attempting to find and click checklist item...');
+  
+  // Approach 1: Find row with both title and OBLIGATORIO badge
+  let itemRow = page.locator('div').filter({ hasText: /^Revisar nivel de aceite/ }).filter({ has: page.locator('text=OBLIGATORIO') });
+  let rowCount = await itemRow.count();
+  console.log(`Approach 1 (title + badge): found ${rowCount} elements`);
+  
+  // Approach 2: Try chevron icon parent
+  if (rowCount === 0) {
+    itemRow = page.locator('text=Revisar nivel de aceite').locator('xpath=ancestor::div[contains(@style, "cursor")]').first();
+    rowCount = await itemRow.count();
+    console.log(`Approach 2 (cursor style parent): found ${rowCount} elements`);
+  }
+  
+  // Approach 3: Simplest - just the title text's grandparent div
+  if (rowCount === 0) {
+    itemRow = page.locator('text=Revisar nivel de aceite').locator('xpath=../..').first();
+    rowCount = await itemRow.count();
+    console.log(`Approach 3 (grandparent): found ${rowCount} elements`);
+  }
+  
+  await itemRow.scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
-  await firstItem.click();
   
-  // Wait for navigation to detail screen
+  const urlBefore = page.url();
+  console.log(`URL before click: ${urlBefore}`);
+  
+  // Force click to bypass any pointer-events issues
+  await itemRow.click({ force: true });
   await page.waitForTimeout(2000);
-  console.log('✅ Navigated to item detail screen');
-  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-DETAIL.png', fullPage: true });
   
-  // Now find and click "bueno" option on detail screen
-  const buenoOption = page.locator('text=bueno').first();
-  await buenoOption.waitFor({ timeout: 5000 });
-  await buenoOption.click();
+  const urlAfter = page.url();
+  console.log(`URL after click: ${urlAfter}`);
+  console.log(`Navigation result: ${urlBefore === urlAfter ? 'FAILED - URL did not change' : 'SUCCESS - navigated'}`);
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-AFTER-CLICK.png', fullPage: true });
+  
+  // Select "bajo" option (observable change from any previous state)
+  const bajoOption = page.locator('text=bajo').first();
+  await bajoOption.waitFor({ timeout: 5000 });
+  await bajoOption.click();
   await page.waitForTimeout(1000);
   
-  console.log('✅ Selected "bueno" option');
-  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-FILLED.png', fullPage: true });
+  console.log('✅ Selected "bajo" option');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-SELECTED-BAJO.png', fullPage: true });
 
-  // Go back to checklist list
-  const backButton = page.locator('[aria-label*="Volver"], [aria-label*="back"], text=Volver').first();
-  await backButton.click();
-  await page.waitForTimeout(2000);
+  // Click save button (could be "Guardar y continuar" or "Actualizar y continuar" depending on state)
+  const saveButton = page.getByRole('button', { name: /guardar|actualizar|save|update/i });
+  await saveButton.waitFor({ timeout: 5000 });
   
-  console.log('✅ Returned to checklist list');
-  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-LIST-AFTER-FILL.png', fullPage: true });
+  // Capture API POST request
+  const savePromise = page.waitForResponse(resp => 
+    resp.url().includes('/api/checklists/responses/') && resp.request().method() === 'POST',
+    { timeout: 10000 }
+  );
+  
+  await saveButton.click();
+  const saveResponse = await savePromise;
+  const saveStatus = saveResponse.status();
+  const saveData = await saveResponse.json();
+  
+  console.log(`✅ Save API: POST /api/checklists/responses/ → ${saveStatus}`);
+  console.log(`Response ID: ${saveData.id}, seleccion: ${saveData.respuesta_seleccion}`);
+  
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-SAVE-MODAL.png', fullPage: true });
 
-  // Navigate back to checklist
+  // Dismiss success modal
+  const okButton = page.getByRole('button', { name: /ok|aceptar|continuar/i });
+  await okButton.waitFor({ timeout: 5000 });
+  await okButton.click();
+  await page.waitForTimeout(1000);
+  
+  console.log('✅ Dismissed modal');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-AFTER-SAVE.png', fullPage: true });
+
+  // Verify via GET API that value persisted
+  const getResponse = await page.request.get(`${API_URL}/api/checklists/instances/?orden_id=${ORDER_ID}`, {
+    headers: { 'Authorization': `Token ${auth.token}` }
+  });
+  const getData = await getResponse.json();
+  const savedResponses = getData.results[0].respuestas;
+  const firstItemResponse = savedResponses.find((r: any) => r.item_template === 5);
+  
+  console.log(`✅ GET verification: Response ID ${firstItemResponse?.id}, seleccion="${firstItemResponse?.respuesta_seleccion}"`);
+  
+  if (firstItemResponse?.respuesta_seleccion !== 'bajo') {
+    throw new Error(`GET shows wrong value: expected "bajo", got "${firstItemResponse?.respuesta_seleccion}"`);
+  }
+  
+  // Navigate back and verify UI shows persisted value
   await page.goto(`${BASE_URL}/orden-detalle/${ORDER_ID}`);
   await page.waitForTimeout(3000);
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  console.log('✅ Reloaded order detail page');
   
+  // Open checklist again
   const checklistBtnAgain = page.getByTestId('checklist-cta-button');
   await checklistBtnAgain.click();
   await page.waitForTimeout(3000);
   
-  // Verify "bueno" is still selected
-  const buenoSelected = page.locator('text=bueno').first();
-  const isSelected = await buenoSelected.isVisible();
+  // Click first item to open detail
+  const firstItemAgain = page.locator('div').filter({ hasText: /^Revisar nivel de aceite/ }).first();
+  await firstItemAgain.click({ force: true });
+  await page.waitForTimeout(2000);
   
-  console.log(`✅ Response persisted: ${isSelected}`);
-  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-PERSISTED.png', fullPage: true });
+  console.log('✅ Reopened item detail');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-VALUE-PERSISTED.png', fullPage: true });
   
-  if (!isSelected) {
-    throw new Error('Checklist response did not persist after reload');
+  // Verify "bajo" is pre-selected
+  const bajoPreselected = await page.locator('text=bajo').locator('xpath=ancestor::div').filter({
+    has: page.locator('[data-icon="check-circle"], text=/✓|✔/')
+  }).count();
+  
+  console.log(`✅ "bajo" pre-selected in UI: ${bajoPreselected > 0}`);
+  
+  if (bajoPreselected === 0) {
+    throw new Error('Value "bajo" not pre-selected after reload');
   }
   
-  console.log('✅ MILESTONE COMPLETE: Partial save verified');
+  console.log('✅✅✅ MILESTONE COMPLETE: Partial save + GET persist + reload verified!');
 });
