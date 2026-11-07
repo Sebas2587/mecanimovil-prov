@@ -1,0 +1,38 @@
+{"version":10,"type":"context-options","origin":"library","browserName":"","playwrightVersion":"1.65.0","options":{},"platform":"linux","wallTime":1794059894691,"monotonicTime":748.586,"sdkLanguage":"javascript","title":"final-checklist-test.spec.ts:7 › Full checklist workflow with real instance"}
+{"type":"before","callId":"nqdf@51","startTime":750.25,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/usuarios/login-proveedor/","method":"POST","jsonData":"{\"username\":\"test_mecanico\",\"password\":\"test123\"}"}}
+{"type":"log","callId":"nqdf@51","time":757.301,"message":"→ POST http://localhost:8000/api/usuarios/login-proveedor/"}
+{"type":"log","callId":"nqdf@51","time":757.33,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36"}
+{"type":"log","callId":"nqdf@51","time":757.392,"message":"  accept: */*"}
+{"type":"log","callId":"nqdf@51","time":757.401,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"nqdf@51","time":757.407,"message":"  content-type: application/json"}
+{"type":"log","callId":"nqdf@51","time":757.411,"message":"  content-length: 49"}
+{"type":"log","callId":"nqdf@51","time":904.373,"message":"← 200 OK"}
+{"type":"log","callId":"nqdf@51","time":904.388,"message":"  date: Sat, 07 Nov 2026 13:58:14 GMT"}
+{"type":"log","callId":"nqdf@51","time":904.395,"message":"  server: WSGIServer/0.2 CPython/3.12.3"}
+{"type":"log","callId":"nqdf@51","time":904.406,"message":"  content-type: application/json"}
+{"type":"log","callId":"nqdf@51","time":904.415,"message":"  vary: Accept, origin, Cookie"}
+{"type":"log","callId":"nqdf@51","time":904.42,"message":"  allow: POST, OPTIONS"}
+{"type":"log","callId":"nqdf@51","time":904.425,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"nqdf@51","time":904.429,"message":"  content-length: 416"}
+{"type":"log","callId":"nqdf@51","time":904.433,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"nqdf@51","time":904.437,"message":"  referrer-policy: same-origin"}
+{"type":"log","callId":"nqdf@51","time":904.441,"message":"  cross-origin-opener-policy: same-origin"}
+{"type":"after","callId":"nqdf@51","endTime":904.653,"result":{"response":{"url":"http://localhost:8000/api/usuarios/login-proveedor/","status":200,"statusText":"OK","headers":[{"name":"Date","value":"Sat, 07 Nov 2026 13:58:14 GMT"},{"name":"Server","value":"WSGIServer/0.2 CPython/3.12.3"},{"name":"Content-Type","value":"application/json"},{"name":"Vary","value":"Accept, origin, Cookie"},{"name":"Allow","value":"POST, OPTIONS"},{"name":"X-Frame-Options","value":"DENY"},{"name":"Content-Length","value":"416"},{"name":"X-Content-Type-Options","value":"nosniff"},{"name":"Referrer-Policy","value":"same-origin"},{"name":"Cross-Origin-Opener-Policy","value":"same-origin"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"timing":{"startTime":1794059894694,"domainLookupStart":0,"domainLookupEnd":6.529999999999973,"connectStart":6.529999999999973,"secureConnectionStart":-1,"connectEnd":7.413999999999987,"requestStart":7.413999999999987,"responseStart":150.94799999999998},"responseEndTiming":151.81600000000003,"fetchUid":"9b676bc23fe5e43d1b78929de62225a7"}}}
+{"type":"before","callId":"nqdf@54","startTime":906.591,"class":"APIRequestContext","method":"fetch","params":{"url":"http://localhost:8000/api/checklists/instances/?orden_id=3","method":"GET","headers":[{"name":"Authorization","value":"Token e771fe48ac4c6c13474828ce847a57672305ee1e"}]}}
+{"type":"log","callId":"nqdf@54","time":907.216,"message":"→ GET http://localhost:8000/api/checklists/instances/?orden_id=3"}
+{"type":"log","callId":"nqdf@54","time":907.229,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36"}
+{"type":"log","callId":"nqdf@54","time":907.234,"message":"  accept: */*"}
+{"type":"log","callId":"nqdf@54","time":907.238,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"nqdf@54","time":907.242,"message":"  Authorization: Token e771fe48ac4c6c13474828ce847a57672305ee1e"}
+{"type":"log","callId":"nqdf@54","time":977.43,"message":"← 200 OK"}
+{"type":"log","callId":"nqdf@54","time":977.44,"message":"  date: Sat, 07 Nov 2026 13:58:14 GMT"}
+{"type":"log","callId":"nqdf@54","time":977.444,"message":"  server: WSGIServer/0.2 CPython/3.12.3"}
+{"type":"log","callId":"nqdf@54","time":977.449,"message":"  content-type: application/json"}
+{"type":"log","callId":"nqdf@54","time":977.453,"message":"  vary: Accept, origin, Cookie"}
+{"type":"log","callId":"nqdf@54","time":977.457,"message":"  allow: GET, POST, HEAD, OPTIONS"}
+{"type":"log","callId":"nqdf@54","time":977.461,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"nqdf@54","time":977.465,"message":"  content-length: 5256"}
+{"type":"log","callId":"nqdf@54","time":977.469,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"nqdf@54","time":977.473,"message":"  referrer-policy: same-origin"}
+{"type":"log","callId":"nqdf@54","time":977.477,"message":"  cross-origin-opener-policy: same-origin"}
+{"type":"after","callId":"nqdf@54","endTime":977.556,"result":{"response":{"url":"http://localhost:8000/api/checklists/instances/?orden_id=3","status":200,"statusText":"OK","headers":[{"name":"Date","value":"Sat, 07 Nov 2026 13:58:14 GMT"},{"name":"Server","value":"WSGIServer/0.2 CPython/3.12.3"},{"name":"Content-Type","value":"application/json"},{"name":"Vary","value":"Accept, origin, Cookie"},{"name":"Allow","value":"GET, POST, HEAD, OPTIONS"},{"name":"X-Frame-Options","value":"DENY"},{"name":"Content-Length","value":"5256"},{"name":"X-Content-Type-Options","value":"nosniff"},{"name":"Referrer-Policy","value":"same-origin"},{"name":"Cross-Origin-Opener-Policy","value":"same-origin"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8000},"timing":{"startTime":1794059894849,"domainLookupStart":-1,"domainLookupEnd":-1,"connectStart":-1,"secureConnectionStart":-1,"connectEnd":-1,"requestStart":0.4169999999999163,"responseStart":70.11199999999997},"responseEndTiming":70.30200000000002,"fetchUid":"de8d8f8ff06d9d1fad72802dd4b81370"}}}
