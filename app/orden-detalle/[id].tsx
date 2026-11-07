@@ -436,17 +436,10 @@ export default function OrdenDetalleScreen() {
 
   // Función para determinar qué botón de checklist mostrar
   const getBotonChecklist = () => {
-    if (!orden) {
-      logger.log('❌ [ORDEN-DETALLE] getBotonChecklist - No hay orden');
-      return null;
-    }
-
-    logger.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado, 'tieneChecklistDisponible:', tieneChecklistDisponible);
-    logger.log('🔍 [ORDEN-DETALLE] Estados checklist:', { showChecklistContainer, selectedOrdenIdForContainer });
+    if (!orden) return null;
     
     // 1. Orden aceptada por proveedor → Mostrar "Iniciar Servicio"
     if (orden.estado === 'aceptada_por_proveedor') {
-      logger.log('✅ [ORDEN-DETALLE] Retornando botón Iniciar Servicio');
       return {
         texto: 'Iniciar Servicio',
         color: I.primary,
@@ -456,18 +449,12 @@ export default function OrdenDetalleScreen() {
     }
 
     // 2. Servicio iniciado o checklist en progreso → Mostrar botones de checklist
-    // ✅ Solo mostrar si realmente hay checklist disponible
     if (orden.estado === 'servicio_iniciado' || orden.estado === 'checklist_en_progreso') {
-      // ✅ Verificar si hay checklist disponible antes de mostrar el botón
       if (tieneChecklistDisponible === false) {
-        // No hay checklist disponible - no mostrar botón
-        logger.log('ℹ️ [ORDEN-DETALLE] No hay checklist disponible para orden:', orden.id);
         return null;
       }
       
-      // Si aún está verificando (null), mostrar botón deshabilitado temporalmente
       if (tieneChecklistDisponible === null) {
-        logger.log('⏳ [ORDEN-DETALLE] Verificando checklist para orden:', orden.id);
         return {
           texto: 'Verificando Checklist...',
           color: I.muted,
@@ -477,21 +464,14 @@ export default function OrdenDetalleScreen() {
         };
       }
       
-      // ✅ Hay checklist disponible - mostrar botón
-      logger.log('✅ [ORDEN-DETALLE] Retornando botón Realizar Checklist');
       return {
         texto: 'Realizar Checklist',
         color: I.primary,
         icon: 'assignment',
+        testID: 'checklist-cta-button',
         onPress: () => {
-          logger.log('🎯 [ORDEN-DETALLE] Presionado Realizar Checklist para orden:', orden.id);
-          logger.log('🎯 [ORDEN-DETALLE] Activando showChecklistContainer...');
           setSelectedOrdenIdForContainer(orden.id);
           setShowChecklistContainer(true);
-          logger.log('🎯 [ORDEN-DETALLE] Estados actualizados:', { 
-            selectedOrdenIdForContainer: orden.id, 
-            showChecklistContainer: true 
-          });
         }
       };
     }
@@ -522,16 +502,8 @@ export default function OrdenDetalleScreen() {
     return null;
   };
 
-  // 🔄 RENDERIZADO CONDICIONAL DE CHECKLIST - IGUAL QUE EN INDEX.TSX
-  // Si está mostrando checklist, renderizar ChecklistContainer como pantalla completa
-  logger.log('🔍 [ORDEN-DETALLE] Verificando renderizado condicional:', {
-    showChecklistContainer,
-    selectedOrdenIdForContainer,
-    shouldRender: showChecklistContainer && selectedOrdenIdForContainer
-  });
-  
+  // 🔄 RENDERIZADO CONDICIONAL DE CHECKLIST
   if (showChecklistContainer && selectedOrdenIdForContainer) {
-    logger.log('🎯 [ORDEN-DETALLE] ✅ RENDERIZANDO ChecklistContainer como pantalla completa para orden:', selectedOrdenIdForContainer);
     return (
       <ChecklistContainer
         ordenId={selectedOrdenIdForContainer}
@@ -949,12 +921,11 @@ export default function OrdenDetalleScreen() {
           {/* 🔄 BOTÓN DE CHECKLIST DINÁMICO */}
           {(() => {
             const botonChecklist = getBotonChecklist();
-            logger.log('🔍 [ORDEN-DETALLE] Botón checklist resultado:', botonChecklist, 'Estado válido:', ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado));
             if (botonChecklist && 
                 ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado)) {
-              logger.log('✅ [ORDEN-DETALLE] RENDERIZANDO BOTÓN DE CHECKLIST:', botonChecklist.texto);
               return (
                 <InstitutionalButton
+                  testID={botonChecklist.testID || 'checklist-action-button'}
                   label={botonChecklist.texto}
                   variant={
                     botonChecklist.color === I.semanticUp ? 'success'

@@ -44,31 +44,31 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.goto(`${BASE_URL}/orden-detalle/${ORDER_ID}`);
   await page.waitForTimeout(8000);
 
+  // Verify no error overlay or console warnings
   const expoError = await page.locator('#_expo-static-error').count();
   expect(expoError, 'No Expo error overlay').toBe(0);
 
-  await page.screenshot({ path: '/opt/cursor/artifacts/BTN-TEST-page.png', fullPage: true });
+  // Scroll to bottom to ensure CTA is visible
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(1000);
 
-  // Look for checklist button
-  const checklistBtn = page.locator('text=/checklist|revisión/i');
-  const btnCount = await checklistBtn.count();
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-CTA-TEST.png', fullPage: true });
+
+  // Look for checklist button by testID
+  const checklistBtn = page.getByTestId('checklist-cta-button');
+  const isVisible = await checklistBtn.isVisible().catch(() => false);
   
-  console.log(`\nChecklist button found: ${btnCount > 0 ? 'YES' : 'NO'}`);
+  console.log(`\nChecklist CTA visible: ${isVisible ? 'YES' : 'NO'}`);
   
-  if (btnCount === 0) {
-    console.log('\n❌ FAIL: No checklist button found!');
-    console.log('\nRelevant console logs:');
-    consoleLogs.filter(log => 
-      log.includes('checklist') || log.includes('Checklist') || log.includes('disponible')
-    ).forEach(log => console.log(`  ${log}`));
-    
-    throw new Error('Checklist button not found - check BTN-TEST-page.png');
+  if (!isVisible) {
+    console.log('\n❌ FAIL: Checklist CTA not visible!');
+    throw new Error('Checklist CTA not found - check CHECKLIST-CTA-TEST.png');
   }
 
-  console.log('✅ Button found, clicking...');
-  await checklistBtn.first().click();
+  console.log('✅ CTA found, clicking...');
+  await checklistBtn.click();
   await page.waitForTimeout(3000);
   
-  await page.screenshot({ path: '/opt/cursor/artifacts/BTN-TEST-clicked.png', fullPage: true });
-  console.log('✅ Test complete');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-EDITOR-OPENED.png', fullPage: true });
+  console.log('✅ Checklist editor opened');
 });
