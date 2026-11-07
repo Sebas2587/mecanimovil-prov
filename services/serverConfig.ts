@@ -294,16 +294,15 @@ class ServerConfig {
         logger.log('🚀 Inicializando configuración del servidor...');
       }
 
-      // TESTING OVERRIDE: Check for forced local API in localStorage (web only)
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      // TESTING OVERRIDE: Check for forced local API in localStorage (dev/test builds only)
+      // Only allow in development or when explicitly configured for testing
+      if (__DEV__ && Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         const forceLocal = localStorage.getItem('FORCE_LOCAL_API');
         const localApiUrl = localStorage.getItem('LOCAL_API_URL');
         if (forceLocal === 'true' && localApiUrl) {
           this.baseURL = localApiUrl;
           this.mediaURL = localApiUrl.replace('/api', '');
-          if (__DEV__) {
-            logger.log('🧪 [TEST MODE] Usando API local forzada:', this.baseURL);
-          }
+          logger.log('🧪 [TEST MODE] Usando API local forzada:', this.baseURL);
           return true;
         }
       }

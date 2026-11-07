@@ -7,28 +7,28 @@
 - **Frontend**: Expo web on port 19006
 - **Backend**: Django on localhost:8000
 - **Database**: PostgreSQL with seeded test data
-- **User**: `test_taller` (workshop owner, taller_id: 2)
+- **User**: Workshop test fixture (taller_id: 2)
 
 ## Authentication Flow Verified
 
 ### 1. Login Contract
 - Endpoint: `POST /api/usuarios/login-proveedor/`
-- Payload: `{"username": "test_taller", "password": "test123"}`
-- Response: Token + user object with `taller_id`, `rol_taller`, permissions
+- Payload: Workshop test credentials (see backend seed script)
+- Response: DRF Token (40 hex chars) + user object with `taller_id`, `rol_taller`, permissions
 
 ### 2. Storage Implementation
 - **Web**: AsyncStorage → localStorage
 - **Keys**: 
-  - `authToken`: JWT token from backend
+  - `authToken`: DRF Token (40 hex characters)
   - `userData`: Serialized user object
-  - `FORCE_LOCAL_API`: Test override flag
+  - `FORCE_LOCAL_API`: Test override flag (dev builds only)
   - `LOCAL_API_URL`: Local backend URL
 
 ### 3. API Configuration Fix
-Modified `services/serverConfig.ts` to respect localStorage test overrides:
+Modified `services/serverConfig.ts` to respect localStorage test overrides in dev builds:
 ```typescript
-// TESTING OVERRIDE: Check for forced local API in localStorage (web only)
-if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+// TESTING OVERRIDE: dev/test builds only
+if (__DEV__ && Platform.OS === 'web' && typeof localStorage !== 'undefined') {
   const forceLocal = localStorage.getItem('FORCE_LOCAL_API');
   const localApiUrl = localStorage.getItem('LOCAL_API_URL');
   if (forceLocal === 'true' && localApiUrl) {
@@ -43,7 +43,7 @@ if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
 
 ### Test: `e2e/final-auth-test.spec.ts`
 ```
-✓ Authenticated as: test_taller (taller_id: 2)
+✓ Authenticated as workshop test user (taller_id: 2)
 ✓ Using local API: http://localhost:8000/api
 ✓ No error message
 ✓ Has order content
