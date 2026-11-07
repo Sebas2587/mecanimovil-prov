@@ -436,9 +436,12 @@ export default function OrdenDetalleScreen() {
 
   // Función para determinar qué botón de checklist mostrar
   const getBotonChecklist = () => {
-    if (!orden) return null;
+    if (!orden) {
+      logger.log('❌ [ORDEN-DETALLE] getBotonChecklist - No hay orden');
+      return null;
+    }
 
-    logger.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado);
+    logger.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado, 'tieneChecklistDisponible:', tieneChecklistDisponible);
     logger.log('🔍 [ORDEN-DETALLE] Estados checklist:', { showChecklistContainer, selectedOrdenIdForContainer });
     
     // 1. Orden aceptada por proveedor → Mostrar "Iniciar Servicio"
@@ -946,8 +949,10 @@ export default function OrdenDetalleScreen() {
           {/* 🔄 BOTÓN DE CHECKLIST DINÁMICO */}
           {(() => {
             const botonChecklist = getBotonChecklist();
+            logger.log('🔍 [ORDEN-DETALLE] Botón checklist resultado:', botonChecklist, 'Estado válido:', ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado));
             if (botonChecklist && 
                 ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado)) {
+              logger.log('✅ [ORDEN-DETALLE] RENDERIZANDO BOTÓN DE CHECKLIST:', botonChecklist.texto);
               return (
                 <InstitutionalButton
                   label={botonChecklist.texto}
