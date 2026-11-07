@@ -848,7 +848,11 @@ export default function OrdenDetalleScreen() {
       </ScrollView>
 
       {/* Botones de acción */}
-      {(orden.puede_gestionar || (tieneChecklistDisponible && orden.estado === 'servicio_iniciado')) && (
+      {(() => {
+        const canShow = orden.puede_gestionar || (tieneChecklistDisponible && orden.estado === 'servicio_iniciado');
+        logger.log('[CTA-DEBUG]', { puede_gestionar: orden.puede_gestionar, tieneChecklistDisponible, estado: orden.estado, canShow });
+        return canShow;
+      })() && (
         <View style={styles.actionsContainer}>
           {!esMecanicoEquipo && orden.estado === 'pendiente_aceptacion_proveedor' && (
             <>
@@ -921,8 +925,9 @@ export default function OrdenDetalleScreen() {
           {/* 🔄 BOTÓN DE CHECKLIST DINÁMICO */}
           {(() => {
             const botonChecklist = getBotonChecklist();
-            if (botonChecklist && 
-                ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado)) {
+            const estadoValido = ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado);
+            logger.log('[BTN-DEBUG]', { botonChecklist: !!botonChecklist, estadoValido, willRender: !!(botonChecklist && estadoValido) });
+            if (botonChecklist && estadoValido) {
               return (
                 <InstitutionalButton
                   testID={botonChecklist.testID || 'checklist-action-button'}
