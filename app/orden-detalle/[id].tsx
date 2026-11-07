@@ -217,7 +217,7 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleAceptar = async () => {
-    if (!orden) return;
+    if (!orden || procesando) return;
 
     Alert.alert(
       'Aceptar Orden',
@@ -232,14 +232,16 @@ export default function OrdenDetalleScreen() {
               const response = await ordenesProveedorService.aceptarOrden(orden.id, {});
               
               if (response.success) {
-                Alert.alert('Éxito', response.data?.message || 'Orden aceptada correctamente');
-                await cargarOrden(); // Recargar datos
+                const mensaje = response.data?.message || response.message || 'Orden aceptada correctamente';
+                Alert.alert('Éxito', mensaje);
+                await cargarOrden();
               } else {
                 Alert.alert('Error', response.message || 'No se pudo aceptar la orden');
               }
             } catch (error) {
               logger.error('Error inesperado aceptando orden:', error);
-              Alert.alert('Error', 'Ocurrió un error inesperado');
+              const errorMsg = (error as any)?.response?.data?.message || 'Ocurrió un error inesperado. Por favor, intenta de nuevo.';
+              Alert.alert('Error', errorMsg);
             } finally {
               setProcesando(false);
             }
@@ -284,7 +286,7 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleIniciarServicio = async () => {
-    if (!orden) return;
+    if (!orden || procesando) return;
 
     Alert.alert(
       'Iniciar Servicio',
@@ -300,27 +302,18 @@ export default function OrdenDetalleScreen() {
               const resultado = await ordenesProveedorService.iniciarServicio(orden.id);
               
               if (resultado.success) {
-                // 🔄 INVALIDAR CACHE DEL CHECKLIST PARA ESTA ORDEN
-                logger.log('♻️ Invalidando cache de checklist para orden desde detalle:', orden.id);
                 await checklistService.forceRefreshChecklist(orden.id);
-                
-                // ⏰ ESPERAR UN MOMENTO PARA QUE EL BACKEND TERMINE DE CREAR EL CHECKLIST
-                logger.log('⏰ Esperando 2 segundos para que se complete la creación del checklist...');
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // 🔄 LIMPIAR CACHE COMPLETAMENTE Y RECARGAR
-                logger.log('🧹 Limpiando cache completo de checklist...');
                 await checklistService.clearChecklistCache();
                 
+                const mensaje = resultado.data?.mensaje || resultado.message || 'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.';
                 Alert.alert(
                   'Servicio Iniciado', 
-                  'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.',
+                  mensaje,
                   [
                     {
                       text: 'OK',
                       onPress: async () => {
-                        // Recargar después de que el usuario cierre el alert
-                        logger.log('🔄 Recargando datos después de iniciar servicio desde detalle...');
                         await cargarOrden();
                       }
                     }
@@ -331,7 +324,8 @@ export default function OrdenDetalleScreen() {
               }
             } catch (error) {
               logger.error('Error inesperado iniciando servicio desde detalle:', error);
-              Alert.alert('Error', 'Error inesperado al iniciar el servicio');
+              const errorMsg = (error as any)?.response?.data?.message || 'Error inesperado al iniciar el servicio. Si el problema persiste, intenta recargar la orden.';
+              Alert.alert('Error', errorMsg);
             } finally {
               setProcesando(false);
             }
