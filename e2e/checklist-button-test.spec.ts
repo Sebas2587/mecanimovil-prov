@@ -72,27 +72,33 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-EDITOR-OPENED.png', fullPage: true });
   console.log('✅ Checklist editor opened');
 
-  // Find and click first checklist item (SELECT type: "Revisar nivel de aceite") to expand it
+  // Find and click first checklist item (SELECT type: "Revisar nivel de aceite") - navigates to detail screen
   const firstItem = page.locator('text=Revisar nivel de aceite').first();
   await firstItem.scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
   await firstItem.click();
-  await page.waitForTimeout(1000);
   
-  // Now click on "bueno" option
+  // Wait for navigation to detail screen
+  await page.waitForTimeout(2000);
+  console.log('✅ Navigated to item detail screen');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-DETAIL.png', fullPage: true });
+  
+  // Now find and click "bueno" option on detail screen
   const buenoOption = page.locator('text=bueno').first();
+  await buenoOption.waitFor({ timeout: 5000 });
   await buenoOption.click();
   await page.waitForTimeout(1000);
   
-  console.log('✅ Filled first item with "bueno"');
+  console.log('✅ Selected "bueno" option');
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-FILLED.png', fullPage: true });
 
-  // Save and reload
-  await page.reload();
-  await page.waitForTimeout(5000);
+  // Go back to checklist list
+  const backButton = page.locator('[aria-label*="Volver"], [aria-label*="back"], text=Volver').first();
+  await backButton.click();
+  await page.waitForTimeout(2000);
   
-  console.log('✅ Reloaded page');
-  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-AFTER-RELOAD.png', fullPage: true });
+  console.log('✅ Returned to checklist list');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-LIST-AFTER-FILL.png', fullPage: true });
 
   // Navigate back to checklist
   await page.goto(`${BASE_URL}/orden-detalle/${ORDER_ID}`);

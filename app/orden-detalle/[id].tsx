@@ -870,44 +870,53 @@ export default function OrdenDetalleScreen() {
               />
             </>
           )}
-          {!esMecanicoEquipo && orden.estado === 'aceptada_por_proveedor' && (
+          {orden.estado === 'aceptada_por_proveedor' && (
             <View style={styles.acceptedStateActions}>
-              <View style={styles.nextActionBanner}>
-                <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <View style={styles.nextActionContent}>
-                  <InstitutionalText variant="body-bold" color="primary">
-                    Próximos pasos
-                  </InstitutionalText>
-                  <InstitutionalText variant="caption" color="muted">
-                    {!orden.mecanico_asignado 
-                      ? 'Asigna un técnico e inicia el servicio'
-                      : `Técnico asignado: ${orden.mecanico_asignado.nombre}`
-                    }
-                  </InstitutionalText>
-                </View>
-              </View>
-              
-              {!orden.mecanico_asignado && (
-                <InstitutionalButton
-                  label="Asignar Técnico"
-                  variant="secondary"
-                  onPress={() => setModalAsignarTecnico({ tipo: 'orden', ordenId: orden.id, miembroActualId: orden.mecanico_asignado?.id })}
-                  style={styles.actionButtonFlex}
-                  leading={<InstitutionalIcon name="person" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-                />
+              {/* Owner-only banner and assignment */}
+              {!esMecanicoEquipo && (
+                <>
+                  <View style={styles.nextActionBanner}>
+                    <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <View style={styles.nextActionContent}>
+                      <InstitutionalText variant="body-bold" color="primary">
+                        Próximos pasos
+                      </InstitutionalText>
+                      <InstitutionalText variant="caption" color="muted">
+                        {!orden.mecanico_asignado 
+                          ? 'Asigna un técnico e inicia el servicio'
+                          : `Técnico asignado: ${orden.mecanico_asignado.nombre}`
+                        }
+                      </InstitutionalText>
+                    </View>
+                  </View>
+                  
+                  {!orden.mecanico_asignado && (
+                    <InstitutionalButton
+                      label="Asignar Técnico"
+                      variant="secondary"
+                      onPress={() => setModalAsignarTecnico({ tipo: 'orden', ordenId: orden.id, miembroActualId: orden.mecanico_asignado?.id })}
+                      style={styles.actionButtonFlex}
+                      leading={<InstitutionalIcon name="person" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                    />
+                  )}
+                </>
               )}
               
-              <InstitutionalButton
-                label={orden.mecanico_asignado ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
-                variant="primary"
-                onPress={handleIniciarServicio}
-                disabled={procesando}
-                style={styles.actionButtonFlex}
-                leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-              />
+              {/* Iniciar Servicio: available to owner OR assigned mechanic */}
+              {(!esMecanicoEquipo || miembroId === orden.mecanico_asignado_id) && (
+                <InstitutionalButton
+                  label={orden.mecanico_asignado ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
+                  variant="primary"
+                  onPress={handleIniciarServicio}
+                  disabled={procesando}
+                  style={styles.actionButtonFlex}
+                  leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+                />
+              )}
             </View>
           )}
-          {!esMecanicoEquipo && orden.estado === 'en_proceso' && (
+          {/* Completar Servicio: available to owner OR assigned mechanic */}
+          {(!esMecanicoEquipo || miembroId === orden.mecanico_asignado_id) && orden.estado === 'en_proceso' && (
             <InstitutionalButton
               label="Completar Servicio"
               variant="success"
