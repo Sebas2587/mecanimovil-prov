@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -29,6 +29,7 @@ import {
 import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 import { useMisServiciosQuery } from '@/hooks/useMisServiciosQuery';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
+import { checklistService, type ChecklistItemResponse } from '@/services/checklistService';
 import type { ServicioOfertaRow } from '@/hooks/useMisServiciosQuery';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import {
@@ -96,6 +97,17 @@ function textoErrorApi(value: unknown): string {
   return '';
 }
 
+const TIPOS_HALLAZGO_TEXTO = new Set(['TEXT', 'FINAL_NOTES', 'WORK_SUMMARY']);
+
+function hallazgoTextoTecnico(respuestas: ChecklistItemResponse[] | undefined): string {
+  if (!respuestas?.length) return '';
+  const textos = respuestas
+    .filter((row) => TIPOS_HALLAZGO_TEXTO.has(row.item_info?.tipo_pregunta || ''))
+    .map((row) => (row.respuesta_texto || '').trim())
+    .filter(Boolean);
+  return textos.length ? textos[textos.length - 1] : '';
+}
+
 function formatPrecio(val: string | number | undefined): string {
   const n = Number(val);
   if (!Number.isFinite(n) || n <= 0) return 'Sin precio';
@@ -110,9 +122,11 @@ export default function AgregarServicioAdicionalScreen() {
   const { data: cita, isPending: citaLoading, refetch: refetchCita } = useCitaPersonalQuery(
     Number.isFinite(parsedId) ? parsedId : undefined,
   );
-  const { data: catalogo, isPending: catalogoLoading } = useMisServiciosQuery(true);
+  const { servicios: catalogoServicios, loading: catalogoLoading } = useMisServiciosQuery(true);
 
   const [motivo, setMotivo] = useState('');
+  const [hallazgoReusado, setHallazgoReusado] = useState(false);
+  const motivoTocado = useRef(false);
   const [modo, setModo] = useState<'catalogo' | 'ia'>('catalogo');
   const [servicioIa, setServicioIa] = useState('');
   const [descripcionIa, setDescripcionIa] = useState('');
@@ -121,10 +135,26 @@ export default function AgregarServicioAdicionalScreen() {
   const [ejecucion, setEjecucion] = useState<EjecucionAdicional>('misma_visita');
   const [fechaHora, setFechaHora] = useState<CatalogoFechaHoraValue>(() => pickerDesdePropuesta());
 
-  const serviciosDisponibles = useMemo(() => {
-    const rows = catalogo?.servicios ?? [];
-    return rows.filter((s: ServicioOfertaRow) => s.disponible);
-  }, [catalogo?.servicios]);
+  const serviciosDisponibles = useMemo(
+    () => catalogoServicios.filter((s: ServicioOfertaRow) => s.disponible),
+    [catalogoServicios],
+  );
+
+  useEffect(() => {
+    if (!cita?.id || motivoTocado.current) return undefined;
+    let cancelado = false;
+    void (async () => {
+      const res = await checklistService.getInstanceByCitaPersonal(cita.id);
+      if (cancelado || motivoTocado.current || !res.success) return;
+      const texto = hallazgoTextoTecnico(res.data?.respuestas);
+      if (!texto) return;
+      setMotivo(texto);
+      setHallazgoReusado(true);
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [cita?.id]);
 
   useFocusEffect(useCallback(() => {
     if (!Number.isFinite(parsedId)) return undefined;
@@ -355,10 +385,20 @@ export default function AgregarServicioAdicionalScreen() {
           <HostPaperSection style={styles.section}>
             <InstitutionalField
               label="Motivo"
+              hint={
+                hallazgoReusado
+                  ? 'Tomado del texto que escribió el técnico. El cliente y el vehículo salen de este trabajo.'
+                  : undefined
+              }
               multiline
               placeholder="Ej.: Al revisar el vehículo se detectó filtro de aceite obstruido"
               value={motivo}
-              onChangeText={setMotivo}
+              onChangeText={(text) => {
+                motivoTocado.current = true;
+                setHallazgoReusado(false);
+                setMotivo(text);
+              }}
+              textInputProps={{ testID: 'hallazgo-motivo' }}
             />
           </HostPaperSection>
 
@@ -413,6 +453,7 @@ export default function AgregarServicioAdicionalScreen() {
                     return (
                       <Pressable
                         key={oferta.id}
+                        testID={`catalogo-oferta-${oferta.id}`}
                         style={[
                           styles.servicioRow,
                           !last && styles.servicioRowBorder,

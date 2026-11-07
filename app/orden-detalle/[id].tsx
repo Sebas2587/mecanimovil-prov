@@ -43,9 +43,10 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 import {
@@ -57,6 +58,9 @@ import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBot
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
 import { montoConocidoCLP } from '@/utils/formatearMontoCLP';
+import { HistorialAsignacionesModal } from '@/components/ordenes/HistorialAsignacionesModal';
+import { ConflictosHorarioAlert } from '@/components/ordenes/ConflictosHorarioAlert';
+import type { ConflictosResponse } from '@/services/ordenesProveedor';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
@@ -99,6 +103,11 @@ export default function OrdenDetalleScreen() {
   
   // ✅ Estado para verificar si hay checklist disponible
   const [tieneChecklistDisponible, setTieneChecklistDisponible] = useState<boolean | null>(null);
+
+  // Nuevos estados para assignment history y conflicts
+  const [historialVisible, setHistorialVisible] = useState(false);
+  const [conflictosVisible, setConflictosVisible] = useState(false);
+  const [conflictosData, setConflictosData] = useState<ConflictosResponse | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -164,18 +173,24 @@ export default function OrdenDetalleScreen() {
         if (estadosParaVerificarChecklist.includes(ordenData.estado) && 
             (ordenData.tipo_servicio === 'domicilio' || ordenData.tipo_servicio === 'taller')) {
           try {
+            logger.log('🔍 Verificando checklist para orden:', ordenData.id);
             const checklistResult = await checklistService.getInstanceByOrder(ordenData.id);
+            logger.log('📋 Resultado checklist:', checklistResult);
+            
             if (checklistResult.success && checklistResult.data) {
               setTieneChecklistDisponible(true);
+              logger.log('✅ Checklist disponible para orden:', ordenData.id);
             } else {
-              // ✅ No hay checklist disponible - esto es normal
               setTieneChecklistDisponible(false);
-              logger.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
+              logger.log('ℹ️ No hay checklist disponible:', checklistResult.message);
             }
-          } catch (error) {
-            // ✅ Manejar error sin mostrar al usuario
-            logger.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
+          } catch (error: any) {
+            logger.error('❌ Error obteniendo checklist:', error);
             setTieneChecklistDisponible(false);
+            // Show error to user for debugging
+            if (ordenData.estado === 'servicio_iniciado') {
+              Alert.alert('Info Checklist', `No se pudo cargar checklist: ${error.message || 'Error desconocido'}. Refresque la página.`);
+            }
           }
         } else {
           setTieneChecklistDisponible(false);
@@ -209,7 +224,7 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleAceptar = async () => {
-    if (!orden) return;
+    if (!orden || procesando) return;
 
     Alert.alert(
       'Aceptar Orden',
@@ -224,14 +239,16 @@ export default function OrdenDetalleScreen() {
               const response = await ordenesProveedorService.aceptarOrden(orden.id, {});
               
               if (response.success) {
-                Alert.alert('Éxito', response.data?.message || 'Orden aceptada correctamente');
-                await cargarOrden(); // Recargar datos
+                const mensaje = response.data?.message || response.message || 'Orden aceptada correctamente';
+                Alert.alert('Éxito', mensaje);
+                await cargarOrden();
               } else {
                 Alert.alert('Error', response.message || 'No se pudo aceptar la orden');
               }
             } catch (error) {
               logger.error('Error inesperado aceptando orden:', error);
-              Alert.alert('Error', 'Ocurrió un error inesperado');
+              const errorMsg = (error as any)?.response?.data?.message || 'Ocurrió un error inesperado. Por favor, intenta de nuevo.';
+              Alert.alert('Error', errorMsg);
             } finally {
               setProcesando(false);
             }
@@ -276,7 +293,7 @@ export default function OrdenDetalleScreen() {
   };
 
   const handleIniciarServicio = async () => {
-    if (!orden) return;
+    if (!orden || procesando) return;
 
     Alert.alert(
       'Iniciar Servicio',
@@ -292,27 +309,18 @@ export default function OrdenDetalleScreen() {
               const resultado = await ordenesProveedorService.iniciarServicio(orden.id);
               
               if (resultado.success) {
-                // 🔄 INVALIDAR CACHE DEL CHECKLIST PARA ESTA ORDEN
-                logger.log('♻️ Invalidando cache de checklist para orden desde detalle:', orden.id);
                 await checklistService.forceRefreshChecklist(orden.id);
-                
-                // ⏰ ESPERAR UN MOMENTO PARA QUE EL BACKEND TERMINE DE CREAR EL CHECKLIST
-                logger.log('⏰ Esperando 2 segundos para que se complete la creación del checklist...');
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // 🔄 LIMPIAR CACHE COMPLETAMENTE Y RECARGAR
-                logger.log('🧹 Limpiando cache completo de checklist...');
                 await checklistService.clearChecklistCache();
                 
+                const mensaje = resultado.data?.message || resultado.message || 'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.';
                 Alert.alert(
                   'Servicio Iniciado', 
-                  'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.',
+                  mensaje,
                   [
                     {
                       text: 'OK',
                       onPress: async () => {
-                        // Recargar después de que el usuario cierre el alert
-                        logger.log('🔄 Recargando datos después de iniciar servicio desde detalle...');
                         await cargarOrden();
                       }
                     }
@@ -323,7 +331,8 @@ export default function OrdenDetalleScreen() {
               }
             } catch (error) {
               logger.error('Error inesperado iniciando servicio desde detalle:', error);
-              Alert.alert('Error', 'Error inesperado al iniciar el servicio');
+              const errorMsg = (error as any)?.response?.data?.message || 'Error inesperado al iniciar el servicio. Si el problema persiste, intenta recargar la orden.';
+              Alert.alert('Error', errorMsg);
             } finally {
               setProcesando(false);
             }
@@ -428,13 +437,9 @@ export default function OrdenDetalleScreen() {
   // Función para determinar qué botón de checklist mostrar
   const getBotonChecklist = () => {
     if (!orden) return null;
-
-    logger.log('🔍 [ORDEN-DETALLE] getBotonChecklist - Orden:', orden.id, 'Estado orden:', orden.estado);
-    logger.log('🔍 [ORDEN-DETALLE] Estados checklist:', { showChecklistContainer, selectedOrdenIdForContainer });
     
     // 1. Orden aceptada por proveedor → Mostrar "Iniciar Servicio"
     if (orden.estado === 'aceptada_por_proveedor') {
-      logger.log('✅ [ORDEN-DETALLE] Retornando botón Iniciar Servicio');
       return {
         texto: 'Iniciar Servicio',
         color: I.primary,
@@ -444,18 +449,12 @@ export default function OrdenDetalleScreen() {
     }
 
     // 2. Servicio iniciado o checklist en progreso → Mostrar botones de checklist
-    // ✅ Solo mostrar si realmente hay checklist disponible
     if (orden.estado === 'servicio_iniciado' || orden.estado === 'checklist_en_progreso') {
-      // ✅ Verificar si hay checklist disponible antes de mostrar el botón
       if (tieneChecklistDisponible === false) {
-        // No hay checklist disponible - no mostrar botón
-        logger.log('ℹ️ [ORDEN-DETALLE] No hay checklist disponible para orden:', orden.id);
         return null;
       }
       
-      // Si aún está verificando (null), mostrar botón deshabilitado temporalmente
       if (tieneChecklistDisponible === null) {
-        logger.log('⏳ [ORDEN-DETALLE] Verificando checklist para orden:', orden.id);
         return {
           texto: 'Verificando Checklist...',
           color: I.muted,
@@ -465,21 +464,14 @@ export default function OrdenDetalleScreen() {
         };
       }
       
-      // ✅ Hay checklist disponible - mostrar botón
-      logger.log('✅ [ORDEN-DETALLE] Retornando botón Realizar Checklist');
       return {
         texto: 'Realizar Checklist',
         color: I.primary,
         icon: 'assignment',
+        testID: 'checklist-cta-button',
         onPress: () => {
-          logger.log('🎯 [ORDEN-DETALLE] Presionado Realizar Checklist para orden:', orden.id);
-          logger.log('🎯 [ORDEN-DETALLE] Activando showChecklistContainer...');
           setSelectedOrdenIdForContainer(orden.id);
           setShowChecklistContainer(true);
-          logger.log('🎯 [ORDEN-DETALLE] Estados actualizados:', { 
-            selectedOrdenIdForContainer: orden.id, 
-            showChecklistContainer: true 
-          });
         }
       };
     }
@@ -510,16 +502,8 @@ export default function OrdenDetalleScreen() {
     return null;
   };
 
-  // 🔄 RENDERIZADO CONDICIONAL DE CHECKLIST - IGUAL QUE EN INDEX.TSX
-  // Si está mostrando checklist, renderizar ChecklistContainer como pantalla completa
-  logger.log('🔍 [ORDEN-DETALLE] Verificando renderizado condicional:', {
-    showChecklistContainer,
-    selectedOrdenIdForContainer,
-    shouldRender: showChecklistContainer && selectedOrdenIdForContainer
-  });
-  
+  // 🔄 RENDERIZADO CONDICIONAL DE CHECKLIST
   if (showChecklistContainer && selectedOrdenIdForContainer) {
-    logger.log('🎯 [ORDEN-DETALLE] ✅ RENDERIZANDO ChecklistContainer como pantalla completa para orden:', selectedOrdenIdForContainer);
     return (
       <ChecklistContainer
         ordenId={selectedOrdenIdForContainer}
@@ -661,33 +645,33 @@ export default function OrdenDetalleScreen() {
               </Text>
               <Text style={styles.vehicleYear}>Año {orden.vehiculo_detail.año}</Text>
             </View>
-            {orden.vehiculo_detail.placa && (
+            {orden.vehiculo_detail.placa ? (
               <View style={styles.plateContainer}>
                 <Text style={styles.plateText}>{orden.vehiculo_detail.placa}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           
           {/* Detalles adicionales del vehículo */}
           <View style={styles.vehicleDetails}>
-            {orden.vehiculo_detail.color && (
+            {orden.vehiculo_detail.color ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Color:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.color}</Text>
               </View>
-            )}
-            {orden.vehiculo_detail.numero_motor && (
+            ) : null}
+            {orden.vehiculo_detail.numero_motor ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Motor:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.numero_motor}</Text>
               </View>
-            )}
-            {orden.vehiculo_detail.numero_chasis && (
+            ) : null}
+            {orden.vehiculo_detail.numero_chasis ? (
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Chasis:</Text>
                 <Text style={styles.detailValue}>{orden.vehiculo_detail.numero_chasis}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </HostPaperSection>
 
@@ -792,6 +776,15 @@ export default function OrdenDetalleScreen() {
           {mecanicoDetalle?.especialidades ? (
             <Text style={styles.detailValue}>{mecanicoDetalle.especialidades}</Text>
           ) : null}
+          {orden.mecanico_asignado_id && (
+            <TouchableOpacity
+              style={styles.historialButton}
+              onPress={() => setHistorialVisible(true)}
+            >
+              <InstitutionalIcon name="history" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.historialButtonText}>Ver Historial de Asignaciones</Text>
+            </TouchableOpacity>
+          )}
         </HostPaperSection>
 
         {/* Información de pago */}
@@ -802,16 +795,16 @@ export default function OrdenDetalleScreen() {
             style={styles.sectionHeader}
             leading={<InstitutionalIcon name="payment" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
           />
-          {orden.metodo_pago && (
+          {orden.metodo_pago ? (
             <View style={styles.infoRow}>
               <InstitutionalIcon name="credit-card" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
-          )}
+          ) : null}
         </HostPaperSection>
 
         {/* Notas */}
-        {orden.notas_cliente && (
+        {orden.notas_cliente ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Cliente"
@@ -821,14 +814,14 @@ export default function OrdenDetalleScreen() {
           />
             <Text style={styles.notasText}>{orden.notas_cliente}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
 
         {puedeUsarAsistenteIa ? (
           <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
         ) : null}
 
         {/* Notas del proveedor */}
-        {orden.notas_proveedor && (
+        {orden.notas_proveedor ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Proveedor"
@@ -838,10 +831,10 @@ export default function OrdenDetalleScreen() {
           />
             <Text style={styles.notasText}>{orden.notas_proveedor}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
 
         {/* Motivo de rechazo */}
-        {orden.motivo_rechazo && (
+        {orden.motivo_rechazo ? (
           <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
               title="Motivo de Rechazo"
@@ -851,7 +844,7 @@ export default function OrdenDetalleScreen() {
             />
             <Text style={styles.motivoRechazo}>{orden.motivo_rechazo}</Text>
           </HostPaperSection>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* Botones de acción */}
@@ -878,16 +871,52 @@ export default function OrdenDetalleScreen() {
             </>
           )}
           {orden.estado === 'aceptada_por_proveedor' && (
-            <InstitutionalButton
-              label="Iniciar Servicio"
-              variant="primary"
-              onPress={handleIniciarServicio}
-              disabled={procesando}
-              style={styles.actionButtonFlex}
-              leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-            />
+            <View style={styles.acceptedStateActions}>
+              {/* Owner-only banner and assignment */}
+              {!esMecanicoEquipo && (
+                <>
+                  <View style={styles.nextActionBanner}>
+                    <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <View style={styles.nextActionContent}>
+                      <InstitutionalText role="bodyBold" color="primary">
+                        Próximos pasos
+                      </InstitutionalText>
+                      <InstitutionalText role="caption" color="muted">
+                        {!orden.mecanico_asignado_id
+                          ? 'Asigna un técnico e inicia el servicio'
+                          : `Técnico asignado: ${mecanicoDetalle?.nombre || 'técnico'}`
+                        }
+                      </InstitutionalText>
+                    </View>
+                  </View>
+                  
+                  {!orden.mecanico_asignado_id && (
+                    <InstitutionalButton
+                      label="Asignar Técnico"
+                      variant="secondary"
+                      onPress={() => setAsignarVisible(true)}
+                      style={styles.actionButtonFlex}
+                      leading={<InstitutionalIcon name="person" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                    />
+                  )}
+                </>
+              )}
+              
+              {/* Iniciar Servicio: available to owner OR assigned mechanic */}
+              {(!esMecanicoEquipo || miembroId === orden.mecanico_asignado_id) && (
+                <InstitutionalButton
+                  label={orden.mecanico_asignado_id ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
+                  variant="primary"
+                  onPress={handleIniciarServicio}
+                  disabled={procesando}
+                  style={styles.actionButtonFlex}
+                  leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+                />
+              )}
+            </View>
           )}
-          {orden.estado === 'en_proceso' && (
+          {/* Completar Servicio: available to owner OR assigned mechanic */}
+          {(!esMecanicoEquipo || miembroId === orden.mecanico_asignado_id) && orden.estado === 'en_proceso' && (
             <InstitutionalButton
               label="Completar Servicio"
               variant="success"
@@ -905,6 +934,7 @@ export default function OrdenDetalleScreen() {
                 ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado)) {
               return (
                 <InstitutionalButton
+                  testID={botonChecklist.testID || 'checklist-action-button'}
                   label={botonChecklist.texto}
                   variant={
                     botonChecklist.color === I.semanticUp ? 'success'
@@ -959,8 +989,48 @@ export default function OrdenDetalleScreen() {
               }
             : null
         }
-        onAsignado={() => {
-          void cargarOrden();
+        onAsignado={(mecanicoId: number | null) => {
+          void (async () => {
+          await cargarOrden();
+          
+          if (mecanicoId && orden) {
+            try {
+              const response = await ordenesProveedorService.obtenerConflictosHorario(
+                orden.id,
+                mecanicoId
+              );
+              
+              if (response.success && response.data && response.data.tiene_conflictos) {
+                setConflictosData(response.data);
+                setConflictosVisible(true);
+              }
+            } catch (error) {
+              logger.error('Error verificando conflictos:', error);
+            }
+          }
+          })();
+        }}
+      />
+
+      <HistorialAsignacionesModal
+        visible={historialVisible}
+        ordenId={orden?.id || 0}
+        onClose={() => setHistorialVisible(false)}
+      />
+
+      <ConflictosHorarioAlert
+        visible={conflictosVisible}
+        conflictos={conflictosData?.conflictos || []}
+        capacidadDisponible={conflictosData?.capacidad_disponible || 0}
+        capacidadTotal={conflictosData?.capacidad_total || 0}
+        onDismiss={() => {
+          setConflictosVisible(false);
+          setConflictosData(null);
+        }}
+        onVerAgenda={() => {
+          setConflictosVisible(false);
+          setConflictosData(null);
+          router.push('/calendario' as any);
         }}
       />
     </View>
@@ -1208,6 +1278,34 @@ const styles = StyleSheet.create({
   },
   actionButtonFlex: {
     flex: 1,
+  },
+  acceptedStateActions: {
+    gap: 12,
+  },
+  nextActionBanner: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.2),
+  },
+  nextActionContent: {
+    flex: 1,
+    gap: 4,
+  },
+  historialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  historialButtonText: {
+    fontSize: 13,
+    color: I.primary,
+    fontWeight: '500',
   },
   actionButtonLegacy: {
     flex: 1,

@@ -24,6 +24,7 @@ export function MecanicoAsignadoCard({ mecanico, compact = false }: Props) {
   if (!mecanico) return null;
 
   const avatarSize = compact ? 40 : 48;
+  const nombreVisible = mecanico.nombre?.trim() || mecanico.modalidad_display || 'Técnico asignado';
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
@@ -39,7 +40,7 @@ export function MecanicoAsignadoCard({ mecanico, compact = false }: Props) {
       )}
       <View style={styles.info}>
         <Text style={[styles.nombre, compact && styles.nombreCompact]} numberOfLines={1}>
-          {mecanico.nombre}
+          {nombreVisible}
         </Text>
         {mecanico.especialidades && mecanico.especialidades.length > 0 ? (
           <View style={styles.chipsRow}>

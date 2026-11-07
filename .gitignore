@@ -39,3 +39,11 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Test artifacts
+test-results/
+e2e/fixture-manifest.json
+playwright-report/
+*.webm
+*.mp4
+playwright/.cache/

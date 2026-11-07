@@ -65,8 +65,9 @@ export function AsignarTecnicoBottomSheet({
       if (target.tipo === 'cita_personal') {
         await agendaProveedorService.asignarMecanico(target.citaId, miembroId);
       } else if (target.tipo === 'orden') {
-        await api.post(`/ordenes/proveedor-ordenes/${target.ordenId}/asignar-mecanico/`, {
-          miembro_taller_id: miembroId,
+        // Use new assignment API with mecanico_id field
+        await api.post(`/ordenes/proveedor-ordenes/${target.ordenId}/asignar_tecnico/`, {
+          mecanico_id: miembroId,
         });
       } else {
         await api.post(`/ordenes/ofertas/${target.ofertaId}/asignar-mecanico/`, {

@@ -237,7 +237,9 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
       const response = await checklistService.pauseInstance(instance.id);
 
       if (response.success && response.data) {
-        patchInstance(response.data);
+        if (typeof response.data.id === 'number') {
+          patchInstance(response.data);
+        }
         await invalidateChecklist();
         return { success: true, data: response.data };
       }
@@ -254,7 +256,9 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
       const response = await checklistService.resumeInstance(instance.id);
 
       if (response.success && response.data) {
-        patchInstance(response.data);
+        if (typeof response.data.id === 'number') {
+          patchInstance(response.data);
+        }
         await invalidateChecklist();
         return { success: true, data: response.data };
       }
@@ -321,13 +325,14 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
             );
           }
 
+          const localOnly = Boolean(result.message?.includes('localmente'));
           patchInstance(updatedInstance);
-          updateUi({ pendingSync: result.message?.includes('localmente') || false });
-          if (!options?.skipInvalidate) {
+          updateUi({ pendingSync: localOnly });
+          if (!options?.skipInvalidate && !localOnly) {
             await invalidateChecklist();
           }
 
-          return { success: true, data: result.data };
+          return { success: true, data: result.data, message: result.message };
         }
 
         return { success: false, message: result.message };

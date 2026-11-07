@@ -177,6 +177,32 @@ export interface ServiceResponse<T> {
   error?: string;
 }
 
+export interface AsignacionTecnico {
+  id: number;
+  tecnico_anterior: { id: number; nombre: string } | null;
+  tecnico_nuevo: { id: number; nombre: string } | null;
+  asignado_por: string;
+  fecha_cambio: string;
+  motivo: string;
+  checklist_en_progreso: boolean;
+  checklist_progreso_pct: number;
+}
+
+export interface ConflictoHorario {
+  orden_id: number;
+  fecha: string;
+  hora_inicio: string;
+  mecanico: string;
+  estado: string;
+}
+
+export interface ConflictosResponse {
+  tiene_conflictos: boolean;
+  conflictos: ConflictoHorario[];
+  capacidad_disponible: number;
+  capacidad_total: number;
+}
+
 class OrdenesProveedorService {
   private baseUrl = '/ordenes/proveedor-ordenes';
 
@@ -490,6 +516,62 @@ class OrdenesProveedorService {
       });
     } catch {
       return fechaHora;
+    }
+  }
+
+  async asignarTecnico(
+    ordenId: number,
+    mecanicoId: number | null,
+    motivo?: string
+  ): Promise<ServiceResponse<{ success: boolean; tecnico: { id: number | null; nombre: string | null }; mensaje: string }>> {
+    try {
+      logger.log(`🔧 Asignando técnico ${mecanicoId} a orden ${ordenId}`);
+      const response = await api.post(`${this.baseUrl}/${ordenId}/asignar_tecnico/`, {
+        mecanico_id: mecanicoId,
+        motivo: motivo || undefined,
+      });
+      
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      logger.error(`❌ Error asignando técnico a orden ${ordenId}:`, error);
+      return this.handleServiceError(error, 'asignar técnico');
+    }
+  }
+
+  async obtenerConflictosHorario(
+    ordenId: number,
+    mecanicoId?: number
+  ): Promise<ServiceResponse<ConflictosResponse>> {
+    try {
+      const params = mecanicoId ? `?mecanico_id=${mecanicoId}` : '';
+      const response = await api.get(`${this.baseUrl}/${ordenId}/conflictos_horario/${params}`);
+      
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      logger.error(`❌ Error obteniendo conflictos de horario:`, error);
+      return this.handleServiceError(error, 'obtener conflictos de horario');
+    }
+  }
+
+  async obtenerHistorialAsignaciones(
+    ordenId: number
+  ): Promise<ServiceResponse<{ asignaciones: AsignacionTecnico[] }>> {
+    try {
+      const response = await api.get(`${this.baseUrl}/${ordenId}/historial_asignaciones/`);
+      
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      logger.error(`❌ Error obteniendo historial de asignaciones:`, error);
+      return this.handleServiceError(error, 'obtener historial de asignaciones');
     }
   }
 }
