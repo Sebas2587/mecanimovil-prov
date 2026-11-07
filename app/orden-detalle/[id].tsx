@@ -173,18 +173,24 @@ export default function OrdenDetalleScreen() {
         if (estadosParaVerificarChecklist.includes(ordenData.estado) && 
             (ordenData.tipo_servicio === 'domicilio' || ordenData.tipo_servicio === 'taller')) {
           try {
+            logger.log('🔍 Verificando checklist para orden:', ordenData.id);
             const checklistResult = await checklistService.getInstanceByOrder(ordenData.id);
+            logger.log('📋 Resultado checklist:', checklistResult);
+            
             if (checklistResult.success && checklistResult.data) {
               setTieneChecklistDisponible(true);
+              logger.log('✅ Checklist disponible para orden:', ordenData.id);
             } else {
-              // ✅ No hay checklist disponible - esto es normal
               setTieneChecklistDisponible(false);
-              logger.log('ℹ️ No hay checklist disponible para orden:', ordenData.id);
+              logger.log('ℹ️ No hay checklist disponible:', checklistResult.message);
             }
-          } catch (error) {
-            // ✅ Manejar error sin mostrar al usuario
-            logger.log('ℹ️ No se encontró checklist para orden:', ordenData.id);
+          } catch (error: any) {
+            logger.error('❌ Error obteniendo checklist:', error);
             setTieneChecklistDisponible(false);
+            // Show error to user for debugging
+            if (ordenData.estado === 'servicio_iniciado') {
+              Alert.alert('Info Checklist', `No se pudo cargar checklist: ${error.message || 'Error desconocido'}. Refresque la página.`);
+            }
           }
         } else {
           setTieneChecklistDisponible(false);
