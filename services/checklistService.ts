@@ -963,7 +963,7 @@ class ChecklistService {
     return null;
   }
 
-  async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
+  async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance | null>> {
     try {
       logger.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
       
@@ -1301,6 +1301,7 @@ class ChecklistService {
           }
           return {
             success: false,
+            data: response,
             message:
               'No se pudo registrar la respuesta del ítem. Revisa tu conexión e intenta de nuevo.',
           };
@@ -1457,7 +1458,7 @@ class ChecklistService {
     };
   }
 
-  async forceRefreshChecklist(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
+  async forceRefreshChecklist(ordenId: number): Promise<ServiceResponse<ChecklistInstance | null>> {
     logger.log('🔄 Forzando refresh de checklist para orden:', ordenId);
     
     // ✅ NUEVA LÓGICA SIMPLE: Solo hacer llamada HTTP directa

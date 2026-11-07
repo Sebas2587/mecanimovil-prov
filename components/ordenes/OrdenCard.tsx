@@ -151,7 +151,9 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
 
       setOrdenConChecklist({
         ...orden,
-        checklist_instance: tienechecklistInstance ? checklistResult.data : undefined,
+        checklist_instance: checklistResult.success && checklistResult.data
+          ? checklistResult.data
+          : undefined,
         requiere_checklist,
       });
     } catch (error) {

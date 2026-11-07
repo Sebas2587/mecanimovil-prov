@@ -121,14 +121,14 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   const loadChecklistData = async () => {
     setLoading(true);
     try {
-      let result: Awaited<ReturnType<typeof checklistService.getInstance>>;
-      if (instanceId) {
-        result = await checklistService.getInstance(instanceId);
-      } else if (citaPersonalId) {
-        result = await checklistService.getInstanceByCitaPersonal(citaPersonalId);
-      } else if (ordenId) {
-        result = await checklistService.getInstanceByOrder(ordenId);
-      } else {
+      const result = instanceId
+        ? await checklistService.getInstance(instanceId)
+        : citaPersonalId
+          ? await checklistService.getInstanceByCitaPersonal(citaPersonalId)
+          : ordenId
+            ? await checklistService.getInstanceByOrder(ordenId)
+            : null;
+      if (!result) {
         setInstance(null);
         return;
       }

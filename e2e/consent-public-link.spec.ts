@@ -10,14 +10,17 @@ const HALLAZGO = 'Filtro de aceite obstruido hallazgo 3624';
 const VEHICULO = 'Toyota Corolla';
 
 test('workshop send then public accept and reject', async ({ browser, request }) => {
-  test.setTimeout(240000);
+  test.setTimeout(360000);
   const owner = await login(request, 'taller@test.com');
   await ensureSaturdayHours(request, owner.token);
   const ofertaId = await ensureCatalogOffer(request, owner.token);
   const draft = await createBaseDraft(request, owner.token);
 
   const external: string[] = [];
-  const ownerCtx = await browser.newContext();
+  const ownerCtx = await browser.newContext({
+    geolocation: { latitude: -33.45, longitude: -70.66 },
+    permissions: ['geolocation'],
+  });
   const ownerPage = await ownerCtx.newPage();
   watchExternal(ownerPage, external);
   await ownerPage.setViewportSize({ width: 390, height: 844 });
@@ -37,6 +40,7 @@ test('workshop send then public accept and reject', async ({ browser, request })
   expect(sent.cotizacion.estado).toBe('enviada');
   expect(sent.entrega_via).toBe('link_publico');
   expect(sent.message_id).toBeNull();
+  expect(sent.share_url || sent.cotizacion.share_url || sent.cotizacion.url_publica).toBeTruthy();
   const baseToken = tokenFromShare(sent.share_url || sent.cotizacion.share_url || sent.cotizacion.url_publica);
   await ownerPage.getByRole('button', { name: 'Ahora no' }).click();
   await ownerPage.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-ENVIADA-390.png', fullPage: true });
@@ -48,13 +52,13 @@ test('workshop send then public accept and reject', async ({ browser, request })
 
   let cita: { horario_por_confirmar?: boolean; estado?: string; detalle?: { cliente_nombre?: string; vehiculo_patente?: string } } | null = null;
   let scheduledOk = false;
-  for (const hora of ['20:00:00', '21:00:00', '13:50:00']) {
+  for (const hora of ['23:50:00', '23:45:00']) {
     const scheduled = await request.patch(`${API}/ordenes/citas-agenda-personal/${citaId}/`, {
       headers: { Authorization: `Token ${owner.token}` },
       data: {
         fecha_servicio: '2026-11-07',
         hora_servicio: hora,
-        duracion_minutos: 60,
+        duracion_minutos: 8,
         tipo_servicio: 'taller',
         miembro_taller: 7,
       },
@@ -64,13 +68,19 @@ test('workshop send then public accept and reject', async ({ browser, request })
     if (scheduledOk) break;
   }
   expect(scheduledOk, JSON.stringify(cita)).toBeTruthy();
+  if (!cita?.detalle) {
+    throw new Error(`Cita sin detalle: ${JSON.stringify(cita)}`);
+  }
   expect(cita.horario_por_confirmar).toBe(false);
   expect(cita.estado).toBe('activa');
   expect(cita.detalle.cliente_nombre).toBe(CLIENTE);
   expect(cita.detalle.vehiculo_patente).toBe(PATENTE);
 
   const mechanic = await login(request, 'mechanic_test@example.com');
-  const mechCtx = await browser.newContext();
+  const mechCtx = await browser.newContext({
+    geolocation: { latitude: -33.45, longitude: -70.66 },
+    permissions: ['geolocation'],
+  });
   const mechPage = await mechCtx.newPage();
   watchExternal(mechPage, external);
   await mechPage.setViewportSize({ width: 390, height: 844 });
@@ -127,6 +137,7 @@ test('workshop send then public accept and reject', async ({ browser, request })
   expect(extraSent.cotizacion.estado).toBe('enviada');
   expect(extraSent.entrega_via).toBe('link_publico');
   expect(extraSent.message_id).toBeNull();
+  expect(extraSent.share_url || extraSent.cotizacion.share_url || extraSent.cotizacion.url_publica).toBeTruthy();
   await ownerPage.getByRole('button', { name: 'Ahora no' }).click();
 
   const baseStill = await (await request.get(`${API}/ordenes/cotizaciones-canal/${draft.id}/`, {
@@ -137,17 +148,57 @@ test('workshop send then public accept and reject', async ({ browser, request })
   })).json();
   expect(baseStill.estado).toBe('aceptada');
   expect(citaStill.estado).toBe('activa');
-  const closeBlocked = await request.post(`${API}/ordenes/citas-agenda-personal/${citaId}/cerrar/`, {
-    headers: { Authorization: `Token ${owner.token}` },
-    data: {},
-  });
-  expect(closeBlocked.status()).toBe(409);
-  const closeBody = await closeBlocked.json();
-  expect(closeBody.codigo).toBe('checklist_en_curso');
-  const extraPending = await (await request.get(`${API}/ordenes/cotizaciones-canal/${extra.id}/`, {
+
+  await mechPage.goto(`${BASE_URL}/cita-agenda-personal/${citaId}`);
+  await answerSelect(mechPage, 'Revisar nivel de aceite', 'bueno');
+  await answerSelect(mechPage, 'Estado de frenos', 'bueno');
+  await answerNumber(mechPage, 'Presión de neumáticos', '32');
+  await openChecklist(mechPage);
+  const finalizeWait = mechPage.waitForResponse(
+    (resp) => resp.url().includes('/finalize/') && resp.request().method() === 'POST',
+  );
+  await mechPage.getByRole('button', { name: 'Finalizar checklist' }).click();
+  await drawAndConfirm(mechPage);
+  const finalizeResp = await finalizeWait;
+  const finalizeRaw = await finalizeResp.text();
+  expect(finalizeResp.status(), finalizeRaw).toBe(200);
+  const finalized = JSON.parse(finalizeRaw) as { requiere_firma_supervisor?: boolean };
+  expect(finalized.requiere_firma_supervisor).toBe(true);
+  await mechPage.getByRole('button', { name: 'Entendido' }).click();
+
+  await ownerPage.goto(`${BASE_URL}/cita-agenda-personal/${citaId}`);
+  const supervisorWait = ownerPage.waitForResponse(
+    (resp) => resp.url().includes('/firmar-supervisor/') && resp.request().method() === 'POST',
+  );
+  await ownerPage.getByRole('button', { name: 'Revisar y firmar' }).click();
+  await drawAndConfirm(ownerPage);
+  const supervisorResp = await supervisorWait;
+  const supervisorRaw = await supervisorResp.text();
+  expect(supervisorResp.status(), supervisorRaw).toBe(200);
+  const supervised = JSON.parse(supervisorRaw) as {
+    informe: { via?: string; enviado?: boolean; token?: string };
+  };
+  expect(supervised.informe.via).toBe('manual_link');
+  expect(supervised.informe.enviado).toBe(false);
+  expect(supervised.informe.token).toBeTruthy();
+  await ownerPage.getByRole('button', { name: 'Entendido' }).click();
+  const extraWhilePending = await (await request.get(`${API}/ordenes/cotizaciones-canal/${extra.id}/`, {
     headers: { Authorization: `Token ${owner.token}` },
   })).json();
-  expect(extraPending.estado).toBe('enviada');
+  expect(extraWhilePending.estado).toBe('enviada');
+
+  await signPublicInforme(browser, supervised.informe.token);
+  const citaClosed = await (await request.get(`${API}/ordenes/citas-agenda-personal/${citaId}/`, {
+    headers: { Authorization: `Token ${owner.token}` },
+  })).json();
+  expect(citaClosed.estado).toBe('cerrada');
+  expect(citaClosed.checklist_estado).toBe('COMPLETADO');
+  const extraStillPending = await (await request.get(`${API}/ordenes/cotizaciones-canal/${extra.id}/`, {
+    headers: { Authorization: `Token ${owner.token}` },
+  })).json();
+  expect(extraStillPending.estado).toBe('enviada');
+  await ownerPage.goto(`${BASE_URL}/cita-agenda-personal/${citaId}`);
+  await ownerPage.screenshot({ path: '/opt/cursor/artifacts/CITA-BASE-COMPLETADA-390.png', fullPage: true });
 
   const extraToken = tokenFromShare(extraSent.share_url || extraSent.cotizacion.url_publica);
   const rejected = await respondPublic(browser, extraToken, 'rechazar');
@@ -163,10 +214,98 @@ test('workshop send then public accept and reject', async ({ browser, request })
   })).json();
   expect(extraAfter.estado).toBe('rechazada');
   expect(baseAfter.estado).toBe('aceptada');
-  expect(citaAfter.estado).toBe('activa');
+  expect(citaAfter.estado).toBe('cerrada');
+  expect(citaAfter.checklist_estado).toBe('COMPLETADO');
   expect(external, external.join('\n')).toEqual([]);
   console.log(`CONSENT base=${draft.id} cita=${citaId} extra=${extra.id} rejected token path ok`);
 });
+
+async function openChecklist(page: Page) {
+  const listItem = page.getByText('Revisar nivel de aceite');
+  const continuar = page.getByRole('button', { name: /Continuar checklist|Completar checklist/ });
+  if (!(await listItem.first().isVisible().catch(() => false))) {
+    await continuar.first().click();
+  }
+  await expect(listItem.first()).toBeVisible({ timeout: 15000 });
+}
+
+async function answerSelect(page: Page, label: string, option: string) {
+  await openChecklist(page);
+  await page.getByText(label, { exact: true }).click();
+  await expect(page.getByTestId(`checklist-option-${option}`)).toBeVisible({ timeout: 15000 });
+  const save = page.waitForResponse(
+    (resp) => resp.url().includes('/api/checklists/responses/') && ['POST', 'PATCH'].includes(resp.request().method()),
+    { timeout: 20000 },
+  );
+  await page.getByTestId(`checklist-option-${option}`).click();
+  await page.getByRole('button', { name: /guardar|actualizar/i }).click();
+  expect((await save).ok()).toBeTruthy();
+  await page.getByRole('button', { name: /^ok$/i }).click();
+}
+
+async function answerNumber(page: Page, label: string, value: string) {
+  await openChecklist(page);
+  await page.getByText(label, { exact: true }).click();
+  const field = page.getByPlaceholder('0');
+  await expect(field).toBeVisible({ timeout: 15000 });
+  const save = page.waitForResponse(
+    (resp) => resp.url().includes('/api/checklists/responses/') && ['POST', 'PATCH'].includes(resp.request().method()),
+    { timeout: 20000 },
+  );
+  await field.fill(value);
+  await page.getByRole('button', { name: /guardar|actualizar/i }).click();
+  expect((await save).ok()).toBeTruthy();
+  await page.getByRole('button', { name: /^ok$/i }).click();
+}
+
+async function drawAndConfirm(page: Page) {
+  const canvas = page.locator('canvas').last();
+  await canvas.waitFor({ state: 'visible', timeout: 15000 });
+  await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Signature canvas has no box');
+  await page.mouse.move(box.x + 30, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + Math.min(180, box.width - 12), box.y + 90, { steps: 15 });
+  await page.mouse.up();
+  await expect(page.getByRole('button', { name: 'Confirmar' })).toBeVisible({ timeout: 8000 });
+  await page.getByRole('button', { name: 'Confirmar' }).click();
+}
+
+async function signPublicInforme(
+  browser: { newContext: () => Promise<BrowserContext> },
+  token: string,
+) {
+  const ctx = await browser.newContext();
+  await ctx.addInitScript((apiUrl: string) => {
+    localStorage.setItem('FORCE_LOCAL_API', 'true');
+    localStorage.setItem('LOCAL_API_URL', apiUrl);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+  }, API);
+  const page = await ctx.newPage();
+  const authHeaders: string[] = [];
+  page.on('request', (req) => {
+    if (req.url().includes('/informes/') && req.headers().authorization) {
+      authHeaders.push(req.headers().authorization);
+    }
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const responseWait = page.waitForResponse(
+    (resp) => resp.url().includes(`/informes/${token}/firmar-cliente/`) && resp.request().method() === 'POST',
+  );
+  await page.goto(`${BASE_URL}/informe/${token}`);
+  await expect(page.getByTestId('informe-publico-bearer')).toBeVisible();
+  await expect(page.getByTestId('informe-publico-cliente')).toContainText(CLIENTE);
+  await page.getByTestId('informe-publico-nombre').fill(CLIENTE);
+  await page.screenshot({ path: '/opt/cursor/artifacts/INFORME-PUBLICO-FIRMAR-390.png', fullPage: true });
+  await page.getByTestId('informe-publico-firmar').click();
+  const response = await responseWait;
+  expect(response.status()).toBe(200);
+  await expect(page.getByTestId('informe-publico-estado')).toContainText('FIRMADO');
+  expect(authHeaders).toEqual([]);
+  await ctx.close();
+}
 
 function watchExternal(page: Page, bucket: string[]) {
   page.on('request', (req) => {
@@ -207,10 +346,10 @@ async function ensureSaturdayHours(request: APIRequestContext, token: string) {
   const body = await listed.json();
   const rows = Array.isArray(body) ? body : body.results || [];
   const active = rows.find((row: { activo?: boolean; id?: number; hora_fin?: string }) => row.activo !== false);
-  if (active?.id && String(active.hora_fin || '') <= '20:00:00') {
+  if (active?.id && String(active.hora_fin || '') < '23:59:00') {
     const extended = await request.patch(`${API}/usuarios/horarios-proveedor/${active.id}/`, {
       headers: { Authorization: `Token ${token}` },
-      data: { hora_fin: '22:00:00' },
+      data: { hora_fin: '23:59:00' },
     });
     expect(extended.ok(), JSON.stringify(await extended.json())).toBeTruthy();
   }

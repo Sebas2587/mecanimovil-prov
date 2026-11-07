@@ -8,6 +8,8 @@ import { ordenesProveedorService, type AsignacionTecnico } from '@/services/orde
 import logger from '@/utils/logger';
 import { format } from 'date-fns';
 
+const I = COLORS.institutional;
+
 interface HistorialAsignacionesModalProps {
   visible: boolean;
   ordenId: number;
@@ -24,72 +26,84 @@ export function HistorialAsignacionesModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) {
-      cargarHistorial();
-    }
+    if (!visible) return undefined;
+    let cancelado = false;
+    const cargar = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await ordenesProveedorService.obtenerHistorialAsignaciones(ordenId);
+        if (cancelado) return;
+        if (response.success && response.data) {
+          setAsignaciones(response.data.asignaciones);
+        } else {
+          setError(response.message || 'Error al cargar historial');
+        }
+      } catch (err) {
+        logger.error('Error cargando historial:', err);
+        if (!cancelado) setError('Error inesperado al cargar historial');
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    };
+    void cargar();
+    return () => {
+      cancelado = true;
+    };
   }, [visible, ordenId]);
 
-  const cargarHistorial = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await ordenesProveedorService.obtenerHistorialAsignaciones(ordenId);
-      
+  const reintentar = () => {
+    setLoading(true);
+    setError(null);
+    void ordenesProveedorService.obtenerHistorialAsignaciones(ordenId).then((response) => {
       if (response.success && response.data) {
         setAsignaciones(response.data.asignaciones);
+        setError(null);
       } else {
         setError(response.message || 'Error al cargar historial');
       }
-    } catch (err) {
+    }).catch((err) => {
       logger.error('Error cargando historial:', err);
       setError('Error inesperado al cargar historial');
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
+    });
   };
 
   const formatearFecha = (fecha: string) => {
     try {
-      return format(new Date(fecha), "dd/MM/yyyy HH:mm");
+      return format(new Date(fecha), 'dd/MM/yyyy HH:mm');
     } catch {
       return fecha;
     }
   };
 
-// withOpacity imported from tokens
-
   return (
-    <BottomSheet
-      visible={visible}
-      onDismiss={onClose}
-      title="Historial de Asignaciones"
-      snapPoints={['70%']}
-    >
+    <BottomSheet visible={visible} onClose={onClose} stickyFooter>
+      <InstitutionalText role="h3">Historial de asignaciones</InstitutionalText>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={COLORS.institutional.primary} />
-            <InstitutionalText style={styles.loadingText}>
+            <ActivityIndicator size="large" color={I.primary} />
+            <InstitutionalText role="body" style={styles.loadingText}>
               Cargando historial...
             </InstitutionalText>
           </View>
         ) : error ? (
           <View style={styles.centerContent}>
-            <InstitutionalText variant="body" color="error" style={styles.errorText}>
+            <InstitutionalText role="body" color="semanticDown" style={styles.errorText}>
               {error}
             </InstitutionalText>
             <InstitutionalButton
+              label="Reintentar"
               variant="secondary"
-              onPress={cargarHistorial}
+              onPress={reintentar}
               style={styles.retryButton}
-            >
-              Reintentar
-            </InstitutionalButton>
+            />
           </View>
         ) : asignaciones.length === 0 ? (
           <View style={styles.centerContent}>
-            <InstitutionalText variant="body" color="secondary">
+            <InstitutionalText role="body" color="muted">
               No hay cambios de asignación registrados
             </InstitutionalText>
           </View>
@@ -98,24 +112,24 @@ export function HistorialAsignacionesModal({
             {asignaciones.map((asignacion, index) => (
               <View key={asignacion.id} style={styles.timelineItem}>
                 <View style={styles.timelineDot} />
-                {index < asignaciones.length - 1 && <View style={styles.timelineLine} />}
-                
+                {index < asignaciones.length - 1 ? <View style={styles.timelineLine} /> : null}
+
                 <View style={styles.asignacionCard}>
                   <View style={styles.asignacionHeader}>
-                    <InstitutionalText variant="body-bold">
+                    <InstitutionalText role="bodyBold">
                       {formatearFecha(asignacion.fecha_cambio)}
                     </InstitutionalText>
-                    <InstitutionalText variant="caption" color="secondary">
+                    <InstitutionalText role="caption" color="muted">
                       {asignacion.asignado_por}
                     </InstitutionalText>
                   </View>
 
                   <View style={styles.cambioContainer}>
                     <View style={styles.tecnicoBox}>
-                      <InstitutionalText variant="caption" color="secondary">
+                      <InstitutionalText role="caption" color="muted">
                         Anterior
                       </InstitutionalText>
-                      <InstitutionalText variant="body">
+                      <InstitutionalText role="body">
                         {asignacion.tecnico_anterior?.nombre || 'Sin asignar'}
                       </InstitutionalText>
                     </View>
@@ -123,33 +137,33 @@ export function HistorialAsignacionesModal({
                     <Text style={styles.arrow}>→</Text>
 
                     <View style={styles.tecnicoBox}>
-                      <InstitutionalText variant="caption" color="secondary">
+                      <InstitutionalText role="caption" color="muted">
                         Nuevo
                       </InstitutionalText>
-                      <InstitutionalText variant="body-bold">
+                      <InstitutionalText role="bodyBold">
                         {asignacion.tecnico_nuevo?.nombre || 'Sin asignar'}
                       </InstitutionalText>
                     </View>
                   </View>
 
-                  {asignacion.motivo && (
+                  {asignacion.motivo ? (
                     <View style={styles.motivoContainer}>
-                      <InstitutionalText variant="caption" color="secondary">
+                      <InstitutionalText role="caption" color="muted">
                         Motivo:
                       </InstitutionalText>
-                      <InstitutionalText variant="body">
+                      <InstitutionalText role="body">
                         {asignacion.motivo}
                       </InstitutionalText>
                     </View>
-                  )}
+                  ) : null}
 
-                  {asignacion.checklist_en_progreso && (
+                  {asignacion.checklist_en_progreso ? (
                     <View style={styles.checklistWarning}>
-                      <InstitutionalText variant="caption" color="warning">
-                        ⚠️ Checklist en progreso ({asignacion.checklist_progreso_pct}% completado)
+                      <InstitutionalText role="caption" style={styles.warningText}>
+                        Checklist en progreso ({asignacion.checklist_progreso_pct}% completado)
                       </InstitutionalText>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -158,9 +172,7 @@ export function HistorialAsignacionesModal({
       </ScrollView>
 
       <View style={styles.footer}>
-        <InstitutionalButton variant="secondary" onPress={onClose}>
-          Cerrar
-        </InstitutionalButton>
+        <InstitutionalButton label="Cerrar" variant="secondary" onPress={onClose} />
       </View>
     </BottomSheet>
   );
@@ -202,9 +214,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: COLORS.institutional.primary,
+    backgroundColor: I.primary,
     borderWidth: 2,
-    borderColor: COLORS.institutional.background,
+    borderColor: I.paper,
   },
   timelineLine: {
     position: 'absolute',
@@ -212,13 +224,13 @@ const styles = StyleSheet.create({
     top: 20,
     bottom: -24,
     width: 1,
-    backgroundColor: COLORS.institutional.border,
+    backgroundColor: I.hairline,
   },
   asignacionCard: {
-    backgroundColor: COLORS.institutional.surface,
+    backgroundColor: I.paper,
     borderRadius: 12,
     padding: 16,
-    ...SHADOWS.small,
+    ...SHADOWS.sm,
   },
   asignacionHeader: {
     marginBottom: 12,
@@ -234,24 +246,27 @@ const styles = StyleSheet.create({
   },
   arrow: {
     fontSize: 20,
-    color: COLORS.institutional.secondary,
+    color: I.muted,
     marginHorizontal: 8,
   },
   motivoContainer: {
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.institutional.border,
+    borderTopColor: I.hairline,
   },
   checklistWarning: {
     marginTop: 8,
     padding: 8,
-    backgroundColor: withOpacity(COLORS.institutional.warning, 0.1),
+    backgroundColor: withOpacity(I.accentYellow, 0.1),
     borderRadius: 8,
+  },
+  warningText: {
+    color: I.accentYellow,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.institutional.border,
+    borderTopColor: I.hairline,
   },
 });
