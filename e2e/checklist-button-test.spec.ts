@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:19006';
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://localhost:8010';
 const ORDER_ID = 1;
 
 test('Checklist button must show', async ({ page, context, request }) => {
@@ -72,12 +72,14 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-EDITOR-OPENED.png', fullPage: true });
   console.log('✅ Checklist editor opened');
 
-  // Find and fill first checklist item (SELECT type: "Revisar nivel de aceite")
+  // Find and click first checklist item (SELECT type: "Revisar nivel de aceite") to expand it
   const firstItem = page.locator('text=Revisar nivel de aceite').first();
   await firstItem.scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
+  await firstItem.click();
+  await page.waitForTimeout(1000);
   
-  // Click on "bueno" option
+  // Now click on "bueno" option
   const buenoOption = page.locator('text=bueno').first();
   await buenoOption.click();
   await page.waitForTimeout(1000);

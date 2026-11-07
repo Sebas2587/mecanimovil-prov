@@ -870,7 +870,7 @@ export default function OrdenDetalleScreen() {
               />
             </>
           )}
-          {orden.estado === 'aceptada_por_proveedor' && (
+          {!esMecanicoEquipo && orden.estado === 'aceptada_por_proveedor' && (
             <View style={styles.acceptedStateActions}>
               <View style={styles.nextActionBanner}>
                 <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -907,7 +907,7 @@ export default function OrdenDetalleScreen() {
               />
             </View>
           )}
-          {orden.estado === 'en_proceso' && (
+          {!esMecanicoEquipo && orden.estado === 'en_proceso' && (
             <InstitutionalButton
               label="Completar Servicio"
               variant="success"
@@ -950,33 +950,6 @@ export default function OrdenDetalleScreen() {
           })()}
         </View>
       )}
-
-      {/* 🔄 CHECKLIST EXECUTION (Independent of puede_gestionar) */}
-      {!orden.puede_gestionar && tieneChecklistDisponible && orden.estado === 'servicio_iniciado' && (() => {
-        const botonChecklist = getBotonChecklist();
-        if (!botonChecklist) return null;
-        
-        return (
-          <View style={styles.actionsContainer}>
-            <InstitutionalButton
-              testID={botonChecklist.testID || 'checklist-action-button'}
-              label={botonChecklist.texto}
-              variant={botonChecklist.disabled ? 'secondary' : 'primary'}
-              onPress={botonChecklist.onPress}
-              disabled={procesando || botonChecklist.disabled}
-              style={styles.actionButtonFlex}
-              leading={
-                <InstitutionalIcon
-                  name={botonChecklist.icon as any}
-                  size={20}
-                  color={botonChecklist.disabled ? I.muted : I.onPrimary}
-                  strokeWidth={ICON_STROKE_WIDTH}
-                />
-              }
-            />
-          </View>
-        );
-      })()}
 
       {procesando && (
         <View style={styles.procesandoOverlay}>
