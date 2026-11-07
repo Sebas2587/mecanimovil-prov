@@ -43,7 +43,7 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
