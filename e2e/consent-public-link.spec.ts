@@ -78,7 +78,7 @@ test('workshop send then public accept and reject', async ({ browser, request })
   );
   await ownerPage.getByRole('button', { name: 'Continuar al calendario' }).click();
   expect((await assignWait).ok()).toBeTruthy();
-  await elegirHorarioEnGrilla(ownerPage);
+  await elegirHorarioEnGrilla(ownerPage, manifest.schedule_date);
   const cita = await (await request.get(`${API}/ordenes/citas-agenda-personal/${citaId}/`, {
     headers: { Authorization: `Token ${owner.token}` },
   })).json();
@@ -234,14 +234,51 @@ test('workshop send then public accept and reject', async ({ browser, request })
   console.log(`CONSENT base=${draft.id} cita=${citaId} extra=${extra.id} rejected token path ok`);
 });
 
-async function elegirHorarioEnGrilla(page: Page) {
-  const inicio = page.getByRole('button', { name: '15:00', exact: true });
-  await expect(inicio.first()).toBeVisible({ timeout: 20000 });
-  await inicio.first().click();
+function minutesOf(label: string): number {
+  const [hour, minute] = label.split(':').map((part) => Number(part));
+  return hour * 60 + minute;
+}
+
+function dayChipName(iso: string): RegExp {
+  const date = new Date(`${iso}T12:00:00`);
+  const weekday = date.toLocaleDateString('es-CL', { weekday: 'short' }).replace(/\./g, '').trim();
+  const month = date.toLocaleDateString('es-CL', { month: 'short' }).replace(/\./g, '').trim();
+  return new RegExp(`${weekday}\\s+${date.getDate()}\\s+${month}`, 'i');
+}
+
+async function elegirHorarioEnGrilla(page: Page, scheduleDate: string) {
+  const day = page.getByRole('button', { name: dayChipName(scheduleDate) });
+  await expect(day).toBeVisible({ timeout: 20000 });
+  const disponibilidad = page.waitForResponse(
+    (resp) =>
+      resp.url().includes('disponibilidad_agenda')
+      && resp.url().includes(scheduleDate)
+      && resp.request().method() === 'GET',
+  );
+  await day.click();
+  const disp = await disponibilidad;
+  const rawDisp = await disp.text();
+  expect(disp.ok(), rawDisp).toBeTruthy();
+  const data = JSON.parse(rawDisp) as {
+    ventanas_libres?: { hora_inicio: string; hora_fin: string }[];
+  };
+  const ventana = (data.ventanas_libres ?? []).find(
+    (item) => minutesOf(item.hora_fin) - minutesOf(item.hora_inicio) >= 60,
+  );
+  if (!ventana) {
+    throw new Error(`La fecha ${scheduleDate} no tiene una ventana libre de al menos 60 minutos.`);
+  }
+  const inicio = ventana.hora_inicio;
+  const finMinutos = minutesOf(inicio) + 60;
+  const fin = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
+  await page.getByRole('button', { name: inicio, exact: true }).first().click();
   await expect(page.getByText('Término', { exact: true })).toBeVisible({ timeout: 10000 });
-  await page.getByRole('button', { name: '16:00', exact: true }).last().click();
+  await page.getByRole('button', { name: fin, exact: true }).last().click();
   const saved = page.waitForResponse(
-    (resp) => resp.url().includes('/citas-agenda-personal/') && resp.request().method() === 'PATCH',
+    (resp) =>
+      resp.url().includes('/citas-agenda-personal/')
+      && !resp.url().includes('validar-slot')
+      && resp.request().method() === 'PATCH',
   );
   await page.getByRole('button', { name: 'Agendar cita' }).click();
   const resp = await saved;
@@ -330,6 +367,13 @@ async function signPublicInforme(
   await page.goto(`${BASE_URL}/informe/${token}`);
   await expect(page.getByTestId('informe-publico-bearer')).toBeVisible();
   await expect(page.getByTestId('informe-publico-cliente')).toContainText(CLIENTE);
+  await expect(page.getByTestId('informe-publico-servicio')).toContainText('Inspección de base autorizada');
+  const trabajo = page.getByTestId('informe-publico-trabajo');
+  await expect(trabajo).toContainText('Revisar nivel de aceite');
+  await expect(trabajo).toContainText('bueno');
+  await expect(trabajo).toContainText('Presión de neumáticos');
+  await expect(trabajo).toContainText('32');
+  await expect(trabajo).toContainText(HALLAZGO);
   await page.getByTestId('informe-publico-nombre').fill(CLIENTE);
   await page.screenshot({ path: '/opt/cursor/artifacts/INFORME-PUBLICO-FIRMAR-390.png', fullPage: true });
   await page.setViewportSize({ width: 320, height: 700 });

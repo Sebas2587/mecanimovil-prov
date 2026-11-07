@@ -14,11 +14,11 @@ from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get('BACKEND_DIR', '/tmp/mecanimovil-backend'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import django
+from isolated_backend import prepare_isolated_runtime  # noqa: E402
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mecanimovilapp.settings')
-django.setup()
+prepare_isolated_runtime()
 
 from django.apps import apps  # noqa: E402
 from django.contrib.auth import get_user_model  # noqa: E402
@@ -134,21 +134,27 @@ def main() -> None:
         mandante.activo = True
         mandante.save(update_fields=['usuario', 'activo'])
 
-    hours = Horario.objects.filter(taller=taller, dia_semana=5).first()
-    if hours is None:
-        Horario.objects.create(
+    for dia in range(7):
+        hours = Horario.objects.filter(
             taller=taller,
-            dia_semana=5,
-            activo=True,
-            hora_inicio=time(8, 0),
-            hora_fin=time(23, 59),
-            duracion_slot=60,
-            tiempo_descanso=0,
-        )
-    elif hours.hora_fin < time(23, 0):
-        hours.hora_fin = time(23, 59)
-        hours.activo = True
-        hours.save(update_fields=['hora_fin', 'activo'])
+            dia_semana=dia,
+            miembro_taller__isnull=True,
+            mecanico__isnull=True,
+        ).first()
+        if hours is None:
+            Horario.objects.create(
+                taller=taller,
+                dia_semana=dia,
+                activo=True,
+                hora_inicio=time(8, 0),
+                hora_fin=time(18, 0),
+                duracion_slot=60,
+                tiempo_descanso=0,
+            )
+        elif not hours.activo:
+            hours.activo = True
+            hours.save(update_fields=['activo'])
+    schedule_date = timezone.localdate()
 
     checklist_user = user('mechanic_test', 'mechanic_test@example.com')
     visita_user = user('mecanico_visita_3624', 'mecanico.visita.3624@test.com')
@@ -297,6 +303,7 @@ def main() -> None:
     manifest = {
         'servicio_nombre': SERVICIO_NOMBRE,
         'select_label': SELECT_LABEL,
+        'schedule_date': schedule_date.isoformat(),
         'oferta_id': oferta.id,
         'owner': {'username': owner.username, 'email': owner.email},
         'mechanic_checklist': {

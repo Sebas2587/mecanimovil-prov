@@ -227,12 +227,16 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    flexWrap: 'wrap',
+    paddingTop: 16,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: I.hairline,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 160,
+    minWidth: 140,
   },
 });

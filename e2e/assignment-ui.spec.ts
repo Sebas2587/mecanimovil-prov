@@ -56,6 +56,16 @@ test('owner assigns, reassigns, and sees the schedule conflict in the UI', async
   await expect(page.getByText('Conflictos de horario')).toBeVisible();
   await page.screenshot({ path: '/opt/cursor/artifacts/CONFLICTO-HORARIO-390.png', fullPage: true });
   await page.setViewportSize({ width: 320, height: 700 });
+  const entendido = page.getByRole('button', { name: 'Entendido' });
+  await expect(entendido).toBeVisible();
+  const box = await entendido.boundingBox();
+  expect(box).not.toBeNull();
+  if (box) {
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+    expect(box.y + box.height).toBeLessThanOrEqual(700);
+  }
   await page.screenshot({ path: '/opt/cursor/artifacts/CONFLICTO-HORARIO-320.png', fullPage: true });
 
   const afterReassign = await (await request.get(`${API}/ordenes/proveedor-ordenes/${manifest.order_open.id}/`, {

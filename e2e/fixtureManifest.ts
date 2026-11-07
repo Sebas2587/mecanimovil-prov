@@ -11,6 +11,7 @@ export type FixturePerson = {
 export type FixtureManifest = {
   servicio_nombre: string;
   select_label: string;
+  schedule_date: string;
   oferta_id: number;
   owner: FixturePerson;
   mechanic_checklist: FixturePerson;
@@ -40,6 +41,8 @@ function isManifest(value: unknown): value is FixtureManifest {
     && row.oferta_id
     && row.servicio_nombre
     && row.select_label
+    && typeof row.schedule_date === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(row.schedule_date)
   );
 }
 

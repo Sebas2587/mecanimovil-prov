@@ -1081,16 +1081,7 @@ class ChecklistService {
 
   async pauseInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      const response = await api.post(`${this.baseUrl}/instances/${instanceId}/pause/`);
-      const instance = response.data;
-      
-      // Actualizar offline
-      await this.offlineManager.saveChecklistInstance(instance);
-      
-      return {
-        success: true,
-        data: instance
-      };
+      return await this.applyInstanceMessage(instanceId, 'pause', 'pausar checklist');
     } catch (error) {
       return this.handleServiceError(error, 'pausar checklist');
     }
@@ -1098,18 +1089,50 @@ class ChecklistService {
 
   async resumeInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      const response = await api.post(`${this.baseUrl}/instances/${instanceId}/resume/`);
-      const instance = response.data;
-      
-      // Actualizar offline
-      await this.offlineManager.saveChecklistInstance(instance);
-      
-      return {
-        success: true,
-        data: instance
-      };
+      return await this.applyInstanceMessage(instanceId, 'resume', 'reanudar checklist');
     } catch (error) {
       return this.handleServiceError(error, 'reanudar checklist');
+    }
+  }
+
+  /**
+   * Pause and resume respond with `{ message }` and no instance id.
+   * The updated checklist is the following GET, not the POST body.
+   */
+  private async applyInstanceMessage(
+    instanceId: number,
+    action: 'pause' | 'resume',
+    fallback: string,
+  ): Promise<ServiceResponse<ChecklistInstance>> {
+    const response = await api.post(`${this.baseUrl}/instances/${instanceId}/${action}/`);
+    const body = response.data as { id?: unknown; message?: string } | null;
+    if (body && typeof body.id === 'number') {
+      await this.offlineManager.saveChecklistInstance(body as ChecklistInstance);
+      return { success: true, data: body as ChecklistInstance, message: body.message };
+    }
+    try {
+      const fetched = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
+      const instance = fetched.data as ChecklistInstance | null;
+      if (!instance || typeof instance.id !== 'number') {
+        return {
+          success: false,
+          data: null as any,
+          message: body?.message || `No se pudo leer el checklist después de ${fallback}`,
+        };
+      }
+      await this.offlineManager.saveChecklistInstance(instance);
+      return {
+        success: true,
+        data: instance,
+        message: typeof body?.message === 'string' ? body.message : undefined,
+      };
+    } catch (error) {
+      logger.error(`❌ ${action} respondió sin instancia y el GET falló:`, error);
+      return {
+        success: false,
+        data: null as any,
+        message: body?.message || `No se pudo leer el checklist después de ${fallback}`,
+      };
     }
   }
 
