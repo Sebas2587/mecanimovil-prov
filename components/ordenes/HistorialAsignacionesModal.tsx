@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-nat
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { COLORS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/design-system/tokens';
 import { ordenesProveedorService, type AsignacionTecnico } from '@/services/ordenesProveedor';
 import logger from '@/utils/logger';
 import { format } from 'date-fns';

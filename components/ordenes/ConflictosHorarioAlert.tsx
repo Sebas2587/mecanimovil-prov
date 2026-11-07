@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
-import { COLORS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/design-system/tokens';
 import type { ConflictoHorario } from '@/services/ordenesProveedor';
 
 const I = COLORS.institutional;
