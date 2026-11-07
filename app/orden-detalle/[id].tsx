@@ -57,6 +57,9 @@ import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBot
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
 import { montoConocidoCLP } from '@/utils/formatearMontoCLP';
+import { HistorialAsignacionesModal } from '@/components/ordenes/HistorialAsignacionesModal';
+import { ConflictosHorarioAlert } from '@/components/ordenes/ConflictosHorarioAlert';
+import type { ConflictosResponse } from '@/services/ordenesProveedor';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
@@ -99,6 +102,11 @@ export default function OrdenDetalleScreen() {
   
   // ✅ Estado para verificar si hay checklist disponible
   const [tieneChecklistDisponible, setTieneChecklistDisponible] = useState<boolean | null>(null);
+
+  // Nuevos estados para assignment history y conflicts
+  const [historialVisible, setHistorialVisible] = useState(false);
+  const [conflictosVisible, setConflictosVisible] = useState(false);
+  const [conflictosData, setConflictosData] = useState<ConflictosResponse | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -792,6 +800,15 @@ export default function OrdenDetalleScreen() {
           {mecanicoDetalle?.especialidades ? (
             <Text style={styles.detailValue}>{mecanicoDetalle.especialidades}</Text>
           ) : null}
+          {orden.mecanico_asignado_id && (
+            <TouchableOpacity
+              style={styles.historialButton}
+              onPress={() => setHistorialVisible(true)}
+            >
+              <InstitutionalIcon name="history" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.historialButtonText}>Ver Historial de Asignaciones</Text>
+            </TouchableOpacity>
+          )}
         </HostPaperSection>
 
         {/* Información de pago */}
@@ -959,8 +976,46 @@ export default function OrdenDetalleScreen() {
               }
             : null
         }
-        onAsignado={() => {
-          void cargarOrden();
+        onAsignado={async (mecanicoId?: number) => {
+          await cargarOrden();
+          
+          if (mecanicoId && orden) {
+            try {
+              const response = await ordenesProveedorService.obtenerConflictosHorario(
+                orden.id,
+                mecanicoId
+              );
+              
+              if (response.success && response.data && response.data.tiene_conflictos) {
+                setConflictosData(response.data);
+                setConflictosVisible(true);
+              }
+            } catch (error) {
+              logger.error('Error verificando conflictos:', error);
+            }
+          }
+        }}
+      />
+
+      <HistorialAsignacionesModal
+        visible={historialVisible}
+        ordenId={orden?.id || 0}
+        onClose={() => setHistorialVisible(false)}
+      />
+
+      <ConflictosHorarioAlert
+        visible={conflictosVisible}
+        conflictos={conflictosData?.conflictos || []}
+        capacidadDisponible={conflictosData?.capacidad_disponible || 0}
+        capacidadTotal={conflictosData?.capacidad_total || 0}
+        onDismiss={() => {
+          setConflictosVisible(false);
+          setConflictosData(null);
+        }}
+        onVerAgenda={() => {
+          setConflictosVisible(false);
+          setConflictosData(null);
+          router.push('/calendario' as any);
         }}
       />
     </View>
@@ -1208,6 +1263,18 @@ const styles = StyleSheet.create({
   },
   actionButtonFlex: {
     flex: 1,
+  },
+  historialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  historialButtonText: {
+    fontSize: 13,
+    color: I.primary,
+    fontWeight: '500',
   },
   actionButtonLegacy: {
     flex: 1,
