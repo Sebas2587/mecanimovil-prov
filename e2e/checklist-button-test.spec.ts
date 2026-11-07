@@ -201,5 +201,56 @@ test('Checklist button must show', async ({ page, context, request }) => {
     console.log('✅ "bajo" option visible in UI');
   }
   
-  console.log('✅✅✅ MILESTONE COMPLETE: Partial save + GET persist + reload verified!');
+  console.log('✅✅✅ MILESTONE 1: Partial save + GET persist + reload verified!');
+  
+  // Test pause/resume persists state
+  console.log('\n🔄 Testing pause/resume...');
+  
+  const pauseResponse = await page.request.post(`${API_URL}/api/checklists/instances/2/pause/`, {
+    headers: { 'Authorization': `Token ${auth.token}` }
+  });
+  const pauseStatus = pauseResponse.status();
+  const pauseData = await pauseResponse.json();
+  console.log(`✅ Pause API: POST /pause/ → ${pauseStatus}, estado: ${pauseData.estado || 'check instance'}`);
+  
+  // Verify paused state
+  const pausedCheck = await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+    headers: { 'Authorization': `Token ${auth.token}` }
+  });
+  const pausedState = (await pausedCheck.json()).estado;
+  console.log(`✅ Instance estado after pause: ${pausedState}`);
+  
+  if (pausedState !== 'PAUSADO') {
+    throw new Error(`Expected PAUSADO, got ${pausedState}`);
+  }
+  
+  // Resume
+  const resumeResponse = await page.request.post(`${API_URL}/api/checklists/instances/2/resume/`, {
+    headers: { 'Authorization': `Token ${auth.token}` }
+  });
+  const resumeStatus = resumeResponse.status();
+  const resumeData = await resumeResponse.json();
+  console.log(`✅ Resume API: POST /resume/ → ${resumeStatus}, message: ${resumeData.message}`);
+  
+  // Verify resumed state
+  const resumedCheck = await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+    headers: { 'Authorization': `Token ${auth.token}` }
+  });
+  const resumedState = (await resumedCheck.json()).estado;
+  const resumedResponses = (await resumedCheck.json()).respuestas;
+  const firstItemAfterResume = resumedResponses.find((r: any) => r.item_template === 5);
+  
+  console.log(`✅ Instance estado after resume: ${resumedState}`);
+  console.log(`✅ Response still persisted: ID ${firstItemAfterResume?.id}, seleccion="${firstItemAfterResume?.respuesta_seleccion}"`);
+  
+  if (resumedState !== 'EN_PROGRESO') {
+    throw new Error(`Expected EN_PROGRESO, got ${resumedState}`);
+  }
+  
+  if (firstItemAfterResume?.respuesta_seleccion !== 'bajo') {
+    throw new Error(`Response lost after pause/resume: expected "bajo", got "${firstItemAfterResume?.respuesta_seleccion}"`);
+  }
+  
+  console.log('✅✅✅ MILESTONE 2: Pause/resume verified - state persists!');
+  console.log('\n🎉 ALL MILESTONES COMPLETE!');
 });
