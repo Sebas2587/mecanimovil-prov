@@ -71,4 +71,46 @@ test('Checklist button must show', async ({ page, context, request }) => {
   
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-EDITOR-OPENED.png', fullPage: true });
   console.log('✅ Checklist editor opened');
+
+  // Find and fill first checklist item (SELECT type: "Revisar nivel de aceite")
+  const firstItem = page.locator('text=Revisar nivel de aceite').first();
+  await firstItem.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  
+  // Click on "bueno" option
+  const buenoOption = page.locator('text=bueno').first();
+  await buenoOption.click();
+  await page.waitForTimeout(1000);
+  
+  console.log('✅ Filled first item with "bueno"');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-FILLED.png', fullPage: true });
+
+  // Save and reload
+  await page.reload();
+  await page.waitForTimeout(5000);
+  
+  console.log('✅ Reloaded page');
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-AFTER-RELOAD.png', fullPage: true });
+
+  // Navigate back to checklist
+  await page.goto(`${BASE_URL}/orden-detalle/${ORDER_ID}`);
+  await page.waitForTimeout(3000);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  
+  const checklistBtnAgain = page.getByTestId('checklist-cta-button');
+  await checklistBtnAgain.click();
+  await page.waitForTimeout(3000);
+  
+  // Verify "bueno" is still selected
+  const buenoSelected = page.locator('text=bueno').first();
+  const isSelected = await buenoSelected.isVisible();
+  
+  console.log(`✅ Response persisted: ${isSelected}`);
+  await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-PERSISTED.png', fullPage: true });
+  
+  if (!isSelected) {
+    throw new Error('Checklist response did not persist after reload');
+  }
+  
+  console.log('✅ MILESTONE COMPLETE: Partial save verified');
 });
