@@ -13,6 +13,15 @@ test('workshop send then public accept and reject', async ({ browser, request })
   test.setTimeout(360000);
   const manifest = loadFixtureManifest();
   expect(manifest.servicio_nombre).toBe(SERVICIO);
+  const aceite = checklistItem(manifest, 'aceite');
+  const frenos = checklistItem(manifest, 'frenos');
+  const neumaticos = checklistItem(manifest, 'neumaticos');
+  const hallazgo = checklistItem(manifest, 'hallazgo');
+  expect(manifest.checklist.item_count).toBe(manifest.checklist.items.length);
+  expect(hallazgo.tipo).toBe('TEXT');
+  if (!aceite.answer || !frenos.answer || !neumaticos.answer) {
+    throw new Error('El manifiesto no trae las respuestas requeridas del checklist.');
+  }
   const owner = await login(request, manifest.owner.email);
   await ensureSaturdayHours(request, owner.token);
   const ofertaId = manifest.oferta_id;
@@ -97,7 +106,7 @@ test('workshop send then public accept and reject', async ({ browser, request })
   await seedSession(mechCtx, mechanic);
   await mechPage.goto(`${BASE_URL}/cita-agenda-personal/${citaId}`);
   const iniciar = mechPage.getByRole('button', { name: 'Iniciar servicio' });
-  const observacion = mechPage.getByText('Observaciones generales');
+  const observacion = mechPage.getByText(hallazgo.label, { exact: true });
   const continuar = mechPage.getByRole('button', { name: 'Continuar checklist' });
   await expect(iniciar.or(continuar).or(observacion).first()).toBeVisible({ timeout: 20000 });
   if (await iniciar.isVisible().catch(() => false)) await iniciar.click();
@@ -160,10 +169,10 @@ test('workshop send then public accept and reject', async ({ browser, request })
   expect(citaStill.estado).toBe('activa');
 
   await mechPage.goto(`${BASE_URL}/cita-agenda-personal/${citaId}`);
-  await answerSelect(mechPage, 'Revisar nivel de aceite', 'bueno');
-  await answerSelect(mechPage, 'Estado de frenos', 'bueno');
-  await answerNumber(mechPage, 'Presión de neumáticos', '32');
-  await openChecklist(mechPage);
+  await answerSelect(mechPage, aceite.label, aceite.answer || '');
+  await answerSelect(mechPage, frenos.label, frenos.answer || '');
+  await answerNumber(mechPage, neumaticos.label, neumaticos.answer || '');
+  await openChecklist(mechPage, hallazgo.label);
   const finalizeWait = mechPage.waitForResponse(
     (resp) => resp.url().includes('/finalize/') && resp.request().method() === 'POST',
   );
@@ -201,7 +210,12 @@ test('workshop send then public accept and reject', async ({ browser, request })
   })).json();
   expect(extraWhilePending.estado).toBe('enviada');
 
-  await signPublicInforme(browser, informeToken);
+  await signPublicInforme(browser, informeToken, {
+    aceite,
+    frenos,
+    neumaticos,
+    hallazgo: HALLAZGO,
+  });
   const citaClosed = await (await request.get(`${API}/ordenes/citas-agenda-personal/${citaId}/`, {
     headers: { Authorization: `Token ${owner.token}` },
   })).json();
@@ -286,8 +300,17 @@ async function elegirHorarioEnGrilla(page: Page, scheduleDate: string) {
   expect(resp.ok(), raw).toBeTruthy();
 }
 
-async function openChecklist(page: Page) {
-  const listItem = page.getByText('Revisar nivel de aceite');
+function checklistItem(
+  manifest: ReturnType<typeof loadFixtureManifest>,
+  key: string,
+) {
+  const item = manifest.checklist.items.find((row) => row.key === key);
+  if (!item) throw new Error(`El manifiesto no trae el ítem ${key}.`);
+  return item;
+}
+
+async function openChecklist(page: Page, label: string) {
+  const listItem = page.getByText(label, { exact: true });
   const continuar = page.getByRole('button', { name: /Continuar checklist|Completar checklist/ });
   if (!(await listItem.first().isVisible().catch(() => false))) {
     await continuar.first().click();
@@ -296,7 +319,7 @@ async function openChecklist(page: Page) {
 }
 
 async function answerSelect(page: Page, label: string, option: string) {
-  await openChecklist(page);
+  await openChecklist(page, label);
   await page.getByText(label, { exact: true }).click();
   await expect(page.getByTestId(`checklist-option-${option}`)).toBeVisible({ timeout: 15000 });
   const save = page.waitForResponse(
@@ -310,7 +333,7 @@ async function answerSelect(page: Page, label: string, option: string) {
 }
 
 async function answerNumber(page: Page, label: string, value: string) {
-  await openChecklist(page);
+  await openChecklist(page, label);
   await page.getByText(label, { exact: true }).click();
   const field = page.getByPlaceholder('0');
   await expect(field).toBeVisible({ timeout: 15000 });
@@ -345,6 +368,12 @@ async function drawAndConfirm(page: Page) {
 async function signPublicInforme(
   browser: { newContext: () => Promise<BrowserContext> },
   token: string,
+  expected: {
+    aceite: { label: string; answer: string | null };
+    frenos: { label: string; answer: string | null };
+    neumaticos: { label: string; answer: string | null };
+    hallazgo: string;
+  },
 ) {
   const ctx = await browser.newContext();
   await ctx.addInitScript((apiUrl: string) => {
@@ -369,11 +398,13 @@ async function signPublicInforme(
   await expect(page.getByTestId('informe-publico-cliente')).toContainText(CLIENTE);
   await expect(page.getByTestId('informe-publico-servicio')).toContainText('Inspección de base autorizada');
   const trabajo = page.getByTestId('informe-publico-trabajo');
-  await expect(trabajo).toContainText('Revisar nivel de aceite');
-  await expect(trabajo).toContainText('bueno');
-  await expect(trabajo).toContainText('Presión de neumáticos');
-  await expect(trabajo).toContainText('32');
-  await expect(trabajo).toContainText(HALLAZGO);
+  await expect(trabajo).toContainText(expected.aceite.label);
+  await expect(trabajo).toContainText(expected.aceite.answer || '');
+  await expect(trabajo).toContainText(expected.frenos.label);
+  await expect(trabajo).toContainText(expected.frenos.answer || '');
+  await expect(trabajo).toContainText(expected.neumaticos.label);
+  await expect(trabajo).toContainText(expected.neumaticos.answer || '');
+  await expect(trabajo).toContainText(expected.hallazgo);
   await page.getByTestId('informe-publico-nombre').fill(CLIENTE);
   await page.screenshot({ path: '/opt/cursor/artifacts/INFORME-PUBLICO-FIRMAR-390.png', fullPage: true });
   await page.setViewportSize({ width: 320, height: 700 });

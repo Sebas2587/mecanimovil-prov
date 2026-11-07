@@ -44,7 +44,43 @@ Respuesta = apps.get_model('checklists', 'ChecklistItemResponse')
 PASSWORD = os.environ.get('FIXTURE_PASSWORD', 'test123')
 MARKER = 'fixture-3624'
 SERVICIO_NOMBRE = 'Inspección Test Frontend'
+TEMPLATE_NOMBRE = 'Checklist Fixture 3624'
+TEMPLATE_VERSION = '3624'
 SELECT_LABEL = 'Revisar nivel de aceite'
+CHECKLIST_SPECS = (
+    {
+        'key': 'aceite',
+        'label': SELECT_LABEL,
+        'tipo': 'SELECT',
+        'categoria': 'FLUIDOS_NIVELES',
+        'opciones': ['bueno', 'bajo', 'sucio'],
+        'answer': 'bueno',
+    },
+    {
+        'key': 'frenos',
+        'label': 'Estado de frenos',
+        'tipo': 'SELECT',
+        'categoria': 'SISTEMA_FRENOS',
+        'opciones': ['bueno', 'malo', 'desgastado'],
+        'answer': 'bueno',
+    },
+    {
+        'key': 'neumaticos',
+        'label': 'Presión de neumáticos',
+        'tipo': 'NUMBER',
+        'categoria': 'NEUMATICOS_LLANTAS',
+        'opciones': None,
+        'answer': '32',
+    },
+    {
+        'key': 'hallazgo',
+        'label': 'Observaciones generales',
+        'tipo': 'TEXT',
+        'categoria': 'OBSERVACIONES_TECNICO',
+        'opciones': None,
+        'answer': None,
+    },
+)
 
 
 def user(username: str, email: str):
@@ -98,6 +134,77 @@ def orden(marker: str, **fields):
     row.notas_proveedor = marker
     row.save()
     return row
+
+
+def catalog_item(spec: dict):
+    row = Catalogo.objects.filter(nombre=spec['label']).order_by('id').first()
+    fields = {
+        'categoria': spec['categoria'],
+        'tipo_pregunta': spec['tipo'],
+        'pregunta_texto': spec['label'],
+        'opciones_seleccion': spec['opciones'],
+        'es_obligatorio_por_defecto': True,
+        'activo': True,
+        'placeholder': None,
+    }
+    if row is None:
+        return Catalogo.objects.create(nombre=spec['label'], **fields)
+    for key, value in fields.items():
+        setattr(row, key, value)
+    row.save()
+    return row
+
+
+def ensure_checklist(servicio):
+    """Own the only active template for this service.
+
+    A clean database has no leftover inspection template. Other active
+    templates for the same service are turned off so the resolver cannot
+    prefer them.
+    """
+    template = Template.objects.filter(servicio=servicio, version=TEMPLATE_VERSION).first()
+    if template is None:
+        template = Template.objects.create(
+            nombre=TEMPLATE_NOMBRE,
+            descripcion='Checklist de la suite aislada',
+            servicio=servicio,
+            version=TEMPLATE_VERSION,
+            activo=True,
+            generado_por_ia=False,
+            tipo_intencion_default='INSPECCION',
+        )
+    else:
+        template.nombre = TEMPLATE_NOMBRE
+        template.activo = True
+        template.generado_por_ia = False
+        template.tipo_intencion_default = 'INSPECCION'
+        template.save()
+
+    Template.objects.filter(servicio=servicio, activo=True).exclude(pk=template.pk).update(activo=False)
+
+    linked = []
+    for index, spec in enumerate(CHECKLIST_SPECS, start=1):
+        cat = catalog_item(spec)
+        row = ItemTemplate.objects.filter(checklist_template=template, catalog_item=cat).first()
+        if row is None:
+            row = ItemTemplate(
+                checklist_template=template,
+                catalog_item=cat,
+                orden_visual=1000 + index,
+                es_obligatorio=True,
+            )
+            row.save()
+        row.orden_visual = 1000 + index
+        row.es_obligatorio = True
+        row.save()
+        linked.append((spec, row))
+
+    for index, (_, row) in enumerate(linked, start=1):
+        if row.orden_visual != index:
+            row.orden_visual = index
+            row.save(update_fields=['orden_visual'])
+
+    return template, linked
 
 
 def main() -> None:
@@ -206,46 +313,20 @@ def main() -> None:
         oferta.disponible = True
         oferta.save(update_fields=['disponible'])
 
-    Template.objects.filter(nombre='Checklist Fixture 3624', servicio=servicio).update(activo=False)
-    template = (
-        Template.objects.filter(servicio=servicio, activo=True)
-        .order_by('fecha_creacion')
-        .first()
-    )
-    item = None
-    if template is not None:
-        item = (
-            ItemTemplate.objects.filter(
-                checklist_template=template,
-                catalog_item__nombre=SELECT_LABEL,
-            )
-            .order_by('orden_visual')
-            .first()
-        )
-    if template is None or item is None:
-        catalogo, _ = Catalogo.objects.get_or_create(
-            nombre=SELECT_LABEL,
-            tipo_pregunta='SELECT',
-            defaults={
-                'categoria': 'FLUIDOS',
-                'pregunta_texto': '',
-                'opciones_seleccion': ['bueno', 'bajo', 'sucio'],
-                'es_obligatorio_por_defecto': True,
-                'activo': True,
-            },
-        )
-        template, _ = Template.objects.get_or_create(
-            nombre='Checklist Fixture 3624',
-            servicio=servicio,
-            defaults={'activo': True, 'version': '1'},
-        )
-        template.activo = True
-        template.save(update_fields=['activo'])
-        item, _ = ItemTemplate.objects.get_or_create(
-            checklist_template=template,
-            catalog_item=catalogo,
-            defaults={'orden_visual': 1, 'es_obligatorio': True},
-        )
+    template, linked = ensure_checklist(servicio)
+    item = next(row for spec, row in linked if spec['key'] == 'aceite')
+    checklist_items = []
+    for spec, row in linked:
+        entry = {
+            'key': spec['key'],
+            'label': spec['label'],
+            'tipo': spec['tipo'],
+            'item_template_id': row.id,
+            'answer': spec['answer'],
+        }
+        if spec['tipo'] == 'SELECT' and spec['answer']:
+            entry['option_test_id'] = f"checklist-option-{spec['answer']}"
+        checklist_items.append(entry)
 
     hoy = timezone.localdate()
     comun = {
@@ -324,6 +405,7 @@ def main() -> None:
             'miembro_id': mechanic_ocupado.id,
             'nombre': mechanic_ocupado.nombre,
         },
+        'database_name': os.environ.get('FIXTURE_DATABASE_NAME', ''),
         'order_checklist': {
             'id': order_checklist.id,
             'instance_id': instance.id,
@@ -331,6 +413,12 @@ def main() -> None:
         },
         'order_open': {'id': order_open.id},
         'order_busy': {'id': order_busy.id},
+        'checklist': {
+            'template_id': template.id,
+            'template_nombre': template.nombre,
+            'item_count': len(checklist_items),
+            'items': checklist_items,
+        },
     }
     target = Path(os.environ['FIXTURE_MANIFEST'])
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -338,12 +426,16 @@ def main() -> None:
     print(
         'manifest',
         target,
-        'checklist_order',
-        order_checklist.id,
-        'open_order',
-        order_open.id,
-        'oferta',
-        oferta.id,
+        'database',
+        manifest['database_name'],
+        'template',
+        template.id,
+        'items',
+        len(checklist_items),
+        'keys',
+        ','.join(entry['key'] for entry in checklist_items),
+        'option_test_ids',
+        ','.join(entry['option_test_id'] for entry in checklist_items if entry.get('option_test_id')),
     )
 
 

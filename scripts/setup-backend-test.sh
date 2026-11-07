@@ -93,6 +93,7 @@ export WHATSAPP_TEMPLATES_ENABLED=False
 export GDAL_LIBRARY_PATH="${GDAL_LIBRARY_PATH:-/usr/lib/x86_64-linux-gnu/libgdal.so}"
 export SECRET_KEY="${SECRET_KEY:-test-secret-key-for-ci-only-never-use-in-production}"
 export FIXTURE_MANIFEST="$MANIFEST"
+export FIXTURE_DATABASE_NAME="$DB_NAME"
 
 (
   cd "$BACKEND_DIR"
