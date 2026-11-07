@@ -945,24 +945,31 @@ class ChecklistService {
     try {
       logger.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
       
-      // ✅ NUEVA LÓGICA: NO MÁS CACHE PROBLEMÁTICO
-      // Hacer siempre llamada HTTP fresca para órdenes en estados que pueden tener checklist
-      logger.log('🌐 Haciendo llamada HTTP directa para orden:', ordenId);
+      // Use query param version instead of path version (403 issue)
+      const response = await api.get(`/checklists/instances/?orden_id=${ordenId}`);
+      logger.log('📋 Response from API:', response.data);
       
-      const response = await api.get(`/checklists/instances/by_order/${ordenId}/`);
-      logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.id);
-      
-      return {
-        success: true,
-        data: response.data,
-        message: 'Checklist encontrado exitosamente',
-        isEmpty: false
-      };
+      if (response.data.count > 0 && response.data.results[0]) {
+        logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.results[0].id);
+        return {
+          success: true,
+          data: response.data.results[0],
+          message: 'Checklist encontrado exitosamente',
+          isEmpty: false
+        };
+      } else {
+        logger.log('ℹ️ No checklist instance found for orden:', ordenId);
+        return {
+          success: false,
+          data: null,
+          message: 'No hay checklist para esta orden',
+          isEmpty: true
+        };
+      }
       
     } catch (error: any) {
-      logger.log('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
+      logger.error('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
       
-      // No contaminar cache en casos de 404 temporal durante creación
       return {
         success: false,
         data: null as any,
