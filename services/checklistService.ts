@@ -941,28 +941,58 @@ class ChecklistService {
     }
   }
 
-  async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
+  private ordenIdOf(row: ChecklistInstance): number | null {
+    const orden = row.orden as number | { id?: number } | null | undefined;
+    if (typeof orden === 'number') return orden;
+    if (orden && typeof orden === 'object' && typeof orden.id === 'number') return orden.id;
+    return null;
+  }
+
+  private async findInstanceForOrden(
+    page: { results?: ChecklistInstance[]; next?: string | null },
+    ordenId: number,
+  ): Promise<ChecklistInstance | null> {
+    let current: { results?: ChecklistInstance[]; next?: string | null } | null = page;
+    for (let guard = 0; current && guard < 10; guard += 1) {
+      const match = (current.results || []).find((row) => this.ordenIdOf(row) === Number(ordenId));
+      if (match) return match;
+      if (!current.next) return null;
+      const next = await api.get(current.next);
+      current = next.data;
+    }
+    return null;
+  }
+
+  async getInstanceByOrder(ordenId: number): Promise<ServiceResponse<ChecklistInstance | null>> {
     try {
       logger.log('🔍 getInstanceByOrder llamado para orden:', ordenId);
       
-      // ✅ NUEVA LÓGICA: NO MÁS CACHE PROBLEMÁTICO
-      // Hacer siempre llamada HTTP fresca para órdenes en estados que pueden tener checklist
-      logger.log('🌐 Haciendo llamada HTTP directa para orden:', ordenId);
+      // Use query param version instead of path version (403 issue)
+      const response = await api.get(`/checklists/instances/?orden_id=${ordenId}`);
+      logger.log('📋 Response from API:', response.data);
       
-      const response = await api.get(`/checklists/instances/by_order/${ordenId}/`);
-      logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', response.data.id);
-      
-      return {
-        success: true,
-        data: response.data,
-        message: 'Checklist encontrado exitosamente',
-        isEmpty: false
-      };
+      const match = await this.findInstanceForOrden(response.data, ordenId);
+      if (match) {
+        logger.log('✅ Checklist encontrado para orden:', ordenId, '- ID:', match.id);
+        return {
+          success: true,
+          data: match,
+          message: 'Checklist encontrado exitosamente',
+          isEmpty: false
+        };
+      } else {
+        logger.log('ℹ️ No checklist instance found for orden:', ordenId);
+        return {
+          success: false,
+          data: null,
+          message: 'No hay checklist para esta orden',
+          isEmpty: true
+        };
+      }
       
     } catch (error: any) {
-      logger.log('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
+      logger.error('❌ Error obteniendo checklist para orden:', ordenId, '- Error:', error.response?.status);
       
-      // No contaminar cache en casos de 404 temporal durante creación
       return {
         success: false,
         data: null as any,
@@ -1051,16 +1081,7 @@ class ChecklistService {
 
   async pauseInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      const response = await api.post(`${this.baseUrl}/instances/${instanceId}/pause/`);
-      const instance = response.data;
-      
-      // Actualizar offline
-      await this.offlineManager.saveChecklistInstance(instance);
-      
-      return {
-        success: true,
-        data: instance
-      };
+      return await this.applyInstanceMessage(instanceId, 'pause', 'pausar checklist');
     } catch (error) {
       return this.handleServiceError(error, 'pausar checklist');
     }
@@ -1068,18 +1089,50 @@ class ChecklistService {
 
   async resumeInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
-      const response = await api.post(`${this.baseUrl}/instances/${instanceId}/resume/`);
-      const instance = response.data;
-      
-      // Actualizar offline
-      await this.offlineManager.saveChecklistInstance(instance);
-      
-      return {
-        success: true,
-        data: instance
-      };
+      return await this.applyInstanceMessage(instanceId, 'resume', 'reanudar checklist');
     } catch (error) {
       return this.handleServiceError(error, 'reanudar checklist');
+    }
+  }
+
+  /**
+   * Pause and resume respond with `{ message }` and no instance id.
+   * The updated checklist is the following GET, not the POST body.
+   */
+  private async applyInstanceMessage(
+    instanceId: number,
+    action: 'pause' | 'resume',
+    fallback: string,
+  ): Promise<ServiceResponse<ChecklistInstance>> {
+    const response = await api.post(`${this.baseUrl}/instances/${instanceId}/${action}/`);
+    const body = response.data as { id?: unknown; message?: string } | null;
+    if (body && typeof body.id === 'number') {
+      await this.offlineManager.saveChecklistInstance(body as ChecklistInstance);
+      return { success: true, data: body as ChecklistInstance, message: body.message };
+    }
+    try {
+      const fetched = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
+      const instance = fetched.data as ChecklistInstance | null;
+      if (!instance || typeof instance.id !== 'number') {
+        return {
+          success: false,
+          data: null as any,
+          message: body?.message || `No se pudo leer el checklist después de ${fallback}`,
+        };
+      }
+      await this.offlineManager.saveChecklistInstance(instance);
+      return {
+        success: true,
+        data: instance,
+        message: typeof body?.message === 'string' ? body.message : undefined,
+      };
+    } catch (error) {
+      logger.error(`❌ ${action} respondió sin instancia y el GET falló:`, error);
+      return {
+        success: false,
+        data: null as any,
+        message: body?.message || `No se pudo leer el checklist después de ${fallback}`,
+      };
     }
   }
 
@@ -1218,34 +1271,60 @@ class ChecklistService {
         };
       } catch (onlineError: any) {
         const status = onlineError?.response?.status;
-        // Auth / validación: no fingir éxito offline (rompe el progreso en UI).
-        if (status === 400 || status === 403 || status === 404) {
-          if (!response.id && response.item_template) {
-            const recovered = await this.recoverExistingResponse(
-              instanceId,
-              response.item_template,
-            );
-            if (recovered) {
-              await this.offlineManager.saveResponse(recovered, instanceId);
-              return { success: true, data: recovered };
+        // Unicidad: la fila ya existe. Un PATCH del mismo id escribe el valor pedido
+        // sin crear otra respuesta. Si ese PATCH no llega, no se reporta como guardado.
+        if ((status === 400 || status === 404) && !response.id && response.item_template) {
+          const recovered = await this.recoverExistingResponse(
+            instanceId,
+            response.item_template,
+          );
+          if (recovered?.id) {
+            try {
+              const patched = await api.patch(`${this.baseUrl}/responses/${recovered.id}/`, {
+                checklist_instance: instanceId,
+                ...response,
+                id: recovered.id,
+              });
+              return { success: true, data: patched.data };
+            } catch (patchError: any) {
+              const patchStatus = patchError?.response?.status;
+              if (patchStatus === 400 || patchStatus === 403 || patchStatus === 404) {
+                return this.handleServiceError(patchError, 'guardar respuesta');
+              }
+              const pending = { ...response, id: recovered.id };
+              await this.offlineManager.saveResponse(pending, instanceId);
+              return {
+                success: true,
+                data: pending,
+                message: 'Respuesta guardada localmente, se sincronizará cuando tengas conexión',
+              };
             }
           }
+        }
+
+        if (status === 400 || status === 403 || status === 404) {
           return this.handleServiceError(onlineError, 'guardar respuesta');
         }
 
-        // Create sin id: no fingir éxito (disparaba loop ensurePhoto + botón eterno).
-        // Si el servidor escribió pero el cliente abortó (499), recuperar la fila.
+        // Sin confirmación del servidor no se muestra como guardado.
+        // Si la fila ya existe, el reintento usa ese id (PATCH) y no abre otra.
         if (!response.id && response.item_template) {
           const recovered = await this.recoverExistingResponse(
             instanceId,
             response.item_template,
           );
-          if (recovered) {
-            await this.offlineManager.saveResponse(recovered, instanceId);
-            return { success: true, data: recovered };
+          if (recovered?.id) {
+            const pending = { ...response, id: recovered.id };
+            await this.offlineManager.saveResponse(pending, instanceId);
+            return {
+              success: true,
+              data: pending,
+              message: 'Respuesta guardada localmente, se sincronizará cuando tengas conexión',
+            };
           }
           return {
             success: false,
+            data: response,
             message:
               'No se pudo registrar la respuesta del ítem. Revisa tu conexión e intenta de nuevo.',
           };
@@ -1402,7 +1481,7 @@ class ChecklistService {
     };
   }
 
-  async forceRefreshChecklist(ordenId: number): Promise<ServiceResponse<ChecklistInstance>> {
+  async forceRefreshChecklist(ordenId: number): Promise<ServiceResponse<ChecklistInstance | null>> {
     logger.log('🔄 Forzando refresh de checklist para orden:', ordenId);
     
     // ✅ NUEVA LÓGICA SIMPLE: Solo hacer llamada HTTP directa

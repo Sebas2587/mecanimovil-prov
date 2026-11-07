@@ -53,6 +53,7 @@ export type InstitutionalButtonProps = {
   loading?: boolean;
   leading?: React.ReactNode;
   accessibilityLabel?: string;
+  testID?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -68,6 +69,7 @@ export function InstitutionalButton({
   loading = false,
   leading,
   accessibilityLabel,
+  testID,
   style,
 }: InstitutionalButtonProps) {
   const isDisabled = disabled || loading;
@@ -91,6 +93,7 @@ export function InstitutionalButton({
   if (variant === 'primary' && !isDisabled) {
     return (
       <Pressable
+        testID={testID}
         onPress={onPress}
         disabled={isDisabled}
         accessibilityRole="button"
@@ -120,6 +123,7 @@ export function InstitutionalButton({
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
