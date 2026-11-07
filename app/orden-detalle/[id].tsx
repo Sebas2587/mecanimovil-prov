@@ -848,7 +848,7 @@ export default function OrdenDetalleScreen() {
       </ScrollView>
 
       {/* Botones de acción */}
-      {orden.puede_gestionar && (
+      {(orden.puede_gestionar || (tieneChecklistDisponible && orden.estado === 'servicio_iniciado')) && (
         <View style={styles.actionsContainer}>
           {!esMecanicoEquipo && orden.estado === 'pendiente_aceptacion_proveedor' && (
             <>
