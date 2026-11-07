@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loadFixtureManifest } from './fixtureManifest';
 
 const BASE_URL = 'http://localhost:19006';
 const API_URL = 'http://localhost:8010';
-const ORDER_ID = 1;
 
 test('Checklist button must show', async ({ page, context, request }) => {
+  test.setTimeout(180000);
   console.log('=== CHECKLIST BUTTON TEST ===\n');
 
   const consoleLogs: string[] = [];
@@ -28,8 +29,13 @@ test('Checklist button must show', async ({ page, context, request }) => {
 
   page.on('pageerror', err => { throw new Error(`Page error: ${err.message}`); });
 
+  const manifest = loadFixtureManifest();
+  const ORDER_ID = manifest.order_checklist.id;
+  const INSTANCE_ID = manifest.order_checklist.instance_id;
+  const SELECT_ITEM = manifest.order_checklist.select_item_template_id;
+  const SELECT_LABEL = manifest.select_label;
   const auth = await (await request.post(`${API_URL}/api/usuarios/login-proveedor/`, {
-    data: { username: 'mechanic_test@example.com', password: 'test123' }
+    data: { username: manifest.mechanic_checklist.email, password: 'test123' }
   })).json();
   
   console.log(`✓ Mechanic logged in`);
@@ -77,20 +83,20 @@ test('Checklist button must show', async ({ page, context, request }) => {
   console.log('Attempting to find and click checklist item...');
   
   // Approach 1: Find row with both title and OBLIGATORIO badge
-  let itemRow = page.locator('div').filter({ hasText: /^Revisar nivel de aceite/ }).filter({ has: page.locator('text=OBLIGATORIO') });
+  let itemRow = page.locator('div').filter({ hasText: new RegExp(`^${SELECT_LABEL}`) }).filter({ has: page.locator('text=OBLIGATORIO') });
   let rowCount = await itemRow.count();
   console.log(`Approach 1 (title + badge): found ${rowCount} elements`);
   
   // Approach 2: Try chevron icon parent
   if (rowCount === 0) {
-    itemRow = page.locator('text=Revisar nivel de aceite').locator('xpath=ancestor::div[contains(@style, "cursor")]').first();
+    itemRow = page.getByText(SELECT_LABEL, { exact: true }).locator('xpath=ancestor::div[contains(@style, "cursor")]').first();
     rowCount = await itemRow.count();
     console.log(`Approach 2 (cursor style parent): found ${rowCount} elements`);
   }
   
   // Approach 3: Simplest - just the title text's grandparent div
   if (rowCount === 0) {
-    itemRow = page.locator('text=Revisar nivel de aceite').locator('xpath=../..').first();
+    itemRow = page.getByText(SELECT_LABEL, { exact: true }).locator('xpath=../..').first();
     rowCount = await itemRow.count();
     console.log(`Approach 3 (grandparent): found ${rowCount} elements`);
   }
@@ -111,7 +117,7 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-ITEM-AFTER-CLICK.png', fullPage: true });
   
   const question = page.getByTestId('checklist-item-question');
-  await expect(question).toHaveText('Revisar nivel de aceite');
+  await expect(question).toHaveText(SELECT_LABEL);
 
   // Select "bajo" option (observable change from any previous state)
   const bajoOption = page.getByTestId('checklist-option-bajo');
@@ -161,7 +167,7 @@ test('Checklist button must show', async ({ page, context, request }) => {
   const getData = await getResponse.json();
   const orderInstance = getData.results.find((row: { orden?: number | null }) => row.orden === ORDER_ID);
   const savedResponses = orderInstance?.respuestas || [];
-  const firstItemResponse = savedResponses.find((r: any) => r.item_template === 5);
+  const firstItemResponse = savedResponses.find((r: { item_template: number }) => r.item_template === SELECT_ITEM);
   
   console.log(`✅ GET verification: Response ID ${firstItemResponse?.id}, seleccion="${firstItemResponse?.respuesta_seleccion}"`);
   
@@ -180,12 +186,12 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await page.waitForTimeout(3000);
   
   // Click first item to open detail
-  const firstItemAgain = page.locator('div').filter({ hasText: /^Revisar nivel de aceite/ }).first();
+  const firstItemAgain = page.locator('div').filter({ hasText: new RegExp(`^${SELECT_LABEL}`) }).first();
   await firstItemAgain.click({ force: true });
   await page.waitForTimeout(2000);
   
   console.log('✅ Reopened item detail');
-  await expect(page.getByTestId('checklist-item-question')).toHaveText('Revisar nivel de aceite');
+  await expect(page.getByTestId('checklist-item-question')).toHaveText(SELECT_LABEL);
   const bajoSelected = page.getByTestId('checklist-option-bajo');
   await expect(bajoSelected).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('checklist-option-bueno')).toHaveAttribute('aria-selected', 'false');
@@ -210,10 +216,10 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await expect(page.getByText('Checklist pausado')).toBeVisible();
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-PAUSED.png', fullPage: true });
 
-  const paused = await (await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+  const paused = await (await page.request.get(`${API_URL}/api/checklists/instances/${INSTANCE_ID}/`, {
     headers: { Authorization: `Token ${auth.token}` },
   })).json();
-  const pausedAnswer = paused.respuestas.find((r: { item_template: number }) => r.item_template === 5);
+  const pausedAnswer = paused.respuestas.find((r: { item_template: number }) => r.item_template === SELECT_ITEM);
   console.log(`PAUSE estado=${paused.estado} response=${pausedAnswer?.id} seleccion=${pausedAnswer?.respuesta_seleccion}`);
   expect(paused.estado).toBe('PAUSADO');
   expect(pausedAnswer?.respuesta_seleccion).toBe('bajo');
@@ -222,10 +228,10 @@ test('Checklist button must show', async ({ page, context, request }) => {
   await expect(page.getByRole('button', { name: 'Pausar checklist' })).toBeVisible();
   await page.screenshot({ path: '/opt/cursor/artifacts/CHECKLIST-RESUMED.png', fullPage: true });
 
-  const resumed = await (await page.request.get(`${API_URL}/api/checklists/instances/2/`, {
+  const resumed = await (await page.request.get(`${API_URL}/api/checklists/instances/${INSTANCE_ID}/`, {
     headers: { Authorization: `Token ${auth.token}` },
   })).json();
-  const resumedAnswer = resumed.respuestas.find((r: { item_template: number }) => r.item_template === 5);
+  const resumedAnswer = resumed.respuestas.find((r: { item_template: number }) => r.item_template === SELECT_ITEM);
   console.log(`RESUME estado=${resumed.estado} response=${resumedAnswer?.id} seleccion=${resumedAnswer?.respuesta_seleccion}`);
   expect(resumed.estado).toBe('EN_PROGRESO');
   expect(resumedAnswer?.respuesta_seleccion).toBe('bajo');

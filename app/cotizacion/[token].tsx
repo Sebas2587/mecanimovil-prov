@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { publicApiBase } from '@/utils/publicApiBase';
 
 const I = COLORS.institutional;
 
@@ -25,16 +26,6 @@ type CotizacionPublica = {
   error?: string;
 };
 
-function apiBase(): string {
-  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-    const force = localStorage.getItem('FORCE_LOCAL_API');
-    const local = localStorage.getItem('LOCAL_API_URL');
-    if (force === 'true' && local) return local.replace(/\/$/, '');
-  }
-  const prod = (process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://mecanimovil-api.onrender.com').replace(/\/$/, '');
-  return prod.endsWith('/api') ? prod : `${prod}/api`;
-}
-
 function dinero(value: number | null | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return '';
@@ -53,7 +44,7 @@ export default function CotizacionPublicaScreen() {
     enabled: Boolean(token),
     retry: false,
     queryFn: async () => {
-      const resp = await fetch(`${apiBase()}/ordenes/cotizaciones-publicas/${encodeURIComponent(token)}/`, {
+      const resp = await fetch(`${publicApiBase()}/ordenes/cotizaciones-publicas/${encodeURIComponent(token)}/`, {
         headers: { Accept: 'application/json' },
       });
       const body = (await resp.json()) as CotizacionPublica;
@@ -76,7 +67,7 @@ export default function CotizacionPublicaScreen() {
     setErrorLocal('');
     try {
       const resp = await fetch(
-        `${apiBase()}/ordenes/cotizaciones-publicas/${encodeURIComponent(token)}/${accion}/`,
+        `${publicApiBase()}/ordenes/cotizaciones-publicas/${encodeURIComponent(token)}/${accion}/`,
         { method: 'POST', headers: { Accept: 'application/json' } },
       );
       const body = (await resp.json()) as CotizacionPublica;

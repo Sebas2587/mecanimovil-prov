@@ -17,6 +17,10 @@
     "e2e:checklist": "playwright test e2e/checklist-button-test.spec.ts --project=chromium",
     "e2e:network": "playwright test e2e/checklist-network-recovery.spec.ts --project=chromium",
     "e2e:consent": "playwright test e2e/consent-public-link.spec.ts --project=chromium",
+    "e2e:assignment": "playwright test e2e/assignment-ui.spec.ts --project=chromium",
+    "e2e:flujo": "playwright test e2e/assignment-ui.spec.ts e2e/checklist-button-test.spec.ts e2e/checklist-network-recovery.spec.ts e2e/consent-public-link.spec.ts --project=chromium",
+    "fixtures:backend": "bash scripts/setup-backend-test.sh",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --pretty false",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

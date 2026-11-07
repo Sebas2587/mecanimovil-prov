@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
+import SignaturePad, { type SignaturePadRef } from '@/components/signature/SignaturePad';
+import { publicApiBase } from '@/utils/publicApiBase';
 
 const I = COLORS.institutional;
-
-const FIRMA_MINIMA =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+const CANVAS_HEIGHT = 180;
 
 type InformePublico = {
   token?: string;
@@ -22,20 +22,17 @@ type InformePublico = {
   message?: string;
 };
 
-function apiBase(): string {
-  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-    const force = localStorage.getItem('FORCE_LOCAL_API');
-    const local = localStorage.getItem('LOCAL_API_URL');
-    if (force === 'true' && local) return local.replace(/\/$/, '');
-  }
-  const prod = (process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://mecanimovil-api.onrender.com').replace(/\/$/, '');
-  return prod.endsWith('/api') ? prod : `${prod}/api`;
+function firmaDibujada(signature: string): boolean {
+  const value = signature.trim();
+  return value.startsWith('data:image/') && value.length > 120;
 }
 
 export default function InformePublicoScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const insets = useSafeAreaInsets();
+  const signatureRef = useRef<SignaturePadRef>(null);
   const [nombre, setNombre] = useState('');
+  const [trazo, setTrazo] = useState(false);
   const [override, setOverride] = useState<InformePublico | null>(null);
   const [errorLocal, setErrorLocal] = useState('');
   const [firmando, setFirmando] = useState(false);
@@ -45,7 +42,7 @@ export default function InformePublicoScreen() {
     enabled: Boolean(token),
     retry: false,
     queryFn: async () => {
-      const resp = await fetch(`${apiBase()}/checklists/informes/${encodeURIComponent(token)}/`, {
+      const resp = await fetch(`${publicApiBase()}/checklists/informes/${encodeURIComponent(token)}/`, {
         headers: { Accept: 'application/json' },
       });
       const body = (await resp.json()) as InformePublico;
@@ -62,21 +59,22 @@ export default function InformePublicoScreen() {
     ? 'Falta el enlace del informe.'
     : errorLocal || (loaded.error instanceof Error ? loaded.error.message : '');
   const puedeFirmar = Boolean(doc && doc.estado !== 'FIRMADO' && doc.estado !== 'VEHICULO_RECLAMADO' && !doc.error);
+  const listo = puedeFirmar && nombre.trim().length > 0 && trazo && !firmando;
 
-  const firmar = async () => {
+  const enviar = async (signature: string) => {
     if (!token) return;
     const limpio = nombre.trim();
-    if (!limpio) {
-      setErrorLocal('Escribe tu nombre para firmar.');
+    if (!limpio || !firmaDibujada(signature)) {
+      setErrorLocal('Escribe tu nombre y dibuja la firma en el recuadro.');
       return;
     }
     setFirmando(true);
     setErrorLocal('');
     try {
-      const resp = await fetch(`${apiBase()}/checklists/informes/${encodeURIComponent(token)}/firmar-cliente/`, {
+      const resp = await fetch(`${publicApiBase()}/checklists/informes/${encodeURIComponent(token)}/firmar-cliente/`, {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firma_cliente: FIRMA_MINIMA, firmado_por_nombre: limpio }),
+        body: JSON.stringify({ firma_cliente: signature, firmado_por_nombre: limpio }),
       });
       const body = (await resp.json()) as InformePublico;
       if (!resp.ok) {
@@ -125,16 +123,31 @@ export default function InformePublicoScreen() {
           <View style={styles.actions}>
             <TextInput
               testID="informe-publico-nombre"
+              accessibilityLabel="Nombre de quien firma"
               value={nombre}
               onChangeText={setNombre}
               placeholder="Tu nombre"
               placeholderTextColor={I.muted}
               style={styles.input}
             />
+            <View
+              accessibilityLabel="Zona de firma. Dibuja tu firma en el recuadro."
+              testID="informe-publico-firma"
+              style={styles.pad}
+            >
+              <SignaturePad
+                ref={signatureRef}
+                height={CANVAS_HEIGHT}
+                onBegin={() => setTrazo(true)}
+                onEmpty={() => setErrorLocal('La firma está vacía. Dibuja en el recuadro.')}
+                onOK={(signature) => { void enviar(signature); }}
+              />
+            </View>
             <InstitutionalButton
               label={firmando ? 'Firmando…' : 'Firmar servicio'}
-              onPress={() => { void firmar(); }}
-              disabled={firmando}
+              onPress={() => signatureRef.current?.readSignature()}
+              disabled={!listo}
+              accessibilityLabel="Enviar la firma dibujada"
               testID="informe-publico-firmar"
             />
           </View>
@@ -169,6 +182,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
     color: I.ink,
+    backgroundColor: I.paper,
+  },
+  pad: {
+    height: CANVAS_HEIGHT,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: 12,
+    overflow: 'hidden',
     backgroundColor: I.paper,
   },
 });
