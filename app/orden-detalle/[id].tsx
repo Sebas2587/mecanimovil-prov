@@ -889,14 +889,42 @@ export default function OrdenDetalleScreen() {
             </>
           )}
           {orden.estado === 'aceptada_por_proveedor' && (
-            <InstitutionalButton
-              label="Iniciar Servicio"
-              variant="primary"
-              onPress={handleIniciarServicio}
-              disabled={procesando}
-              style={styles.actionButtonFlex}
-              leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-            />
+            <>
+              {/* Next Action Banner */}
+              <View style={styles.nextActionBanner}>
+                <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <View style={styles.nextActionContent}>
+                  <InstitutionalText variant="body-bold" color="primary">
+                    Próximos pasos
+                  </InstitutionalText>
+                  <InstitutionalText variant="caption" color="muted">
+                    {!orden.mecanico_asignado 
+                      ? '1. Asigna un técnico  •  2. Inicia el servicio'
+                      : `Técnico: ${orden.mecanico_asignado.nombre}  •  Listo para iniciar`
+                    }
+                  </InstitutionalText>
+                </View>
+              </View>
+              
+              {!orden.mecanico_asignado && (
+                <InstitutionalButton
+                  label="Asignar Técnico"
+                  variant="secondary"
+                  onPress={() => setModalAsignarTecnico({ tipo: 'orden', ordenId: orden.id, miembroActualId: orden.mecanico_asignado?.id })}
+                  style={[styles.actionButtonFlex, { marginBottom: 8 }]}
+                  leading={<InstitutionalIcon name="person" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                />
+              )}
+              
+              <InstitutionalButton
+                label={orden.mecanico_asignado ? "Iniciar Servicio" : "Iniciar sin Técnico Asignado"}
+                variant="primary"
+                onPress={handleIniciarServicio}
+                disabled={procesando}
+                style={styles.actionButtonFlex}
+                leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+            </>
           )}
           {orden.estado === 'en_proceso' && (
             <InstitutionalButton
@@ -1257,6 +1285,20 @@ const styles = StyleSheet.create({
   },
   actionButtonFlex: {
     flex: 1,
+  },
+  nextActionBanner: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.2),
+    marginBottom: 12,
+  },
+  nextActionContent: {
+    flex: 1,
+    gap: 4,
   },
   historialButton: {
     flexDirection: 'row',
