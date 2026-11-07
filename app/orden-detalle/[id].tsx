@@ -306,7 +306,7 @@ export default function OrdenDetalleScreen() {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 await checklistService.clearChecklistCache();
                 
-                const mensaje = resultado.data?.mensaje || resultado.message || 'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.';
+                const mensaje = resultado.data?.message || resultado.message || 'El servicio ha sido iniciado. Ahora puedes proceder con el checklist.';
                 Alert.alert(
                   'Servicio Iniciado', 
                   mensaje,
