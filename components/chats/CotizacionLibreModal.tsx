@@ -144,6 +144,7 @@ export function CotizacionLibreModal({
   const { width: viewportWidth } = useWindowDimensions();
   const footerBottom = webFooterBottom(webViewport, insets.bottom, SPACING.md);
   const footerApilado = webViewport.touch || viewportWidth < 520;
+  const [footerHeight, setFooterHeight] = useState(128);
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -848,7 +849,10 @@ export function CotizacionLibreModal({
 
           <ScrollView
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: footerHeight + SPACING.fixed.md },
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -1038,6 +1042,10 @@ export function CotizacionLibreModal({
           </ScrollView>
 
           <View
+            onLayout={(event) => {
+              const next = Math.ceil(event.nativeEvent.layout.height);
+              setFooterHeight((prev) => (prev === next ? prev : next));
+            }}
             style={[
               styles.footer,
               footerApilado && styles.footerStack,
@@ -1239,8 +1247,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xl + SPACING.fixed.xl,
+    paddingBottom: SPACING.fixed.md,
     gap: SPACING.fixed.xs,
+    flexGrow: 1,
   },
   sectionTitle: {
     marginBottom: SPACING.fixed.xxs,

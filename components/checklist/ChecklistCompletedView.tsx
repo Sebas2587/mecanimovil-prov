@@ -59,11 +59,20 @@ function resolveTipoPregunta(response: ChecklistItemResponse): string {
   );
 }
 
-function itemsPlantillaPorId(instance: ChecklistInstance | null): Map<number, { pregunta_texto?: string; tipo_pregunta?: string; nombre?: string }> {
-  const nested = (instance as ChecklistInstance & {
-    checklist_template?: { items?: Array<{ id: number; pregunta_texto?: string; tipo_pregunta?: string; nombre?: string }> };
-  } | null)?.checklist_template;
-  const items = nested && typeof nested === 'object' && Array.isArray(nested.items) ? nested.items : [];
+type PlantillaItemResumen = {
+  id: number;
+  pregunta_texto?: string;
+  tipo_pregunta?: string;
+  nombre?: string;
+};
+
+function itemsPlantillaPorId(instance: ChecklistInstance | null): Map<number, PlantillaItemResumen> {
+  // El contrato tipado expone checklist_template como id numérico; el fixture/API
+  // a veces anida el objeto. Leemos el nested sin cruzar number ∩ object (= never).
+  const nested = instance == null
+    ? undefined
+    : (instance as unknown as { checklist_template?: { items?: PlantillaItemResumen[] } }).checklist_template;
+  const items = Array.isArray(nested?.items) ? nested.items : [];
   return new Map(items.map((item) => [item.id, item]));
 }
 

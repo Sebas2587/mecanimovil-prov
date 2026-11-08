@@ -13,7 +13,7 @@ import {
   HomeFloatingAlertsDock,
   type OpsFloatingAlert,
 } from '@/components/home/HomeFloatingAlertsDock';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bell,
   Clock,
@@ -31,7 +31,6 @@ import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
-import { useTallerShell } from '@/components/navigation/TallerShellContext';
 import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
@@ -46,8 +45,6 @@ import logger from '@/utils/logger';
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const { accionFlotante, reservaLista } = useTallerShell();
   const marcoLista = useMarcoListaStyle();
   const { saludSuscripcion, alertasNoLeidas } = useAlerts();
 
@@ -455,19 +452,17 @@ export default function HomeScreen() {
 
   // Cuenta aprobada: dashboard principal
   return (
-    <TabScreenWrapper style={[marcoHome, { overflow: 'visible' }]}>
-      <View style={[themedStyles.screen, { backgroundColor: palette.canvas, overflow: 'visible' }]}>
+    <TabScreenWrapper style={marcoHome}>
+      <View style={[themedStyles.screen, { backgroundColor: palette.canvas, minHeight: 0, overflow: 'hidden' }]}>
         <ScrollView
-          style={hostScreenStyles.scroll}
+          style={[hostScreenStyles.scroll, { minHeight: 0, flexShrink: 1 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             {
               paddingTop: SPACING.fixed.md,
-              paddingBottom: insets.bottom
-                + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl)
-                + (accionFlotante ? Math.max(reservaLista, 72) : 0),
+              paddingBottom: safeSpacing?.fixed?.xl ?? SPACING.fixed.xl,
             },
           ]}
         >

@@ -133,11 +133,13 @@ export default function CrearOfertaScreen() {
   
   const handleIrAComprarCreditos = () => {
     const min = verificacionCreditos?.creditos_necesarios;
-    const q =
-      min != null && min > 0
-        ? `?tab=tienda&minCreditos=${encodeURIComponent(String(min))}`
-        : '?tab=tienda';
-    router.push(`/creditos${q}`);
+    router.push({
+      pathname: '/creditos',
+      params:
+        min != null && min > 0
+          ? { tab: 'tienda', minCreditos: String(min) }
+          : { tab: 'tienda' },
+    });
   };
 
   const handleSubmit = async (datosOferta: {
@@ -184,7 +186,7 @@ export default function CrearOfertaScreen() {
               { text: 'Cancelar', style: 'cancel' },
               {
                 text: 'Configurar',
-                onPress: () => router.push('/(tabs)/configuracion-mercadopago'),
+                onPress: () => router.push('/configuracion-mercadopago'),
               },
             ]
           );

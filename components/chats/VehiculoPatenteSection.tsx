@@ -322,8 +322,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   fieldHalf: {
-    flex: 1,
-    minWidth: 148,
+    flexGrow: 1,
+    flexBasis: 220,
+    minWidth: 220,
   },
   vehiculoGrid: {
     flexDirection: 'row',

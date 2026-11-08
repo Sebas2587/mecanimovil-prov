@@ -8,7 +8,7 @@ import {
   Animated,
   type ViewStyle,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { X, type LucideIcon, MessageCircle, Sparkles, Send, CircleX, BellRing, CalendarCheck, CheckCircle2 } from 'lucide-react-native';
 import websocketService, { type AgenteIaEvent, type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
@@ -56,7 +56,7 @@ type LeadFloatingAlert = {
   id: string;
   title: string;
   message: string;
-  href?: string;
+  href?: Href;
   kind: 'lead';
   leadTone: LeadAlertTone;
 };
@@ -374,7 +374,7 @@ function HomeFloatingAlertsDockInner({
 
   const openLead = useCallback((alert: LeadFloatingAlert) => {
     dismissLead(alert.id);
-    if (alert.href) router.push(alert.href as any);
+    if (alert.href) router.push(alert.href);
   }, [dismissLead]);
 
   if (!enabled || items.length === 0) return null;
@@ -488,9 +488,11 @@ export const HomeFloatingAlertsDock = memo(HomeFloatingAlertsDockInner);
 const styles = StyleSheet.create({
   dock: {
     width: '100%',
+    flexShrink: 0,
+    flexGrow: 0,
     paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
     paddingBottom: ALERTS_DOCK_GAP,
-    zIndex: 80,
   },
   stack: {
     flexDirection: 'column-reverse',

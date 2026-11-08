@@ -66,7 +66,12 @@ export const COLORS = {
     surfaceDarkElevated: '#2A2A2A',
     ink: INK,
     body: ICON_DEFAULT,
-    muted: TAB_MUTED,
+    /**
+     * Texto secundario vivo (leyendas, kicker). Mismo token que `body` / icon.default:
+     * #B8B8B8 (TAB_MUTED) es terciario/disabled, no copy informativa.
+     * Jerarquía: ink vs body/muted se marca con role/peso, no con gris ilegible.
+     */
+    muted: ICON_DEFAULT,
     mutedSoft: '#C4C4C4',
     hairline: HAIRLINE,
     hairlineSoft: TONAL,
