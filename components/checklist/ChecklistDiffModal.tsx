@@ -35,11 +35,18 @@ interface ChecklistDiffModalProps {
   finalizing?: boolean;
 }
 
-const NIVEL_COLOR: Record<ChecklistNivelAlerta, string> = {
+const NIVEL_FILL: Record<ChecklistNivelAlerta, string> = {
   OPTIMO: COLORS.success.main,
   ATENCION: COLORS.warning.main,
   URGENTE: COLORS.warning.dark,
   CRITICO: COLORS.error.main,
+};
+
+const NIVEL_TEXT: Record<ChecklistNivelAlerta, string> = {
+  OPTIMO: COLORS.success.dark,
+  ATENCION: COLORS.warning.darker,
+  URGENTE: COLORS.warning.darker,
+  CRITICO: COLORS.error.dark,
 };
 
 const NIVEL_LABEL: Record<ChecklistNivelAlerta, string> = {
@@ -55,13 +62,20 @@ const TIPO_LABEL: Record<ChecklistTipoActualizacion, string> = {
   INFORMATIVO: 'Informativo',
 };
 
-// Resolver color por porcentaje cuando no hay nivel calculado.
-function colorPorPct(pct: number | null | undefined): string {
+function colorFillPorPct(pct: number | null | undefined): string {
   if (pct === null || pct === undefined) return COLORS.neutral.gray[400];
   if (pct >= 80) return COLORS.success.main;
   if (pct >= 60) return COLORS.warning.main;
   if (pct >= 35) return COLORS.warning.dark;
   return COLORS.error.main;
+}
+
+function colorTextoPorPct(pct: number | null | undefined): string {
+  if (pct === null || pct === undefined) return COLORS.neutral.gray[600];
+  if (pct >= 80) return COLORS.success.dark;
+  if (pct >= 60) return COLORS.warning.darker;
+  if (pct >= 35) return COLORS.warning.darker;
+  return COLORS.error.dark;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -114,11 +128,14 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
     const actualPct = item.salud_actual ?? 0;
     const nuevaPct = item.salud_nueva ?? 0;
     const colorActual = item.nivel_alerta_actual
-      ? NIVEL_COLOR[item.nivel_alerta_actual]
-      : colorPorPct(item.salud_actual);
+      ? NIVEL_TEXT[item.nivel_alerta_actual]
+      : colorTextoPorPct(item.salud_actual);
     const colorNuevo = item.nivel_alerta_nuevo
-      ? NIVEL_COLOR[item.nivel_alerta_nuevo]
-      : colorPorPct(item.salud_nueva);
+      ? NIVEL_TEXT[item.nivel_alerta_nuevo]
+      : colorTextoPorPct(item.salud_nueva);
+    const fillNuevo = item.nivel_alerta_nuevo
+      ? NIVEL_FILL[item.nivel_alerta_nuevo]
+      : colorFillPorPct(item.salud_nueva);
     const deltaPositivo = item.delta >= 0;
 
     return (
@@ -194,7 +211,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
                 styles.barFill,
                 {
                   width: `${Math.max(0, Math.min(100, nuevaPct))}%`,
-                  backgroundColor: colorNuevo,
+                  backgroundColor: fillNuevo,
                 },
               ]}
             />
@@ -206,7 +223,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
 
         {item.nivel_alerta_nuevo && (
           <View style={styles.nivelRow}>
-            <View style={[styles.nivelDot, { backgroundColor: colorNuevo }]} />
+            <View style={[styles.nivelDot, { backgroundColor: fillNuevo }]} />
             <Text style={styles.nivelText}>
               Nivel resultante: {NIVEL_LABEL[item.nivel_alerta_nuevo]}
             </Text>
@@ -232,7 +249,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
         <View style={styles.resumenRow}>
           <View style={styles.resumenCol}>
             <Text style={styles.resumenLabel}>Actual</Text>
-            <Text style={[styles.resumenValue, { color: colorPorPct(actual) }]}>
+            <Text style={[styles.resumenValue, { color: colorTextoPorPct(actual) }]}>
               {actual !== null && actual !== undefined ? `${actual.toFixed(0)}%` : 'N/D'}
             </Text>
           </View>
@@ -244,7 +261,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
           />
           <View style={styles.resumenCol}>
             <Text style={styles.resumenLabel}>Estimada</Text>
-            <Text style={[styles.resumenValue, { color: colorPorPct(nueva) }]}>
+            <Text style={[styles.resumenValue, { color: colorTextoPorPct(nueva) }]}>
               {nueva !== null && nueva !== undefined ? `${nueva.toFixed(0)}%` : 'N/D'}
             </Text>
           </View>
@@ -254,7 +271,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
               <Text
                 style={[
                   styles.resumenValue,
-                  { color: positivo ? COLORS.success.main : COLORS.error.main },
+                  { color: positivo ? COLORS.success.dark : COLORS.error.dark },
                 ]}
               >
                 {positivo ? '+' : ''}

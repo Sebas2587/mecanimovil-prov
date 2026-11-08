@@ -133,7 +133,7 @@ export default function Snackbar({
           style={styles.icon}
           strokeWidth={ICON_STROKE_WIDTH}
         />
-        <InstitutionalText role="body" color={textColor} style={styles.message} numberOfLines={2}>
+        <InstitutionalText role="body" color={textColor} style={styles.message}>
           {message}
         </InstitutionalText>
         {actionLabel && onAction ? (
@@ -171,17 +171,19 @@ const styles = StyleSheet.create({
   },
   snackbar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     minHeight: 48,
     borderRadius: BORDERS.radius.lg,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md - 2,
+    paddingVertical: SPACING.md,
   },
   icon: {
     marginRight: SPACING.sm,
+    marginTop: 2,
   },
   message: {
     flex: 1,
+    flexShrink: 1,
     marginRight: SPACING.sm,
     fontWeight: '500',
   },

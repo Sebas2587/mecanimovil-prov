@@ -74,4 +74,9 @@ describe('contraste de tokens vigentes', () => {
     expect(contrastRatio(COLORS.error.dark, COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(COLORS.primary[700], COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it('warning.main sobre blanco no alcanza 4.5; el texto vivo usa warning.darker', () => {
+    expect(contrastRatio(COLORS.warning.main, '#FFFFFF')).toBeLessThan(4.5);
+    expect(contrastRatio(COLORS.warning.darker, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+  });
 });

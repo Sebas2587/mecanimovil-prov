@@ -4,6 +4,7 @@ import {
   Text,
   ActivityIndicator,
   View,
+  StyleSheet,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -106,21 +107,28 @@ export function InstitutionalButton({
           { minHeight: fill.minHeight },
           pressed && (styles.pressed as ViewStyle),
           style,
+          primaryShellLock,
         ]}
       >
         <PrimaryGradientFill
           colors={GRADIENTS.hostCtaOnText}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View
+          pointerEvents="none"
           style={[
-            primaryFill,
+            rowCenter,
             {
               minHeight: fill.minHeight,
               paddingVertical: fill.paddingVertical,
               paddingHorizontal: fill.paddingHorizontal,
+              width: '100%',
+              zIndex: 1,
             },
           ]}
         >
           {content}
-        </PrimaryGradientFill>
+        </View>
       </Pressable>
     );
   }
@@ -155,16 +163,22 @@ const rowCenter = {
 const primaryShell: ViewStyle = {
   borderRadius: BORDERS.radius.md,
   overflow: 'hidden',
-  backgroundColor: I.primary,
+  position: 'relative',
+  backgroundColor: COLORS.primary[700],
   borderWidth: 0,
   borderColor: 'transparent',
 };
 
-const primaryFill = {
-  flex: 1,
-  width: '100%' as const,
-  alignSelf: 'stretch' as const,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+/** El style del caller no puede recortar el relleno (padding/alignItems:center dejaba MAGENTA alrededor). */
+const primaryShellLock: ViewStyle = {
+  padding: 0,
+  paddingVertical: 0,
+  paddingHorizontal: 0,
+  paddingTop: 0,
+  paddingBottom: 0,
+  paddingLeft: 0,
+  paddingRight: 0,
+  alignItems: 'stretch',
+  justifyContent: 'center',
+  overflow: 'hidden',
 };

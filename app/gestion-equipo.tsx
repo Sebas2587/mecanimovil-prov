@@ -643,6 +643,8 @@ export default function GestionEquipoScreen() {
                           key={mod.value}
                           style={[styles.chip, sel && styles.chipSelected]}
                           onPress={() => setForm((p) => ({ ...p, modalidad_tecnico: mod.value }))}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: sel }}
                         >
                           <Text style={[styles.chipText, sel && styles.chipTextSelected]}>{mod.label}</Text>
                         </TouchableOpacity>
@@ -659,6 +661,8 @@ export default function GestionEquipoScreen() {
                           key={cat.id}
                           style={[styles.chip, sel && styles.chipSelected]}
                           onPress={() => toggleEspecialidad(cat.id)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: sel }}
                         >
                           <Text style={[styles.chipText, sel && styles.chipTextSelected]}>{cat.nombre}</Text>
                         </TouchableOpacity>
@@ -681,8 +685,9 @@ export default function GestionEquipoScreen() {
                 label="Guardar"
                 variant="primary"
                 onPress={guardar}
-                disabled={saving}
+                disabled={saving || !form.nombre.trim()}
                 loading={saving}
+                testID="equipo-guardar-cta"
                 style={styles.modalBtn}
               />
             </View>

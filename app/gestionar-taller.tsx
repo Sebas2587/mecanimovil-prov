@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   TextInput,
   Image,
@@ -32,6 +31,7 @@ import {
   HOST_GUTTER,
 } from '@/app/design-system/components';
 import logger from '@/utils/logger';
+import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -218,7 +218,7 @@ export default function GestionarTallerScreen() {
       }
     } catch (error) {
       logger.error('Error cargando datos del taller:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del taller');
+      showAlert('Error', 'No se pudieron cargar los datos del taller');
     } finally {
       setLoading(false);
     }
@@ -589,10 +589,9 @@ export default function GestionarTallerScreen() {
       ? `Se ha seleccionado la dirección:\n\n${direccionSimplificada}\n\n📍 Número: ${numeroCasa}\n🏢 Calle: ${calle}\n🏘️ Comuna: ${comuna || 'No especificada'}\n🏙️ Ciudad: ${ciudad || 'No especificada'}\n🌍 País: Chile`
       : `Se ha seleccionado la dirección:\n\n${direccionSimplificada}\n\n🏢 Calle: ${calle}\n🏘️ Comuna: ${comuna || 'No especificada'}\n🏙️ Ciudad: ${ciudad || 'No especificada'}\n🌍 País: Chile\n\n⚠️ Nota: El número de casa se extrajo de tu búsqueda`;
 
-    Alert.alert(
+    showAlert(
       numeroCasa ? '✅ Dirección Seleccionada' : '📍 Dirección Seleccionada',
       mensajeConfirmacion,
-      [{ text: 'Perfecto', style: 'default' }]
     );
   };
 
@@ -661,14 +660,14 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN MEJORADA: Validación de dirección manual con número
   const validarDireccionManual = async () => {
     if (!direccionManual.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una dirección para validar');
+      showAlert('Error', 'Por favor ingresa una dirección para validar');
       return;
     }
 
     // ✅ VALIDACIÓN MEJORADA: Debe incluir número de casa
     const query = direccionManual.trim();
     if (query.length < 8) {
-      Alert.alert(
+      showAlert(
         'Dirección muy corta',
         'Por favor ingresa una dirección más específica que incluya el número de casa (ej: "Manuel de Amat 2960")'
       );
@@ -678,7 +677,7 @@ export default function GestionarTallerScreen() {
     // ✅ VERIFICAR QUE TENGA NÚMERO
     const tieneNumero = /\d+/.test(query);
     if (!tieneNumero) {
-      Alert.alert(
+      showAlert(
         'Falta número de casa',
         'La dirección debe incluir el número de casa para ser válida (ej: "Manuel de Amat 2960")'
       );
@@ -691,10 +690,9 @@ export default function GestionarTallerScreen() {
       const resultados = await buscarDireccionesReales(query);
 
       if (resultados.length === 0) {
-        Alert.alert(
+        showAlert(
           'Dirección no válida',
           'La dirección ingresada no se encontró en Chile o no tiene número de casa. Por favor, ingresa una dirección válida y existente con número.',
-          [{ text: 'Entendido', style: 'default' }]
         );
         return;
       }
@@ -705,7 +703,7 @@ export default function GestionarTallerScreen() {
 
     } catch (error) {
       logger.error('Error validando dirección:', error);
-      Alert.alert(
+      showAlert(
         'Error de validación',
         'No se pudo validar la dirección. Verifica tu conexión a internet e intenta nuevamente.'
       );
@@ -730,7 +728,7 @@ export default function GestionarTallerScreen() {
       }
     } catch (error) {
       logger.error('Error seleccionando foto:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la foto');
+      showAlert('Error', 'No se pudo seleccionar la foto');
     }
   };
 
@@ -742,13 +740,13 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN CORREGIDA: Ahora guarda realmente en el backend
   const handleGuardar = async () => {
     if (!datosTaller.nombre.trim()) {
-      Alert.alert('Error', 'El nombre es obligatorio');
+      showAlert('Error', 'El nombre es obligatorio');
       return;
     }
 
     // La dirección física solo es obligatoria si atiende en local (en_taller/ambas).
     if (!soloDomicilio && !datosTaller.direccion.trim()) {
-      Alert.alert('Error', 'La dirección del taller es obligatoria');
+      showAlert('Error', 'La dirección del taller es obligatoria');
       return;
     }
 
@@ -803,7 +801,7 @@ export default function GestionarTallerScreen() {
 
       logger.log('✅ Respuesta del backend:', response);
 
-      Alert.alert('Éxito', 'Los datos del taller se han guardado correctamente');
+      showAlert('Éxito', 'Los datos del taller se han guardado correctamente');
       setHasChanges(false);
 
       // ✅ REFRESCAR ESTADO DEL PROVEEDOR PARA SINCRONIZAR
@@ -814,16 +812,15 @@ export default function GestionarTallerScreen() {
 
       // ✅ MOSTRAR CONFIRMACIÓN DE LA NUEVA DIRECCIÓN (solo si hay dirección)
       if (datosTaller.direccion.trim()) {
-        Alert.alert(
+        showAlert(
           'Dirección Actualizada',
           `La dirección del taller se ha actualizado a:\n\n${datosTaller.direccion}`,
-          [{ text: 'Perfecto', style: 'default' }]
         );
       }
 
     } catch (error) {
       logger.error('❌ Error guardando datos del taller:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         'No se pudieron guardar los datos del taller. Verifica tu conexión e intenta nuevamente.'
       );
