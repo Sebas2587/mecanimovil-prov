@@ -872,6 +872,9 @@ export default function GestionarTallerScreen() {
                     key={op.value}
                     activeOpacity={0.85}
                     onPress={() => handleModalidadChange(op.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: seleccionada }}
+                    accessibilityLabel={op.titulo}
                     style={[
                       styles.modalidadOption,
                       {
@@ -939,6 +942,8 @@ export default function GestionarTallerScreen() {
                 style={[styles.quickLinkRow, { borderColor: 'transparent' }]}
                 onPress={() => router.push('/gestion-equipo')}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Gestión de equipo"
               >
                 <InstitutionalIcon name="people" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.quickLinkTextWrap}>

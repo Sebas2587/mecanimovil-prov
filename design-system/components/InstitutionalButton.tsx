@@ -112,7 +112,7 @@ export function InstitutionalButton({
       >
         <PrimaryGradientFill
           colors={GRADIENTS.hostCtaOnText}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
         <View
           pointerEvents="none"

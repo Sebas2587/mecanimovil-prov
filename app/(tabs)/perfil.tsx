@@ -148,7 +148,7 @@ export default function PerfilScreen() {
   const gananciasResumen = gananciasQuery.data;
   const suscripcion = suscripcionQuery.data;
   const showFinanzasCard = puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading);
-  const warningEmphasis = COLORS.warning.dark;
+  const warningEmphasis = COLORS.warning.darker;
 
   const handlePerformanceWidgetPress = useCallback(() => {
     router.push('/rendimiento-kpis');

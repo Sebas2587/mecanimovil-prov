@@ -73,7 +73,7 @@ export function FinanzasTallerCard({
   esSupervisor = false,
   isLoadingGanancias = false,
   isLoadingCreditos = false,
-  warningEmphasis = COLORS.warning.dark,
+  warningEmphasis = COLORS.warning.darker,
   onPress,
   onRecargarCreditos,
   onPressPlan,

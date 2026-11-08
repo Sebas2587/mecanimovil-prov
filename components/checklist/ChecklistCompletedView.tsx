@@ -46,8 +46,8 @@ type SeveridadPct = 'ok' | 'atencion' | 'alerta' | 'critico';
 
 const SEVERIDAD_COLOR: Record<SeveridadPct, string> = {
   ok: I.semanticUp,
-  atencion: COLORS.warning.main,
-  alerta: COLORS.warning.dark,
+  atencion: COLORS.warning.darker,
+  alerta: COLORS.warning.darker,
   critico: I.semanticDown,
 };
 

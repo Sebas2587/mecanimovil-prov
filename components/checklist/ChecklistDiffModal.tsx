@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -287,9 +288,9 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
       onRequestClose={onCancel}
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
     >
       <SafeAreaView
         testID="checklist-diff-modal"

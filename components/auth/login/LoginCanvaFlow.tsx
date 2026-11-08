@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ConnectedGoogleAccount } from '@/hooks/auth/useGoogleSignInFlow';
 import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 import { GoogleLogoMark } from '@/components/auth/GoogleLogoMark';
-import { webKeyboardProps } from '@/utils/webKeyboard';
+import { webFocusRingStyle, webKeyboardProps } from '@/utils/webKeyboard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -65,6 +65,44 @@ function BackLink({ onPress, label = 'Volver' }: { onPress: () => void; label?: 
     >
       <ChevronLeft size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
       <Text style={styles.backText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function MethodRow({
+  disabled,
+  onPress,
+  accessibilityLabel,
+  bordered,
+  children,
+}: {
+  disabled: boolean;
+  onPress: () => void;
+  accessibilityLabel: string;
+  bordered?: boolean;
+  children: React.ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={[
+        styles.row,
+        bordered && styles.rowBorder,
+        webCursor,
+        disabled && styles.disabled,
+        focused && !disabled && webFocusRingStyle,
+      ]}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      {...webKeyboardProps(disabled, onPress)}
+    >
+      {children}
     </TouchableOpacity>
   );
 }
@@ -187,20 +225,11 @@ export function LoginCanvaFlow({
         </View>
 
         <HostPaperSection style={styles.paper}>
-          <TouchableOpacity
-            onPress={onUseAnotherGoogle}
+          <MethodRow
             disabled={googleLoading || !acceptTerms}
-            style={[
-              styles.row,
-              styles.rowBorder,
-              webCursor,
-              (googleLoading || !acceptTerms) && styles.disabled,
-            ]}
-            activeOpacity={0.75}
-            accessibilityRole="button"
+            onPress={onUseAnotherGoogle}
             accessibilityLabel="Continuar con Google"
-            accessibilityState={{ disabled: googleLoading || !acceptTerms }}
-            {...webKeyboardProps(googleLoading || !acceptTerms, onUseAnotherGoogle)}
+            bordered
           >
             <View style={styles.googleIcon}>
               {googleLoading ? (
@@ -214,17 +243,12 @@ export function LoginCanvaFlow({
               <Text style={styles.rowMeta}>Acceso rápido con tu cuenta Google</Text>
             </View>
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
+          </MethodRow>
 
-          <TouchableOpacity
-            onPress={onGoEmail}
+          <MethodRow
             disabled={!acceptTerms}
-            style={[styles.row, webCursor, !acceptTerms && styles.disabled]}
-            activeOpacity={0.75}
-            accessibilityRole="button"
+            onPress={onGoEmail}
             accessibilityLabel="Usar correo electrónico"
-            accessibilityState={{ disabled: !acceptTerms }}
-            {...webKeyboardProps(!acceptTerms, onGoEmail)}
           >
             <View style={styles.mailIcon}>
               <Mail size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
@@ -234,7 +258,7 @@ export function LoginCanvaFlow({
               <Text style={styles.rowMeta}>Inicia sesión o crea tu cuenta</Text>
             </View>
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
+          </MethodRow>
         </HostPaperSection>
 
         <LegalAcceptanceRow
@@ -256,9 +280,8 @@ export function LoginCanvaFlow({
         <Text style={styles.subtitle}>
           Usa tu usuario o correo del taller.{' '}
           <Text style={styles.link} onPress={() => onGoRegister(email)}>
-            Regístrate aquí
+            Regístrate aquí.
           </Text>
-          .
         </Text>
       </View>
 

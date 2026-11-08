@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import LegalFooterLinks from './LegalFooterLinks';
-import { webKeyboardProps } from '@/utils/webKeyboard';
+import { webFocusRingStyle, webKeyboardProps } from '@/utils/webKeyboard';
 
 type Props = {
   checked: boolean;
@@ -18,14 +18,15 @@ export const LEGAL_CONSENT_LABEL =
 
 export default function LegalAcceptanceRow({ checked, onToggle, error }: Props) {
   const [focused, setFocused] = useState(false);
-  const webA11y =
+  const webA11y = (
     Platform.OS === 'web'
       ? {
-          role: 'checkbox' as const,
-          'aria-checked': checked ? ('true' as const) : ('false' as const),
+          role: 'checkbox',
+          'aria-checked': checked ? 'true' : 'false',
           'aria-label': LEGAL_CONSENT_LABEL,
         }
-      : {};
+      : {}
+  ) as PressableProps;
 
   return (
     <View style={styles.wrap}>
@@ -69,18 +70,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.fixed.sm,
     borderRadius: BORDERS.radius.sm,
   },
-  checkboxTouchFocused: Platform.select({
-    web: {
-      outlineWidth: 2,
-      outlineStyle: 'solid',
-      outlineColor: COLORS.border.focus,
-      outlineOffset: 2,
-    },
-    default: {
-      borderWidth: 2,
-      borderColor: COLORS.border.focus,
-    },
-  }) as object,
+  checkboxTouchFocused: webFocusRingStyle as object,
   checkbox: {
     width: 22,
     height: 22,

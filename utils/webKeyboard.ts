@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
+import { COLORS } from '@/app/design-system/tokens';
 
 type KeyLike = {
   key?: string;
@@ -17,7 +18,10 @@ export function activateFromKeyboard(
 ): boolean {
   if (disabled || !onPress) return false;
   const key = event.key ?? event.nativeEvent?.key;
-  if (key !== 'Enter' && key !== ' ' && key !== 'Spacebar') return false;
+  const code = (event as KeyLike & { code?: string }).code;
+  const isEnter = key === 'Enter' || code === 'Enter' || code === 'NumpadEnter';
+  const isSpace = key === ' ' || key === 'Spacebar' || code === 'Space';
+  if (!isEnter && !isSpace) return false;
   event.preventDefault?.();
   onPress();
   return true;
@@ -29,10 +33,28 @@ export function webKeyboardProps(
   onPress?: () => void,
 ): Record<string, unknown> {
   if (Platform.OS !== 'web') return {};
+  const onKey = (event: KeyLike) => {
+    activateFromKeyboard(event, disabled, onPress);
+  };
   return {
     tabIndex: disabled ? -1 : 0,
-    onKeyDown: (event: KeyLike) => {
-      activateFromKeyboard(event, disabled, onPress);
-    },
+    onKeyDown: onKey,
+    onKeyPress: onKey,
   };
 }
+
+/** Anillo de foco visible en web (outline RN-web no siempre pinta). */
+export const webFocusRingStyle = (
+  Platform.OS === 'web'
+    ? {
+        outlineWidth: 2,
+        outlineStyle: 'solid' as const,
+        outlineColor: COLORS.border.focus,
+        outlineOffset: 2,
+        boxShadow: `0 0 0 2px ${COLORS.border.focus}`,
+      }
+    : {
+        borderWidth: 2,
+        borderColor: COLORS.border.focus,
+      }
+) as ViewStyle;
