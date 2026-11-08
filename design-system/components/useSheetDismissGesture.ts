@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
-import { Animated, PanResponder } from 'react-native';
+import { Animated, PanResponder, Platform } from 'react-native';
+
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 const DISMISS_DY = 48;
 const DISMISS_VY = 0.85;
@@ -40,7 +42,7 @@ export function useSheetDismissGesture(onClose: () => void) {
             Animated.timing(translateY, {
               toValue: 780,
               duration: 160,
-              useNativeDriver: true,
+              useNativeDriver: NATIVE_DRIVER,
             }).start(({ finished }) => {
               translateY.setValue(0);
               if (finished) onCloseRef.current();
@@ -49,7 +51,7 @@ export function useSheetDismissGesture(onClose: () => void) {
           }
           Animated.spring(translateY, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             bounciness: 5,
           }).start();
         },
@@ -57,7 +59,7 @@ export function useSheetDismissGesture(onClose: () => void) {
           dragging.current = false;
           Animated.spring(translateY, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             bounciness: 4,
           }).start();
         },

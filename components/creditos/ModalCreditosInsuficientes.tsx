@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { BlurView } from 'expo-blur';
@@ -22,6 +23,7 @@ import {
 
 const I = COLORS.institutional;
 const errorStatus = institutionalStatusColors('error');
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface ModalCreditosInsuficientesProps {
   visible: boolean;
@@ -53,12 +55,12 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
           toValue: 1,
           friction: 8,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
     } else {
@@ -66,12 +68,12 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         Animated.timing(scaleAnim, {
           toValue: 0.9,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 0,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
     }

@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.lg,
+    paddingBottom: SPACING.fixed.xl + SPACING.fixed.xl,
     gap: SPACING.fixed.xs,
   },
   sectionTitle: {

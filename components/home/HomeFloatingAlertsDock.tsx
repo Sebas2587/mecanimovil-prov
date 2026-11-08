@@ -29,10 +29,7 @@ const ALERT_ICON_STROKE = 2.25;
 const OPS_ALERT_AUTO_DISMISS_MS = 10_000;
 const LEAD_ALERT_AUTO_DISMISS_MS = 8_000;
 
-/**
- * El dock vive en la franja reservada BAJO el marco de la lista (no encima de las cards).
- * `ALERTS_DOCK_RESERVE` achica el wrapper; `bottom` negativo pinta el banner en ese margen.
- */
+/** Altura típica de una alerta ops; el test de marco suma FAB + esto si se reserva aparte. */
 export const ALERTS_DOCK_GAP = SPACING.sm;
 export const ALERTS_DOCK_RESERVE = 88;
 
@@ -383,10 +380,7 @@ function HomeFloatingAlertsDockInner({
   if (!enabled || items.length === 0) return null;
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={[styles.dock, { bottom: -ALERTS_DOCK_RESERVE + ALERTS_DOCK_GAP }]}
-    >
+    <View pointerEvents="box-none" style={styles.dock}>
       {/* column-reverse: la más reciente queda pegada al menú; el resto sube */}
       <View style={styles.stack}>
         {[...items].reverse().map((alert) => {
@@ -493,9 +487,9 @@ export const HomeFloatingAlertsDock = memo(HomeFloatingAlertsDockInner);
 
 const styles = StyleSheet.create({
   dock: {
-    position: 'absolute',
-    left: SPACING.md,
-    right: SPACING.md,
+    width: '100%',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: ALERTS_DOCK_GAP,
     zIndex: 80,
   },
   stack: {

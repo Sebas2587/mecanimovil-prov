@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { HomeAttentionFeed } from '@/components/home/HomeAttentionFeed';
 import {
-  ALERTS_DOCK_RESERVE,
   HomeFloatingAlertsDock,
   type OpsFloatingAlert,
 } from '@/components/home/HomeFloatingAlertsDock';
@@ -33,7 +32,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
-import { marcoListaStyle, useMarcoListaStyle } from '@/components/navigation/marcoLista';
+import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
@@ -347,10 +346,7 @@ export default function HomeScreen() {
     saludSuscripcion,
     dismissSuscripcionAlert,
   ]);
-  const marcoHome = marcoListaStyle(
-    (typeof marcoLista.marginBottom === 'number' ? marcoLista.marginBottom : 0)
-    + (opsFloatingAlerts.length > 0 ? ALERTS_DOCK_RESERVE : 0),
-  );
+  const marcoHome = marcoLista;
 
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;

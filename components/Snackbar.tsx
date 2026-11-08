@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
@@ -12,6 +13,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 
 const I = COLORS.institutional;
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface SnackbarProps {
   visible: boolean;
@@ -58,12 +60,12 @@ export default function Snackbar({
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
 
@@ -84,12 +86,12 @@ export default function Snackbar({
       Animated.timing(slideAnim, {
         toValue: 100,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
     ]).start(() => {
       if (onDismiss) {
