@@ -278,7 +278,7 @@ export function LoginCanvaFlow({
         <HostSectionKicker label="Acceso" style={styles.kickerFlush} />
         <Text style={styles.h1}>Inicia sesión</Text>
         <Text style={styles.subtitle}>
-          Usa tu usuario o correo del taller.{' '}
+          <Text>Usa tu usuario o correo del taller. </Text>
           <Text style={styles.link} onPress={() => onGoRegister(email)}>
             Regístrate aquí.
           </Text>

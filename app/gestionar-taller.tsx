@@ -120,12 +120,21 @@ export default function GestionarTallerScreen() {
   // Estados para fotos
   const [fotosLocales, setFotosLocales] = useState<string[]>([]);
 
+  const datosHidratados = React.useRef(false);
+  const skipHydrateValidation = React.useRef(false);
   useEffect(() => {
+    if (datosHidratados.current) return;
+    if (!estadoProveedor?.datos_proveedor && !estadoProveedor?.nombre) return;
+    datosHidratados.current = true;
     cargarDatosTaller();
-  }, []);
+  }, [estadoProveedor]);
 
   // ✅ VALIDACIÓN EN TIEMPO REAL CON DEBOUNCE
   useEffect(() => {
+    if (skipHydrateValidation.current) {
+      skipHydrateValidation.current = false;
+      return;
+    }
     if (!searchQuery.trim()) {
       setValidationStatus('idle');
       setSearchResults([]);
@@ -156,8 +165,17 @@ export default function GestionarTallerScreen() {
           setValidationStatus('invalid');
         }
       } catch (error) {
-        logger.error('Error en validación automática:', error);
-        setValidationStatus('invalid');
+        const msg = String((error as { message?: string })?.message || error);
+        const aborted =
+          (error as { name?: string })?.name === 'AbortError' ||
+          /Failed to fetch|NetworkError|Load failed/i.test(msg);
+        if (aborted) {
+          logger.warn('Validación de dirección sin red (fixture/local).');
+          setValidationStatus('idle');
+        } else {
+          logger.error('Error en validación automática:', error);
+          setValidationStatus('invalid');
+        }
         setSearchResults([]);
       } finally {
         setIsValidating(false);
@@ -185,6 +203,11 @@ export default function GestionarTallerScreen() {
         const ciudad = estadoProveedor.datos_proveedor.direccion_fisica?.ciudad || '';
         const region = estadoProveedor.datos_proveedor.direccion_fisica?.region || '';
 
+        const latRaw = estadoProveedor.datos_proveedor.ubicacion_lat;
+        const lngRaw = estadoProveedor.datos_proveedor.ubicacion_lng;
+        const latitud = Number(latRaw);
+        const longitud = Number(lngRaw);
+
         setDatosTaller({
           nombre: estadoProveedor.nombre || '',
           descripcion: estadoProveedor.datos_proveedor.descripcion || '',
@@ -193,7 +216,13 @@ export default function GestionarTallerScreen() {
           ciudad: ciudad,
           region: region,
           fotos: [], // Las fotos se cargarán desde el backend
+          latitud: Number.isFinite(latitud) ? latitud : undefined,
+          longitud: Number.isFinite(longitud) ? longitud : undefined,
         });
+        if (direccionCompleta) {
+          skipHydrateValidation.current = true;
+          setSearchQuery(direccionCompleta);
+        }
 
         const modalidadActual = estadoProveedor.datos_proveedor.modalidad_atencion;
         if (modalidadActual === 'en_taller' || modalidadActual === 'a_domicilio' || modalidadActual === 'ambas') {
@@ -1062,11 +1091,7 @@ export default function GestionarTallerScreen() {
 
                   <View style={styles.validationInfo}>
                     <Text style={styles.addressInstructions}>
-                      💡{' '}
-                      <Text style={styles.instructionBold}>
-                        IMPORTANTE:
-                      </Text>{' '}
-                      Debes incluir el número de la casa/edificio para que la dirección sea válida.
+                      💡 IMPORTANTE: Debes incluir el número de la casa/edificio para que la dirección sea válida.
                     </Text>
 
                     {validationStatus === 'validating' && (
@@ -1172,6 +1197,7 @@ export default function GestionarTallerScreen() {
           ]}
         >
           <InstitutionalButton
+            testID="guardar-taller-cta"
             label="Guardar cambios"
             variant="primary"
             onPress={handleGuardar}

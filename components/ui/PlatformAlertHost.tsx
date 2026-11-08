@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -15,6 +15,7 @@ import {
   registerPlatformAlertHost,
   type PlatformAlertRequest,
 } from '@/utils/platformAlert';
+import { dequeueAlert, emptyAlertQueue, enqueueAlert, type AlertQueue } from '@/utils/alertQueue';
 import logger from '@/utils/logger';
 
 const I = COLORS.institutional;
@@ -22,15 +23,29 @@ const FF = TYPOGRAPHY.fontFamily;
 
 export function PlatformAlertHost() {
   const [request, setRequest] = useState<PlatformAlertRequest | null>(null);
+  const queueRef = useRef<AlertQueue<PlatformAlertRequest>>(emptyAlertQueue());
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const narrow = width < 420;
 
-  useEffect(() => registerPlatformAlertHost(setRequest), []);
+  useEffect(
+    () =>
+      registerPlatformAlertHost((next) => {
+        if (!next) {
+          queueRef.current = emptyAlertQueue();
+          setRequest(null);
+          return;
+        }
+        queueRef.current = enqueueAlert(queueRef.current, next);
+        setRequest(queueRef.current.current);
+      }),
+    [],
+  );
 
   const close = (result?: boolean) => {
     const current = request;
-    setRequest(null);
+    queueRef.current = dequeueAlert(queueRef.current);
+    setRequest(queueRef.current.current);
     if (!current) return;
     if (current.kind === 'confirm') {
       if (result) {
@@ -83,8 +98,14 @@ export function PlatformAlertHost() {
         ]}
         onPress={() => (isConfirm || isButtons ? close(false) : close(true))}
       >
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.title}>{request.title}</Text>
+        <Pressable
+          testID="platform-alert-host"
+          style={styles.card}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <Text testID="platform-alert-title" style={styles.title}>
+            {request.title}
+          </Text>
           {request.message ? (
             <ScrollView
               style={styles.messageScroll}
@@ -124,9 +145,11 @@ export function PlatformAlertHost() {
               return (
                 <InstitutionalButton
                   key={`${btn.text}-${index}`}
+                  testID={isPrimary ? 'platform-alert-primary' : undefined}
                   label={btn.text}
                   variant={variant}
                   size="compact"
+                  autoFocus={isPrimary}
                   style={stackActions ? styles.btnStack : styles.btnRow}
                   onPress={() => {
                     if (request.kind === 'buttons') {

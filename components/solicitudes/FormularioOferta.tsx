@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 // DateTimePicker removido - ahora usamos modales personalizados
 import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/services/solicitudesService';
@@ -540,6 +541,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const [garantiaMeses, setGarantiaMeses] = useState('');
   const [garantiaKm, setGarantiaKm] = useState('');
   const [costoGestionCompra, setCostoGestionCompra] = useState('');
+  const [focusedMoney, setFocusedMoney] = useState<string | null>(null);
 
   // Estados para ofertas secundarias
   const [serviciosDisponibles, setServiciosDisponibles] = useState<Array<{ id: number; nombre: string; descripcion?: string }>>([]);
@@ -1730,7 +1732,12 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <Text style={styles.inputLabel}>
                             Costo Mano de Obra (sin IVA)
                           </Text>
-                          <View style={styles.inputContainer}>
+                          <View
+                            style={[
+                              styles.inputContainer,
+                              focusedMoney === `mano-${index}` && styles.inputContainerFocused,
+                            ]}
+                          >
                             <Text style={styles.currencySymbol}>$</Text>
                             <TextInput
                               style={styles.input}
@@ -1738,6 +1745,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              onFocus={() => setFocusedMoney(`mano-${index}`)}
+                              onBlur={() =>
+                                setFocusedMoney((cur) => (cur === `mano-${index}` ? null : cur))
+                              }
                               keyboardType="decimal-pad"
                             />
                           </View>
@@ -1974,7 +1985,12 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <Text style={styles.inputLabel}>
                             Costo Mano de Obra (sin IVA)
                           </Text>
-                          <View style={styles.inputContainer}>
+                          <View
+                            style={[
+                              styles.inputContainer,
+                              focusedMoney === `mano-${index}` && styles.inputContainerFocused,
+                            ]}
+                          >
                             <Text style={styles.currencySymbol}>$</Text>
                             <TextInput
                               style={styles.input}
@@ -1982,6 +1998,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              onFocus={() => setFocusedMoney(`mano-${index}`)}
+                              onBlur={() =>
+                                setFocusedMoney((cur) => (cur === `mano-${index}` ? null : cur))
+                              }
                               keyboardType="decimal-pad"
                             />
                           </View>
@@ -2522,6 +2542,7 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
     color: I.ink,
     padding: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : {}),
   },
   precioTotalDestacadoHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -2600,11 +2621,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minWidth: 0,
     fontSize: TS.body.fontSize,
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
     padding: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : {}),
+  },
+  inputContainerFocused: {
+    borderColor: COLORS.border.focus,
+    borderWidth: BORDERS.width.medium,
   },
   currencySymbol: {
     fontSize: TS.body.fontSize,

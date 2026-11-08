@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   Text,
   ActivityIndicator,
@@ -56,6 +57,8 @@ export type InstitutionalButtonProps = {
   leading?: React.ReactNode;
   accessibilityLabel?: string;
   testID?: string;
+  /** Web: el diálogo institucional enfoca la acción primaria al abrir. */
+  autoFocus?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -72,6 +75,7 @@ export function InstitutionalButton({
   leading,
   accessibilityLabel,
   testID,
+  autoFocus = false,
   style,
 }: InstitutionalButtonProps) {
   const isDisabled = disabled || loading;
@@ -92,6 +96,9 @@ export function InstitutionalButton({
     </View>
   );
 
+  const webAutoFocus =
+    Platform.OS === 'web' && autoFocus && !isDisabled ? { autoFocus: true } : {};
+
   if (variant === 'primary' && !isDisabled) {
     return (
       <Pressable
@@ -101,6 +108,7 @@ export function InstitutionalButton({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
+        {...webAutoFocus}
         {...webKeyboardProps(isDisabled, onPress)}
         style={({ pressed }) => [
           primaryShell,
@@ -141,6 +149,7 @@ export function InstitutionalButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
+      {...webAutoFocus}
       {...webKeyboardProps(isDisabled, onPress)}
       style={({ pressed }) => [
         styles.button as ViewStyle,
