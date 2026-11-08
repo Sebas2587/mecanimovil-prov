@@ -31,9 +31,8 @@ export default function LegalFooterLinks({
         </Text>{' '}
         y la{' '}
         <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
-          política de privacidad
+          política de privacidad.
         </Text>
-        .
       </Text>
     );
   }

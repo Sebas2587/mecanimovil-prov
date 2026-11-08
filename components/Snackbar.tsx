@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
   message: {
     flex: 1,
     flexShrink: 1,
+    flexWrap: 'wrap',
     marginRight: SPACING.sm,
     fontWeight: '500',
   },
