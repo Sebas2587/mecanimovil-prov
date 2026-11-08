@@ -78,7 +78,7 @@ export function AppHeader({
         </View>
 
         <View style={styles.center}>
-          <InstitutionalText role={role} color={titleColor} numberOfLines={1} style={{ textAlign: 'center' }}>
+          <InstitutionalText role={role} color={titleColor} numberOfLines={2} style={{ textAlign: 'center' }}>
             {title}
           </InstitutionalText>
           {badge != null && badge !== 0 ? (
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 48,
   },
   rowDense: {
     minHeight: 36,

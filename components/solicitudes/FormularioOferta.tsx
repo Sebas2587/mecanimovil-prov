@@ -2580,7 +2580,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm + 2,
   },
   inputLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.captionBold.fontSize,
     fontFamily: FF.sansSemiBold,
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     textTransform: 'uppercase',

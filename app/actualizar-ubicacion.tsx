@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   savedCoords: {
     marginTop: 10,
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   pendingCoords: {
     marginTop: 6,
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },

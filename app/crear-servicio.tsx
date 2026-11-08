@@ -3793,8 +3793,8 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   marcaCompactTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.35),
+    fontSize: TS.caption.fontSize,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
   },
   marcaCheckboxCompact: {
     position: 'relative',
@@ -3825,7 +3825,7 @@ const styles = StyleSheet.create({
     backgroundColor: withOpacity(I.accentYellow, 0.18),
   },
   marcaCardEstadoText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TS.captionBold.fontSize,
     fontFamily: FF.sansSemiBold,
     color: I.semanticUp,
   },

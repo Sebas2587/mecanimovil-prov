@@ -106,6 +106,8 @@ export default function Snackbar({
 
   return (
     <Animated.View
+      testID="host-snackbar"
+      accessibilityLabel={message}
       style={[
         styles.container,
         {

@@ -274,7 +274,12 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
       onRequestClose={onCancel}
       presentationStyle="pageSheet"
     >
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView
+        testID="checklist-diff-modal"
+        accessibilityLabel="Resumen del impacto"
+        style={styles.container}
+        edges={['top']}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
