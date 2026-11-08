@@ -14,6 +14,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { creditosEntero } from '@/utils/copyPresentacion';
 import {
   institutionalCardStyles,
   institutionalStatusColors,
@@ -130,7 +131,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Tu saldo actual:
               </InstitutionalText>
               <InstitutionalText role="body" style={styles.creditoValue}>
-                {verificacion.saldo_actual} créditos
+                {creditosEntero(verificacion.saldo_actual)} créditos
               </InstitutionalText>
             </View>
             <View style={styles.creditoRow}>
@@ -138,7 +139,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Créditos necesarios:
               </InstitutionalText>
               <InstitutionalText role="body" style={styles.creditoValue}>
-                {verificacion.creditos_necesarios} créditos
+                {creditosEntero(verificacion.creditos_necesarios)} créditos
               </InstitutionalText>
             </View>
             <View style={[styles.creditoRow, styles.faltantesRow]}>
@@ -146,7 +147,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Te faltan:
               </InstitutionalText>
               <InstitutionalText role="body" color="semanticDown" style={styles.faltantesValue}>
-                {verificacion.creditos_faltantes} créditos
+                {creditosEntero(verificacion.creditos_faltantes)} créditos
               </InstitutionalText>
             </View>
           </View>

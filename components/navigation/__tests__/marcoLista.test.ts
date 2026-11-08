@@ -10,4 +10,8 @@ describe('marcoListaStyle', () => {
     expect(estilo.marginBottom).toBe(73);
     expect(estilo).not.toHaveProperty('paddingBottom');
   });
+
+  it('un FAB típico deja aire bajo la lista', () => {
+    expect(marcoListaStyle(64).marginBottom).toBe(64);
+  });
 });

@@ -315,11 +315,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   scroll: {
-    maxHeight: IS_WEB ? 420 : 460,
+    maxHeight: IS_WEB ? 360 : 400,
     flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
   },
   scrollInner: {
-    paddingBottom: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.xl,
   },
   centered: {
     paddingVertical: SPACING.fixed.xl,
@@ -378,13 +380,19 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 0,
     gap: SPACING.fixed.sm,
     paddingTop: SPACING.fixed.sm,
   },
   footerBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 140,
   },
   footerBtnGrow: {
-    flex: 1.35,
+    flexGrow: 1.35,
+    flexBasis: 160,
+    minWidth: 160,
   },
 });

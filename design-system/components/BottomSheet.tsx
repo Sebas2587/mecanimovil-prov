@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Children, useEffect } from 'react';
 import {
   Animated,
   Modal,
@@ -110,7 +110,7 @@ export function BottomSheet({
             </View>
           )}
           {stickyFooter ? (
-            <View style={styles.stickyInner}>{children}</View>
+            <View style={styles.stickyInner}>{Children.toArray(children)}</View>
           ) : (
             children
           )}
@@ -186,6 +186,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
     width: '100%',
+    flexDirection: 'column',
   },
   handleHit: {
     alignItems: 'center',

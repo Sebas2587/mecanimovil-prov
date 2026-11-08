@@ -290,11 +290,11 @@ function PlanUpdateEdge({ bottom }: { bottom: number }) {
       style={[edgeStyles.wrap, { bottom }]}
     >
       <View style={edgeStyles.pill}>
-        <Text style={edgeStyles.copy} numberOfLines={1}>
+        <Text style={edgeStyles.copy} numberOfLines={2}>
           Activa un plan y recibe créditos cada mes
         </Text>
         <View style={edgeStyles.chip}>
-          <Text style={edgeStyles.chipText}>Update</Text>
+          <Text style={edgeStyles.chipText}>Activar</Text>
           <ArrowRight size={12} color={C.institutional.onPrimary} strokeWidth={1.75} />
         </View>
       </View>

@@ -84,7 +84,7 @@ export function InstitutionalButton({
   ) : (
     <View style={rowCenter}>
       {leading}
-      <Text style={styles.text as TextStyle} numberOfLines={1}>
+      <Text style={styles.text as TextStyle} numberOfLines={size === 'compact' ? 2 : 1}>
         {label}
       </Text>
     </View>
@@ -98,6 +98,7 @@ export function InstitutionalButton({
         disabled={isDisabled}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
         style={({ pressed }) => [
           primaryShell,
           { minHeight: fill.minHeight },
@@ -128,6 +129,7 @@ export function InstitutionalButton({
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.button as ViewStyle,
         pressed && !isDisabled && (styles.pressed as ViewStyle),

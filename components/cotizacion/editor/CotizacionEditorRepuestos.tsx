@@ -459,8 +459,7 @@ export function CotizacionEditorRepuestos({
           fichaExigente={resumenPrecios.fichaExigente}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.
-          {avisoMargen}
+          {`El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl. ${avisoMargen}`.trim()}
         </InstitutionalText>
         {repuestos.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>

@@ -21,6 +21,7 @@ import { CotizacionDetalleSheet } from '@/components/taller/CotizacionDetalleShe
 import { CotizacionEstadoBadge } from '@/components/taller/CotizacionEstadoBadge';
 import { esPasoComercial, PASO_ETIQUETA, type PasoComercial } from '@/utils/pasoComercial';
 import type { EstadoCotizacionVista } from '@/utils/cotizacionPresentacion';
+import { etiquetaClientesConCotizaciones } from '@/utils/copyPresentacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -94,7 +95,7 @@ export function ClientesVista({ pasoInicial, busquedaInicial }: Props) {
           <View style={styles.cabecera}>
             <InstitutionalText role="h2">Clientes</InstitutionalText>
             <InstitutionalText role="caption" color="body">
-              {query.data?.count ?? clientes.length} clientes con cotizaciones
+              {etiquetaClientesConCotizaciones(query.data?.count ?? clientes.length)}
             </InstitutionalText>
             <View style={styles.buscador}>
               <Search size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />

@@ -32,6 +32,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
+import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
@@ -46,7 +47,8 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { accionFlotante } = useTallerShell();
+  const { accionFlotante, reservaLista } = useTallerShell();
+  const marcoLista = useMarcoListaStyle();
   const { saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
@@ -409,7 +411,7 @@ export default function HomeScreen() {
       || 'Mecánico';
 
     return (
-      <TabScreenWrapper>
+      <TabScreenWrapper style={marcoLista}>
         <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
           <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
             <View style={themedStyles.header}>
@@ -452,7 +454,7 @@ export default function HomeScreen() {
 
   // Cuenta aprobada: dashboard principal
   return (
-    <TabScreenWrapper>
+    <TabScreenWrapper style={marcoLista}>
       <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
         <ScrollView
           style={hostScreenStyles.scroll}
@@ -462,7 +464,7 @@ export default function HomeScreen() {
             hostScreenStyles.scrollInner,
             {
               paddingTop: SPACING.fixed.md,
-              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl) + (accionFlotante ? 72 : 0),
+              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl) + (accionFlotante ? Math.max(reservaLista, 72) : 0),
             },
           ]}
         >

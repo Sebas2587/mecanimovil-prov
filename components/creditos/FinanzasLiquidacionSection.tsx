@@ -12,6 +12,7 @@ import {
 } from '@/app/design-system/components';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { etiquetaLiquidacionesPendientes } from '@/utils/copyPresentacion';
 
 const I = COLORS.institutional;
 
@@ -51,10 +52,7 @@ export function FinanzasLiquidacionSection() {
 
   if (!resumen) return null;
 
-  const pendientesLabel =
-    resumen.cantidad_pendiente === 1
-      ? '1 liquidación pendiente'
-      : `${resumen.cantidad_pendiente} liquidaciones pendientes`;
+  const pendientesLabel = etiquetaLiquidacionesPendientes(resumen.cantidad_pendiente);
 
   return (
     <View style={[hostScreenStyles.stretch, styles.section]}>

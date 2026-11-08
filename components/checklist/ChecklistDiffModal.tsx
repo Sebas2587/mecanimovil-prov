@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
@@ -76,6 +77,8 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ChecklistPreviewImpacto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { width: viewportWidth } = useWindowDimensions();
+  const footerApilado = viewportWidth < 480;
 
   useEffect(() => {
     if (!visible || !instanceId) {
@@ -344,7 +347,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
         </ScrollView>
 
         {/* Footer con botones */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, footerApilado && styles.footerStack]}>
           <InstitutionalButton
             label="Revisar respuestas"
             variant="outline"
@@ -361,7 +364,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
             disabled={finalizing || loading}
             loading={finalizing}
             leading={
-              !finalizing ? (
+              !finalizing && !footerApilado ? (
                 <InstitutionalIcon
                   name="check"
                   size={18}
@@ -598,8 +601,12 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     ...SHADOWS.lg,
   },
+  footerStack: {
+    flexDirection: 'column-reverse',
+  },
   footerButton: {
     flex: 1,
+    alignSelf: 'stretch',
   },
   buttonDisabled: {
     opacity: 0.6,

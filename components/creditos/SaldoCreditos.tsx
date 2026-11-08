@@ -9,6 +9,7 @@ import {
   hostIconPlateStyle,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { Card } from '@/app/design-system/components';
+import { enteroSeguro } from '@/utils/copyPresentacion';
 
 const I = COLORS.institutional;
 
@@ -76,7 +77,8 @@ export const SaldoCreditos = memo(function SaldoCreditos({
   titulo,
   disabled = false,
 }: SaldoCreditosProps) {
-  const conSaldo = saldo > 0;
+  const saldoMostrado = enteroSeguro(saldo);
+  const conSaldo = saldoMostrado > 0;
   const saldoColor = conSaldo ? I.ink : I.semanticDown;
   const recargaStr = fechaProximaRecarga ? formatFechaRecarga(fechaProximaRecarga) : '';
 
@@ -125,7 +127,7 @@ export const SaldoCreditos = memo(function SaldoCreditos({
 
         <View style={styles.heroMain}>
           <View style={styles.saldoRow}>
-            <Text style={[styles.saldoNumber, { color: saldoColor }]}>{saldo}</Text>
+            <Text style={[styles.saldoNumber, { color: saldoColor }]}>{saldoMostrado}</Text>
             <Text style={styles.saldoUnit}>créditos</Text>
           </View>
 

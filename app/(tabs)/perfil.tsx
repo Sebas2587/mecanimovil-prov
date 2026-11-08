@@ -70,6 +70,7 @@ import {
   invalidateDashboardFinanzasQueries,
 } from '@/hooks/useDashboardFinanzas';
 import { navegarServiciosCompletados } from '@/utils/navegarServiciosCompletados';
+import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 
 const I = COLORS.institutional;
 
@@ -107,6 +108,7 @@ export default function PerfilScreen() {
 
   const { width: windowWidth } = useWindowDimensions();
   const insightsWide = windowWidth >= 720;
+  const marcoLista = useMarcoListaStyle();
 
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
   const dashboardFinanzasEnabled = Boolean(
@@ -120,8 +122,7 @@ export default function PerfilScreen() {
 
   const rendimientoWidgetPeriod = useMemo(() => {
     if (kpisResumen.data) {
-      const d = kpisResumen.data.ventana_dias;
-      return `Últimos ${d} días · Toca para ver el índice completo`;
+      return `Últimos ${kpisResumen.ventanaDiasMostrada} días · Toca para ver el índice completo`;
     }
     if (kpisResumen.loading) {
       return `Últimos ${kpisResumen.ventanaDiasMostrada} días · cargando…`;
@@ -593,7 +594,7 @@ export default function PerfilScreen() {
 
   if (isLoading) {
     return (
-      <TabScreenWrapper>
+      <TabScreenWrapper style={marcoLista}>
         <View style={styles.screen}>
           <View style={styles.centeredContainer}>
             <ActivityIndicator size="large" color={I.primary} />
@@ -605,14 +606,14 @@ export default function PerfilScreen() {
   }
 
   return (
-    <TabScreenWrapper>
+    <TabScreenWrapper style={marcoLista}>
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="Menú" />
 
         <ScrollView
           style={hostScreenStyles.scroll}
-          contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] }]}
+          contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] + 72 }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={hostScreenStyles.stretch}>

@@ -53,7 +53,9 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
   const loading = isPending && data == null;
   const isRefetching = isFetching && data != null;
 
-  const progress = data != null ? data.score_rendimiento : undefined;
+  const progress = data != null && Number.isFinite(Number(data.score_rendimiento))
+    ? Number(data.score_rendimiento)
+    : undefined;
   const targetTierName =
     data != null
       ? targetTierNameForScore(data.score_rendimiento)
@@ -63,7 +65,9 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
           ? 'Sin datos'
           : '—';
 
-  const ventanaDiasMostrada = data?.ventana_dias ?? diasClamped;
+  const ventanaDiasMostrada = Number.isFinite(Number(data?.ventana_dias))
+    ? Number(data?.ventana_dias)
+    : diasClamped;
 
   return {
     data,

@@ -39,6 +39,7 @@ export function TallerPildora({
       disabled={bloqueado}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: bloqueado, busy: loading }}
       style={({ pressed }) => [
         styles.base,
         forma === 'hoja' && styles.hoja,

@@ -59,11 +59,25 @@ function resolveTipoPregunta(response: ChecklistItemResponse): string {
   );
 }
 
-function resolvePreguntaTexto(response: ChecklistItemResponse): string {
+function itemsPlantillaPorId(instance: ChecklistInstance | null): Map<number, { pregunta_texto?: string; tipo_pregunta?: string; nombre?: string }> {
+  const nested = (instance as ChecklistInstance & {
+    checklist_template?: { items?: Array<{ id: number; pregunta_texto?: string; tipo_pregunta?: string; nombre?: string }> };
+  } | null)?.checklist_template;
+  const items = nested && typeof nested === 'object' && Array.isArray(nested.items) ? nested.items : [];
+  return new Map(items.map((item) => [item.id, item]));
+}
+
+function resolvePreguntaTexto(
+  response: ChecklistItemResponse,
+  itemsById?: Map<number, { pregunta_texto?: string; nombre?: string }>,
+): string {
+  const fromTemplate = itemsById?.get(response.item_template);
   return (
     response.item_info?.pregunta_texto
     || response.item_template_info?.pregunta_texto
+    || fromTemplate?.pregunta_texto
     || response.item_info?.nombre
+    || fromTemplate?.nombre
     || 'Pregunta'
   );
 }
@@ -189,6 +203,8 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
     }
   };
 
+  const itemsById = itemsPlantillaPorId(instance);
+
   const renderRespuesta = (response: ChecklistItemResponse) => {
     const {
       respuesta_texto,
@@ -198,9 +214,10 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       respuesta_fecha,
       fotos,
     } = response;
+    const valorAlias = (response as ChecklistItemResponse & { valor_texto?: string }).valor_texto;
 
     const tipo = resolveTipoPregunta(response);
-    const pregunta = resolvePreguntaTexto(response);
+    const pregunta = resolvePreguntaTexto(response, itemsById);
     const num =
       respuesta_numero !== undefined && respuesta_numero !== null
         ? Number(respuesta_numero)
@@ -233,6 +250,8 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       valorMostrar = respuesta_booleana ? 'Sí' : 'No';
     } else if (respuesta_texto) {
       valorMostrar = respuesta_texto;
+    } else if (typeof valorAlias === 'string' && valorAlias.trim()) {
+      valorMostrar = valorAlias.trim();
     } else if (Number.isFinite(num)) {
       valorMostrar = Number.isInteger(num)
         ? String(num)

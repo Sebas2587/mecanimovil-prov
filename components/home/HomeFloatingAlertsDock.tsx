@@ -19,6 +19,7 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const PAPER = I.paper || COLORS.background.paper;
@@ -336,6 +337,7 @@ function HomeFloatingAlertsDockInner({
   opsAlerts = [],
 }: HomeFloatingAlertsDockProps) {
   const insets = useSafeAreaInsets();
+  const { accionFlotante, reservaLista } = useTallerShell();
   const [leadAlerts, setLeadAlerts] = useState<LeadFloatingAlert[]>([]);
 
   useEffect(() => {
@@ -380,7 +382,8 @@ function HomeFloatingAlertsDockInner({
 
   if (!enabled || items.length === 0) return null;
 
-  const bottom = TAB_BAR_CONTENT_H + insets.bottom + SPACING.sm;
+  const bottom = TAB_BAR_CONTENT_H + insets.bottom + SPACING.sm
+    + (accionFlotante ? reservaLista : 0);
 
   return (
     <View pointerEvents="box-none" style={[styles.dock, { bottom }]}>

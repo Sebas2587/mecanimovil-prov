@@ -9,6 +9,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Link2, Sparkles, X } from 'lucide-react-native';
@@ -140,7 +141,9 @@ export function CotizacionLibreModal({
 }: Props) {
   const insets = useSafeAreaInsets();
   const webViewport = useWebVisualViewport();
+  const { width: viewportWidth } = useWindowDimensions();
   const footerBottom = webFooterBottom(webViewport, insets.bottom, SPACING.md);
+  const footerApilado = webViewport.touch || viewportWidth < 520;
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -1037,7 +1040,7 @@ export function CotizacionLibreModal({
           <View
             style={[
               styles.footer,
-              webViewport.touch && styles.footerStack,
+              footerApilado && styles.footerStack,
               { paddingBottom: footerBottom },
             ]}
           >
@@ -1051,7 +1054,7 @@ export function CotizacionLibreModal({
                     onPress={() => void handleCrearBorrador()}
                     disabled={ocupado}
                     loading={creandoManual}
-                    style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
+                    style={[styles.footerBtnPair, footerApilado && styles.footerBtnFull]}
                   />
                 )}
                 <TallerPildora
@@ -1067,14 +1070,14 @@ export function CotizacionLibreModal({
                   onPress={() => void handleGenerarIa()}
                   disabled={ocupado}
                   loading={generandoIa}
-                  leading={generandoIa ? undefined : (
+                  leading={generandoIa || footerApilado ? undefined : (
                     <Sparkles size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   )}
-                  style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
+                  style={[styles.footerBtnPair, footerApilado && styles.footerBtnFull]}
                 />
               </>
             ) : puedeEnviar ? (
-              <View style={[styles.footerCol, webViewport.touch && styles.footerBtnFull]}>
+              <View style={[styles.footerCol, footerApilado && styles.footerBtnFull]}>
                 {cotizacion?.estado === 'borrador' ? (
                   <TouchableOpacity
                     onPress={handleDescartarBorrador}
