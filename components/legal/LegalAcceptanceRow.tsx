@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import LegalFooterLinks from './LegalFooterLinks';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 
 type Props = {
   checked: boolean;
@@ -22,6 +23,7 @@ export default function LegalAcceptanceRow({ checked, onToggle, error }: Props) 
           activeOpacity={0.7}
           accessibilityRole="checkbox"
           accessibilityState={{ checked }}
+          {...webKeyboardProps(false, onToggle)}
         >
           <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
             {checked ? (
@@ -64,7 +66,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...institutionalTextStyle('caption', I.body),
   },
-  link: institutionalTextStyle('navLink', I.primary),
+  link: institutionalTextStyle('navLink', COLORS.primary[700]),
   error: {
     marginTop: SPACING.fixed.xs,
   },

@@ -175,19 +175,19 @@ export default function RootLayout() {
                   <Stack.Screen name="actualizar-ubicacion" options={{ headerShown: false }} />
                   <Stack.Screen name="orden-detalle/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="servicio-detalle/[id]" options={{ headerShown: false }} />
+                  <Stack.Screen name="solicitud-detalle/[id]" options={{ headerShown: false }} />
+                  <Stack.Screen name="crear-oferta/[solicitudId]" options={{ headerShown: false }} />
+                  <Stack.Screen name="crear-oferta-secundaria/[solicitudId]/[ofertaOriginalId]" options={{ headerShown: false }} />
+                  <Stack.Screen name="crear-servicio" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="oferta-detalle/[id]"
-                    options={{
-                      headerBackTitle: '',
-                    }}
+                    options={{ headerShown: false }}
                   />
                   <Stack.Screen name="checklist-item/[ordenId]/[itemId]" options={{ headerShown: false }} />
                   <Stack.Screen name="agendar-cita-personal" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="cita-agenda-personal/[id]"
-                    options={{
-                      headerBackTitle: '',
-                    }}
+                    options={{ headerShown: false }}
                   />
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />
                   <Stack.Screen name="configuracion-agente-ia" options={{ headerShown: false }} />

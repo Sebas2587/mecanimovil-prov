@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { HomeAttentionFeed } from '@/components/home/HomeAttentionFeed';
 import {
+  ALERTS_DOCK_RESERVE,
   HomeFloatingAlertsDock,
   type OpsFloatingAlert,
 } from '@/components/home/HomeFloatingAlertsDock';
@@ -32,7 +33,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
-import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
+import { marcoListaStyle, useMarcoListaStyle } from '@/components/navigation/marcoLista';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
@@ -346,6 +347,10 @@ export default function HomeScreen() {
     saludSuscripcion,
     dismissSuscripcionAlert,
   ]);
+  const marcoHome = marcoListaStyle(
+    (typeof marcoLista.marginBottom === 'number' ? marcoLista.marginBottom : 0)
+    + (opsFloatingAlerts.length > 0 ? ALERTS_DOCK_RESERVE : 0),
+  );
 
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
@@ -454,8 +459,8 @@ export default function HomeScreen() {
 
   // Cuenta aprobada: dashboard principal
   return (
-    <TabScreenWrapper style={marcoLista}>
-      <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
+    <TabScreenWrapper style={[marcoHome, { overflow: 'visible' }]}>
+      <View style={[themedStyles.screen, { backgroundColor: palette.canvas, overflow: 'visible' }]}>
         <ScrollView
           style={hostScreenStyles.scroll}
           showsVerticalScrollIndicator={false}
@@ -464,7 +469,9 @@ export default function HomeScreen() {
             hostScreenStyles.scrollInner,
             {
               paddingTop: SPACING.fixed.md,
-              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl) + (accionFlotante ? Math.max(reservaLista, 72) : 0),
+              paddingBottom: insets.bottom
+                + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl)
+                + (accionFlotante ? Math.max(reservaLista, 72) : 0),
             },
           ]}
         >

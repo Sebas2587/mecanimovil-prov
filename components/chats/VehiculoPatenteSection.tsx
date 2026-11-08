@@ -317,12 +317,13 @@ const styles = StyleSheet.create({
   },
   fieldRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
     alignItems: 'flex-start',
   },
   fieldHalf: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 148,
   },
   vehiculoGrid: {
     flexDirection: 'row',

@@ -24,6 +24,7 @@ import {
   HostSectionKicker,
   HostSwitch,
   hostScreenStyles,
+  InstitutionalButton,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { navigateBack } from '@/utils/navigateBack';
@@ -445,10 +446,13 @@ export default function GestionEquipoScreen() {
           <View style={styles.sectionHeaderRow}>
             <HostSectionKicker label={`Mecánicos (${mecanicos.length})`} style={styles.sectionKickerFlush} />
             {(!esSupervisor || puede('mecanicos')) && (
-              <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
-                <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.addBtnText}>Agregar</Text>
-              </TouchableOpacity>
+              <InstitutionalButton
+                label="Agregar"
+                variant="primary"
+                size="compact"
+                onPress={abrirCrearMecanico}
+                leading={<InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
             )}
           </View>
 
@@ -666,20 +670,21 @@ export default function GestionEquipoScreen() {
             </ScrollView>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnGhost]}
+              <InstitutionalButton
+                label="Cancelar"
+                variant="outline"
                 onPress={() => setModalVisible(false)}
                 disabled={saving}
-              >
-                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={guardar} disabled={saving}>
-                {saving ? (
-                  <ActivityIndicator color={I.white} />
-                ) : (
-                  <Text style={styles.modalBtnPrimaryText}>Guardar</Text>
-                )}
-              </TouchableOpacity>
+                style={styles.modalBtn}
+              />
+              <InstitutionalButton
+                label="Guardar"
+                variant="primary"
+                onPress={guardar}
+                disabled={saving}
+                loading={saving}
+                style={styles.modalBtn}
+              />
             </View>
           </View>
         </View>
@@ -812,7 +817,7 @@ const styles = StyleSheet.create({
   permLabel: { fontFamily: FF.semibold, fontSize: 14, color: I.text },
   permDesc: { fontFamily: FF.regular, fontSize: 12, color: I.muted, marginTop: 2 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: SPACING.lg },
-  actionBtnText: { color: I.primary, fontFamily: FF.semibold, marginLeft: 4, fontSize: 13 },
+  actionBtnText: { color: COLORS.primary[700], fontFamily: FF.semibold, marginLeft: 4, fontSize: 13 },
   emptyText: { color: I.muted, fontFamily: FF.regular, fontSize: 14, paddingVertical: SPACING.md },
   modalOverlay: {
     flex: 1,
@@ -840,7 +845,7 @@ const styles = StyleSheet.create({
     fontFamily: FF.regular,
     color: I.text,
   },
-  modalActions: { flexDirection: 'row', marginTop: SPACING.lg },
+  modalActions: { flexDirection: 'row', marginTop: SPACING.lg, gap: SPACING.sm },
   modalBtn: { flex: 1, paddingVertical: SPACING.md, borderRadius: BORDERS.radius.md, alignItems: 'center' },
   modalBtnGhost: { marginRight: SPACING.sm, backgroundColor: withOpacity(I.text, 0.06) },
   modalBtnGhostText: { color: I.text, fontFamily: FF.semibold },

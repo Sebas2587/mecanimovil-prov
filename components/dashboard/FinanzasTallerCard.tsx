@@ -11,6 +11,7 @@ import {
 import { ChevronRight, ShieldCheck, Wallet } from 'lucide-react-native';
 import {
   COLORS,
+  GRADIENTS,
   SPACING,
   TYPOGRAPHY,
   BORDERS,
@@ -261,7 +262,7 @@ export function FinanzasTallerCard({
             accessibilityRole="button"
             accessibilityLabel="Recargar créditos"
           >
-            <PrimaryGradientFill style={StyleSheet.absoluteFill} />
+            <PrimaryGradientFill colors={GRADIENTS.hostCtaOnText} style={StyleSheet.absoluteFill} />
             <Text style={styles.recargaBtnText}>Recargar</Text>
           </Pressable>
         ) : null}

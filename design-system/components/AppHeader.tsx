@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const C = COLORS;
@@ -69,6 +70,7 @@ export function AppHeader({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 accessibilityRole="button"
                 accessibilityLabel="Volver"
+                {...webKeyboardProps(false, onBackPress)}
               >
                 <ArrowLeft size={22} color={C.text.primary} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>

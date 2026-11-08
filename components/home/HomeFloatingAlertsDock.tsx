@@ -8,7 +8,6 @@ import {
   Animated,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { X, type LucideIcon, MessageCircle, Sparkles, Send, CircleX, BellRing, CalendarCheck, CheckCircle2 } from 'lucide-react-native';
 import websocketService, { type AgenteIaEvent, type NuevoMensajeChatEvent } from '@/app/services/websocketService';
@@ -19,7 +18,6 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
-import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const PAPER = I.paper || COLORS.background.paper;
@@ -31,8 +29,12 @@ const ALERT_ICON_STROKE = 2.25;
 const OPS_ALERT_AUTO_DISMISS_MS = 10_000;
 const LEAD_ALERT_AUTO_DISMISS_MS = 8_000;
 
-/** Altura aprox. de tab bar (sin safe area). */
-const TAB_BAR_CONTENT_H = Platform.OS === 'ios' ? 84 : 64;
+/**
+ * El dock vive en la franja reservada BAJO el marco de la lista (no encima de las cards).
+ * `ALERTS_DOCK_RESERVE` achica el wrapper; `bottom` negativo pinta el banner en ese margen.
+ */
+export const ALERTS_DOCK_GAP = SPACING.sm;
+export const ALERTS_DOCK_RESERVE = 88;
 
 export type OpsFloatingAlert = {
   id: string;
@@ -336,8 +338,6 @@ function HomeFloatingAlertsDockInner({
   enabled = true,
   opsAlerts = [],
 }: HomeFloatingAlertsDockProps) {
-  const insets = useSafeAreaInsets();
-  const { accionFlotante, reservaLista } = useTallerShell();
   const [leadAlerts, setLeadAlerts] = useState<LeadFloatingAlert[]>([]);
 
   useEffect(() => {
@@ -382,11 +382,11 @@ function HomeFloatingAlertsDockInner({
 
   if (!enabled || items.length === 0) return null;
 
-  const bottom = TAB_BAR_CONTENT_H + insets.bottom + SPACING.sm
-    + (accionFlotante ? reservaLista : 0);
-
   return (
-    <View pointerEvents="box-none" style={[styles.dock, { bottom }]}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.dock, { bottom: -ALERTS_DOCK_RESERVE + ALERTS_DOCK_GAP }]}
+    >
       {/* column-reverse: la más reciente queda pegada al menú; el resto sube */}
       <View style={styles.stack}>
         {[...items].reverse().map((alert) => {

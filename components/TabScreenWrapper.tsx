@@ -27,8 +27,10 @@ export default function TabScreenWrapper({ children, style }: TabScreenWrapperPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'visible',
   },
   content: {
     flex: 1,
+    overflow: 'visible',
   },
 }); 

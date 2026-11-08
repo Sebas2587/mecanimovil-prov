@@ -117,9 +117,9 @@ const variantStyles: Record<
   },
   success: {
     button: {
-      backgroundColor: I.semanticUp,
+      backgroundColor: COLORS.success.dark,
       borderWidth: BORDERS.width.thin,
-      borderColor: I.semanticUp,
+      borderColor: COLORS.success.dark,
       ...SHADOWS.editorial,
     },
     text: {

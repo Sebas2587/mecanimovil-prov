@@ -22,7 +22,7 @@ import {
   useSolicitudDetalleQuery,
 } from '@/hooks/useSolicitudDetalleQuery';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow, noShadow } from '@/app/design-system/tokens';
+import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow } from '@/app/design-system/tokens';
 import solicitudesService, {
   type SolicitudPublica,
   type OfertaProveedor,
@@ -58,6 +58,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
 import { ModalCreditosInsuficientes } from '@/components/creditos';
 import {
+  AppHeader,
   HostPaperSection,
   HostSectionKicker,
   hostScreenStyles,
@@ -818,21 +819,14 @@ export default function SolicitudDetalleScreen() {
 
   const stackOptions = {
     title: 'Detalle de Solicitud',
-    headerBackTitle: '',
-    headerBackTitleVisible: false as const,
-    headerShadowVisible: false,
-    headerStyle: {
-      backgroundColor: I.canvas,
-      borderBottomWidth: 0,
-      ...noShadow,
-    },
-    headerTintColor: I.ink,
+    headerShown: false,
   };
 
   if (showInitialLoader) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />
+        <AppHeader title="Detalle de Solicitud" showBack onBackPress={() => router.back()} dense />
         <View style={styles.screenRoot}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
@@ -847,6 +841,7 @@ export default function SolicitudDetalleScreen() {
     return (
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />
+        <AppHeader title="Detalle de Solicitud" showBack onBackPress={() => router.back()} dense />
         <View style={styles.screenRoot}>
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Solicitud no encontrada</Text>
@@ -872,6 +867,7 @@ export default function SolicitudDetalleScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={stackOptions} />
+      <AppHeader title="Detalle de Solicitud" showBack onBackPress={() => router.back()} dense />
 
       <View style={styles.screenRoot}>
         <ScrollView

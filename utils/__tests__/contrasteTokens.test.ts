@@ -1,4 +1,4 @@
-import { COLORS } from '@/app/design-system/tokens';
+import { COLORS, GRADIENTS } from '@/app/design-system/tokens';
 
 function luminance(hex: string): number {
   const h = hex.replace('#', '');
@@ -36,5 +36,23 @@ describe('contraste de tokens vigentes', () => {
   it('MAGENTA no se oscurece: el token de marca sigue #FD2B7B', () => {
     expect(COLORS.institutional.primary).toBe('#FD2B7B');
     expect(COLORS.brand.magenta).toBe('#FD2B7B');
+    expect(GRADIENTS.hostCta[0]).toBe('#FD2B7B');
+    expect(GRADIENTS.hostCta[1]).toBe('#FF7158');
+  });
+
+  it('gradiente bajo texto: peor stop con blanco >= 4.5 (texto 15px)', () => {
+    const ratios = GRADIENTS.hostCtaOnText.map((stop) => contrastRatio('#FFFFFF', stop));
+    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('success activo usa success.dark + blanco >= 4.5', () => {
+    expect(contrastRatio('#FFFFFF', COLORS.success.dark)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('snackbar success/warning/error/info texto sobre paper >= 4.5', () => {
+    expect(contrastRatio(COLORS.success.darker, COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(COLORS.warning.darker, COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(COLORS.error.dark, COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(COLORS.primary[700], COLORS.institutional.paper)).toBeGreaterThanOrEqual(4.5);
   });
 });

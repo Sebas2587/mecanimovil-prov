@@ -11,7 +11,7 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
-import { hostScreenStyles } from '@/app/design-system/components';
+import { AppHeader, hostScreenStyles } from '@/app/design-system/components';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedorData, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { FormularioOferta } from '@/components/solicitudes/FormularioOferta';
 import creditosService, { type VerificacionCreditosOferta } from '@/services/creditosService';
@@ -30,10 +30,7 @@ const NAV_TITLE_MAX = 40;
 
 const stackScreenOptions = {
   title: 'Crear oferta',
-  headerBackTitle: '',
-  headerBackTitleVisible: false as const,
-  headerStyle: { backgroundColor: I.canvas },
-  headerTintColor: I.ink,
+  headerShown: false as const,
 };
 
 export default function CrearOfertaScreen() {
@@ -312,6 +309,7 @@ export default function CrearOfertaScreen() {
     return (
       <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={screenOptions} />
+        <AppHeader title={navTitle} showBack onBackPress={() => router.back()} dense />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={I.primary} />
           <Text style={styles.loadingText}>Cargando solicitud…</Text>
@@ -324,6 +322,7 @@ export default function CrearOfertaScreen() {
     return (
       <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={screenOptions} />
+        <AppHeader title={navTitle} showBack onBackPress={() => router.back()} dense />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Solicitud no encontrada</Text>
         </View>
@@ -334,6 +333,7 @@ export default function CrearOfertaScreen() {
   return (
     <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={screenOptions} />
+      <AppHeader title={navTitle} showBack onBackPress={() => router.back()} dense />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

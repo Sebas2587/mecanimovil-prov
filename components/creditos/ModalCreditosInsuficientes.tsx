@@ -96,6 +96,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         </Animated.View>
 
         <Animated.View
+          testID="modal-creditos-insuficientes"
           style={[
             styles.modalContainer,
             institutionalCardStyles.surface,

@@ -15,7 +15,8 @@ import {
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
 import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
 import { hostIconPlateColor, hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
-import { BORDERS, COLORS, SPACING, TYPOGRAPHY, platformShadow } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, GRADIENTS, SPACING, TYPOGRAPHY, platformShadow } from '@/app/design-system/tokens';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
 import { useAlerts } from '@/context/AlertsContext';
 import { useAuth } from '@/context/AuthContext';
@@ -167,8 +168,9 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
           style={styles.cta}
           accessibilityRole="button"
           accessibilityLabel="Nueva cotización"
+          {...webKeyboardProps(false, abrirNuevaCotizacion)}
         >
-          <PrimaryGradientFill style={styles.ctaFill}>
+          <PrimaryGradientFill colors={GRADIENTS.hostCtaOnText} style={styles.ctaFill}>
             <Plus size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
             <InstitutionalText role="bodyBold" color="onPrimary">Nueva cotización</InstitutionalText>
           </PrimaryGradientFill>
@@ -236,6 +238,7 @@ export function NuevaCotizacionFlotante({ bottom }: { bottom: number }) {
         style={styles.flotante}
         accessibilityRole="button"
         accessibilityLabel="Nueva cotización"
+        {...webKeyboardProps(false, abrirNuevaCotizacion)}
       >
         <Plus size={16} color={I.onDark} strokeWidth={2.25} />
         <InstitutionalText role="bodyBold" color={I.onDark}>Nueva cotización</InstitutionalText>

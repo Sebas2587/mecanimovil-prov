@@ -10,10 +10,6 @@ import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-sys
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import {
-  institutionalStatusColors,
-  type InstitutionalStatusTone,
-} from '@/app/design-system/styles/institutionalSemantic';
 
 const I = COLORS.institutional;
 
@@ -26,13 +22,6 @@ interface SnackbarProps {
   actionLabel?: string;
   onAction?: () => void;
 }
-
-const variantToneMap: Record<NonNullable<SnackbarProps['variant']>, InstitutionalStatusTone> = {
-  success: 'success',
-  warning: 'warning',
-  error: 'error',
-  info: 'info',
-};
 
 const variantIconMap: Record<NonNullable<SnackbarProps['variant']>, string> = {
   success: 'checkmark-circle',
@@ -54,10 +43,13 @@ export default function Snackbar({
   const slideAnim = useRef(new Animated.Value(100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const tone = variantToneMap[variant];
-  const status = institutionalStatusColors(tone);
-  const backgroundColor = status.icon;
-  const textColor = I.onPrimary;
+  const snackTone: Record<NonNullable<SnackbarProps['variant']>, { bg: string; text: string }> = {
+    success: { bg: I.paper, text: COLORS.success.darker },
+    warning: { bg: I.paper, text: COLORS.warning.darker },
+    error: { bg: I.paper, text: COLORS.error.dark },
+    info: { bg: I.paper, text: COLORS.primary[700] },
+  };
+  const { bg: backgroundColor, text: textColor } = snackTone[variant];
   const icon = variantIconMap[variant];
 
   useEffect(() => {
@@ -194,7 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     marginRight: SPACING.xs,
     borderRadius: BORDERS.radius.sm + 2,
-    backgroundColor: withOpacity(I.onPrimary, 0.2),
+    backgroundColor: withOpacity(I.ink, 0.08),
   },
   actionText: {
     textTransform: 'uppercase',

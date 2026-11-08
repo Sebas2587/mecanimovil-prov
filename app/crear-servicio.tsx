@@ -3810,7 +3810,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   marcaCardEstadoTextCompact: {
-    fontSize: 10,
+    fontSize: TYPOGRAPHY.styles.captionBold.fontSize,
     letterSpacing: 0.2,
   },
   marcaCardEstadoBadge: {

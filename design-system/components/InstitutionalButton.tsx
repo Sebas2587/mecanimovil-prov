@@ -8,13 +8,14 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { COLORS, BORDERS, SPACING } from '@/app/design-system/tokens';
+import { COLORS, BORDERS, SPACING, GRADIENTS } from '@/app/design-system/tokens';
 import {
   institutionalButtonStyles,
   type InstitutionalButtonSize,
   type InstitutionalButtonVariant,
 } from '@/app/design-system/styles/institutionalButtons';
 import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 
 const I = COLORS.institutional;
 
@@ -99,6 +100,7 @@ export function InstitutionalButton({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
+        {...webKeyboardProps(isDisabled, onPress)}
         style={({ pressed }) => [
           primaryShell,
           { minHeight: fill.minHeight },
@@ -107,6 +109,7 @@ export function InstitutionalButton({
         ]}
       >
         <PrimaryGradientFill
+          colors={GRADIENTS.hostCtaOnText}
           style={[
             primaryFill,
             {
@@ -130,6 +133,7 @@ export function InstitutionalButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
+      {...webKeyboardProps(isDisabled, onPress)}
       style={({ pressed }) => [
         styles.button as ViewStyle,
         pressed && !isDisabled && (styles.pressed as ViewStyle),

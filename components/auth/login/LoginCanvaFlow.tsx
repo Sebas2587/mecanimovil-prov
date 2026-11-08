@@ -20,6 +20,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ConnectedGoogleAccount } from '@/hooks/auth/useGoogleSignInFlow';
 import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 import { GoogleLogoMark } from '@/components/auth/GoogleLogoMark';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -60,6 +61,7 @@ function BackLink({ onPress, label = 'Volver' }: { onPress: () => void; label?: 
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={label}
+      {...webKeyboardProps(false, onPress)}
     >
       <ChevronLeft size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
       <Text style={styles.backText}>{label}</Text>
@@ -197,6 +199,8 @@ export function LoginCanvaFlow({
             activeOpacity={0.75}
             accessibilityRole="button"
             accessibilityLabel="Continuar con Google"
+            accessibilityState={{ disabled: googleLoading || !acceptTerms }}
+            {...webKeyboardProps(googleLoading || !acceptTerms, onUseAnotherGoogle)}
           >
             <View style={styles.googleIcon}>
               {googleLoading ? (
@@ -219,6 +223,8 @@ export function LoginCanvaFlow({
             activeOpacity={0.75}
             accessibilityRole="button"
             accessibilityLabel="Usar correo electrónico"
+            accessibilityState={{ disabled: !acceptTerms }}
+            {...webKeyboardProps(!acceptTerms, onGoEmail)}
           >
             <View style={styles.mailIcon}>
               <Mail size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
@@ -327,7 +333,7 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   link: {
-    color: I.primary,
+    color: COLORS.primary[700],
     fontFamily: FF.sansSemiBold,
   },
   paper: {
