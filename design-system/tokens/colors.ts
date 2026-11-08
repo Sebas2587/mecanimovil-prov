@@ -261,7 +261,7 @@ export const COLORS = {
   },
 
   tab: {
-    unselected: TAB_MUTED,
+    unselected: ICON_DEFAULT,
     unselectedBg: TONAL,
     selectedBg: '#FFFFFF',
     /** Tab bar Airbnb paper + acento Tinder (10% brand). */

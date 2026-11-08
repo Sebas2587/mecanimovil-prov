@@ -201,7 +201,7 @@ export function AudioRecorderBar({
   return (
     <View style={styles.recordingContainer}>
       <TouchableOpacity style={styles.cancelBtn} onPress={cancelRecording}>
-        <Trash2 size={18} color={COLORS.danger?.main || '#d93049'} />
+        <Trash2 size={18} color={COLORS.institutional.semanticDown} />
       </TouchableOpacity>
 
       <View style={styles.timerWrap}>
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.danger?.main || '#d93049',
+    backgroundColor: COLORS.institutional.semanticDown,
   },
   timerText: {
     fontSize: 12,

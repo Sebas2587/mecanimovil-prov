@@ -53,21 +53,22 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
   const loading = isPending && data == null;
   const isRefetching = isFetching && data != null;
 
-  const progress = data != null && Number.isFinite(Number(data.score_rendimiento))
+  const scorePresente = data != null && Number.isFinite(Number(data.score_rendimiento))
     ? Number(data.score_rendimiento)
-    : undefined;
+    : null;
+  const progress = scorePresente ?? undefined;
   const targetTierName =
     data != null
-      ? targetTierNameForScore(data.score_rendimiento)
+      ? (scorePresente == null ? '—' : targetTierNameForScore(scorePresente))
       : loading
         ? 'Cargando…'
         : errorMessage != null
           ? 'Sin datos'
           : '—';
 
-  const ventanaDiasMostrada = Number.isFinite(Number(data?.ventana_dias))
+  const ventanaDiasInformada = Number.isFinite(Number(data?.ventana_dias))
     ? Number(data?.ventana_dias)
-    : diasClamped;
+    : null;
 
   return {
     data,
@@ -77,7 +78,8 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
     refresh: refetch,
     progress,
     targetTierName,
-    ventanaDiasMostrada,
+    ventanaDiasInformada,
+    ventanaSolicitada: diasClamped,
     hasData: Boolean(data),
   };
 }

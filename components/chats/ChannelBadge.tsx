@@ -24,7 +24,7 @@ function ChannelBadgeComponent({ channel, compact = false }: Props) {
         },
       ]}
     >
-      <ChannelBrandGlyph channel={channel} size={compact ? 11 : 12} color={visual.color} />
+      <ChannelBrandGlyph channel={channel} size={13} color={visual.color} />
       <Text style={[styles.text, compact && styles.textCompact, { color: visual.color }]}>
         {visual.label}
       </Text>
@@ -57,13 +57,13 @@ const styles = StyleSheet.create({
   text: withWebLineHeight({
     ...TYPOGRAPHY.styles.caption,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
-    fontSize: 11,
+    fontWeight: '600' as const,
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase' as const,
   }),
   textCompact: withWebLineHeight({
-    fontSize: 10,
-    lineHeight: 1.5,
+    ...TYPOGRAPHY.styles.caption,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
   }),
 });

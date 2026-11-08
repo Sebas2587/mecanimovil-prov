@@ -18,7 +18,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   User,
   ChevronRight,
-  LogOut,
   CreditCard,
   Wallet,
   History,
@@ -121,21 +120,25 @@ export default function PerfilScreen() {
   });
 
   const rendimientoWidgetPeriod = useMemo(() => {
-    if (kpisResumen.data) {
-      return `Últimos ${kpisResumen.ventanaDiasMostrada} días · Toca para ver el índice completo`;
-    }
     if (kpisResumen.loading) {
-      return `Últimos ${kpisResumen.ventanaDiasMostrada} días · cargando…`;
+      return `Consultando últimos ${kpisResumen.ventanaSolicitada} días · cargando…`;
     }
     if (kpisResumen.error) {
       return 'No se pudo cargar · toca para reintentar';
     }
-    return `Últimos ${kpisResumen.ventanaDiasMostrada} días · mismo índice que en detalle`;
+    if (kpisResumen.data) {
+      if (kpisResumen.ventanaDiasInformada == null) {
+        return 'Periodo no informado · Toca para ver el índice completo';
+      }
+      return `Últimos ${kpisResumen.ventanaDiasInformada} días · Toca para ver el índice completo`;
+    }
+    return 'Sin datos de rendimiento';
   }, [
     kpisResumen.data,
     kpisResumen.loading,
     kpisResumen.error,
-    kpisResumen.ventanaDiasMostrada,
+    kpisResumen.ventanaDiasInformada,
+    kpisResumen.ventanaSolicitada,
   ]);
 
   const saldoCreditosQuery = useSaldoCreditosQuery(dashboardFinanzasEnabled && puede('finanzas'));
@@ -486,6 +489,8 @@ export default function PerfilScreen() {
       style={[styles.menuRow, showDivider && styles.menuRowDivider]}
       onPress={item.onPress}
       activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
     >
       <View style={styles.menuIconPlate}>
         <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
@@ -711,20 +716,14 @@ export default function PerfilScreen() {
               <WebPushSettingsRow showTopBorder />
             </Card>
 
-            <TouchableOpacity
-              style={[styles.logoutRow, { opacity: isLoggingOut ? 0.55 : 1 }]}
+            <InstitutionalButton
+              label={isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+              variant="destructiveOutline"
               onPress={handleCerrarSesion}
               disabled={isLoggingOut}
-              activeOpacity={0.88}
-            >
-              <LogOut size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.logoutText, { color: I.semanticDown }]}>
-                {isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
-              </Text>
-              {isLoggingOut ? (
-                <ActivityIndicator size="small" color={I.semanticDown} style={{ marginLeft: SPACING.sm }} />
-              ) : null}
-            </TouchableOpacity>
+              loading={isLoggingOut}
+              accessibilityLabel="Cerrar sesión"
+            />
           </View>
         </ScrollView>
       </View>

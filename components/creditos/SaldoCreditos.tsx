@@ -9,7 +9,7 @@ import {
   hostIconPlateStyle,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { Card } from '@/app/design-system/components';
-import { enteroSeguro } from '@/utils/copyPresentacion';
+import { creditosMostrados, numeroPresente } from '@/utils/copyPresentacion';
 
 const I = COLORS.institutional;
 
@@ -77,9 +77,9 @@ export const SaldoCreditos = memo(function SaldoCreditos({
   titulo,
   disabled = false,
 }: SaldoCreditosProps) {
-  const saldoMostrado = enteroSeguro(saldo);
-  const conSaldo = saldoMostrado > 0;
-  const saldoColor = conSaldo ? I.ink : I.semanticDown;
+  const saldoNumero = numeroPresente(saldo);
+  const conSaldo = (saldoNumero ?? 0) > 0;
+  const saldoColor = saldoNumero == null ? I.muted : conSaldo ? I.ink : I.semanticDown;
   const recargaStr = fechaProximaRecarga ? formatFechaRecarga(fechaProximaRecarga) : '';
 
   const handlePress = () => {
@@ -115,7 +115,7 @@ export const SaldoCreditos = memo(function SaldoCreditos({
               { color: conSaldo ? I.semanticUp : I.semanticDown },
             ]}
           >
-            {conSaldo ? 'Con saldo' : 'Sin saldo'}
+            {saldoNumero == null ? 'Saldo no informado' : conSaldo ? 'Con saldo' : 'Sin saldo'}
           </Text>
         </View>
       </View>
@@ -127,7 +127,7 @@ export const SaldoCreditos = memo(function SaldoCreditos({
 
         <View style={styles.heroMain}>
           <View style={styles.saldoRow}>
-            <Text style={[styles.saldoNumber, { color: saldoColor }]}>{saldoMostrado}</Text>
+            <Text style={[styles.saldoNumber, { color: saldoColor }]}>{creditosMostrados(saldo)}</Text>
             <Text style={styles.saldoUnit}>créditos</Text>
           </View>
 
