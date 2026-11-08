@@ -1,33 +1,22 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
 import { COLORS } from '@/app/design-system/tokens';
-import { hostScreenStyles } from '@/app/design-system/components';
-
-const I = COLORS.institutional;
+import { AppHeader, hostScreenStyles } from '@/app/design-system/components';
 
 /** Listado de solicitudes — canvas Host (sin gradient/glass). */
 export default function SolicitudesDisponiblesScreen() {
   return (
     <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false, title: 'Solicitudes disponibles' }} />
       <SafeAreaView style={[hostScreenStyles.scroll, styles.safe]} edges={['top']}>
-        <Stack.Screen
-          options={{
-            title: 'Solicitudes disponibles',
-            headerBackTitle: '',
-            headerShadowVisible: false,
-            headerStyle: {
-              backgroundColor: COLORS.background.default,
-            },
-            headerTintColor: I.ink,
-            headerTitleStyle: {
-              fontWeight: '600',
-              fontSize: 17,
-              color: I.ink,
-            },
-          }}
+        <AppHeader
+          title="Solicitudes disponibles"
+          showBack
+          onBackPress={() => router.back()}
+          dense
         />
         <SolicitudesDisponiblesContent variant="screen" />
       </SafeAreaView>

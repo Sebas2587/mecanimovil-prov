@@ -4,18 +4,16 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import {
-  institutionalStatusColors,
-  type InstitutionalStatusTone,
-} from '@/app/design-system/styles/institutionalSemantic';
 
 const I = COLORS.institutional;
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface SnackbarProps {
   visible: boolean;
@@ -26,13 +24,6 @@ interface SnackbarProps {
   actionLabel?: string;
   onAction?: () => void;
 }
-
-const variantToneMap: Record<NonNullable<SnackbarProps['variant']>, InstitutionalStatusTone> = {
-  success: 'success',
-  warning: 'warning',
-  error: 'error',
-  info: 'info',
-};
 
 const variantIconMap: Record<NonNullable<SnackbarProps['variant']>, string> = {
   success: 'checkmark-circle',
@@ -54,10 +45,13 @@ export default function Snackbar({
   const slideAnim = useRef(new Animated.Value(100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const tone = variantToneMap[variant];
-  const status = institutionalStatusColors(tone);
-  const backgroundColor = status.icon;
-  const textColor = I.onPrimary;
+  const snackTone: Record<NonNullable<SnackbarProps['variant']>, { bg: string; text: string }> = {
+    success: { bg: I.paper, text: COLORS.success.darker },
+    warning: { bg: I.paper, text: COLORS.warning.darker },
+    error: { bg: I.paper, text: COLORS.error.dark },
+    info: { bg: I.paper, text: COLORS.primary[700] },
+  };
+  const { bg: backgroundColor, text: textColor } = snackTone[variant];
   const icon = variantIconMap[variant];
 
   useEffect(() => {
@@ -66,12 +60,12 @@ export default function Snackbar({
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
 
@@ -92,12 +86,12 @@ export default function Snackbar({
       Animated.timing(slideAnim, {
         toValue: 100,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
     ]).start(() => {
       if (onDismiss) {
@@ -112,6 +106,8 @@ export default function Snackbar({
 
   return (
     <Animated.View
+      testID="host-snackbar"
+      accessibilityLabel={message}
       style={[
         styles.container,
         {
@@ -137,7 +133,7 @@ export default function Snackbar({
           style={styles.icon}
           strokeWidth={ICON_STROKE_WIDTH}
         />
-        <InstitutionalText role="body" color={textColor} style={styles.message} numberOfLines={2}>
+        <InstitutionalText role="body" color={textColor} style={styles.message}>
           {message}
         </InstitutionalText>
         {actionLabel && onAction ? (
@@ -175,17 +171,20 @@ const styles = StyleSheet.create({
   },
   snackbar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     minHeight: 48,
     borderRadius: BORDERS.radius.lg,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md - 2,
+    paddingVertical: SPACING.md,
   },
   icon: {
     marginRight: SPACING.sm,
+    marginTop: 2,
   },
   message: {
     flex: 1,
+    flexShrink: 1,
+    flexWrap: 'wrap',
     marginRight: SPACING.sm,
     fontWeight: '500',
   },
@@ -194,7 +193,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     marginRight: SPACING.xs,
     borderRadius: BORDERS.radius.sm + 2,
-    backgroundColor: withOpacity(I.onPrimary, 0.2),
+    backgroundColor: withOpacity(I.ink, 0.08),
   },
   actionText: {
     textTransform: 'uppercase',

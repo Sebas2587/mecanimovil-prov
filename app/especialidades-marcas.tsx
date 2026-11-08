@@ -478,6 +478,9 @@ export default function EspecialidadesMarcasScreen() {
               style={styles.primaryCta}
               onPress={() => setModoEdicion(true)}
               activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Configurar marcas"
+              testID="configurar-marcas-cta"
             >
               <InstitutionalIcon name="edit" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.primaryCtaText}>Configurar marcas</Text>

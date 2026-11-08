@@ -52,6 +52,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { ChevronRight } from 'lucide-react-native';
 import { AgendaComercial } from '@/components/taller/AgendaComercial';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
+import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -204,6 +205,7 @@ function formatearHoraStr(hora: string) {
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
   const { accionFlotante } = useTallerShell();
+  const marcoLista = useMarcoListaStyle();
   const queryClient = useQueryClient();
   const { estadoProveedor, esMecanicoEquipo, miembroId } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
@@ -429,7 +431,7 @@ export default function CalendarioScreen() {
   }, [queryClient]);
 
   return (
-    <TabScreenWrapper>
+    <TabScreenWrapper style={marcoLista}>
       <View style={styles.container}>
       <ScrollView
         style={hostScreenStyles.scroll}

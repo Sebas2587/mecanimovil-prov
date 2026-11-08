@@ -23,6 +23,7 @@ import {
   HostSectionKicker,
   hostScreenStyles,
 } from '@/app/design-system/components';
+import { etiquetaVentanaDias, numeroPresente, textoOGuion } from '@/utils/copyPresentacion';
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -223,10 +224,17 @@ export function RendimientoKpisContent() {
               <SectionTitle>RESUMEN</SectionTitle>
               <DsCard>
                 <Text style={styles.heroLabel}>Índice del taller en Mecanimovil</Text>
-                <Text style={styles.heroPct}>{data.score_rendimiento}%</Text>
+                <Text style={styles.heroPct}>
+                  {numeroPresente(data.score_rendimiento) == null
+                    ? '—'
+                    : `${numeroPresente(data.score_rendimiento)}%`}
+                </Text>
                 <Text style={styles.heroTier}>Nivel: {tierName}</Text>
                 <Text style={styles.heroFoot}>
-                  Ofertas, aceptación, rechazos, reseñas y tiempos de los últimos {data.ventana_dias} días.
+                  Ofertas, aceptación, rechazos, reseñas y tiempos de los{' '}
+                  {etiquetaVentanaDias(data.ventana_dias) === '—'
+                    ? 'periodo no informado'
+                    : etiquetaVentanaDias(data.ventana_dias)}.
                   La agenda personal y cada mecánico van en el control de abajo.
                 </Text>
                 {data.multiplicador_penalizacion != null && data.multiplicador_penalizacion < 1 ? (
@@ -262,12 +270,25 @@ export function RendimientoKpisContent() {
                 <TwoColumnMetricGrid
                   rows={[
                     [
-                      { label: 'Ofertas', value: `${data.ofertas_total_en_periodo}` },
-                      { label: 'Terminados', value: `${data.servicios_terminados_en_periodo ?? data.ordenes_mercado_completadas}` },
+                      { label: 'Ofertas', value: textoOGuion(numeroPresente(data.ofertas_total_en_periodo)) },
+                      {
+                        label: 'Terminados',
+                        value: textoOGuion(
+                          numeroPresente(data.servicios_terminados_en_periodo)
+                          ?? numeroPresente(data.ordenes_mercado_completadas),
+                        ),
+                      },
                     ],
                     [
-                      { label: 'Checklist', value: `${data.checklist_completados} / ${data.ordenes_con_checklist}` },
-                      { label: 'Rechazos', value: `${data.rechazos_periodo ?? 0}` },
+                      {
+                        label: 'Checklist',
+                        value:
+                          numeroPresente(data.checklist_completados) == null
+                          && numeroPresente(data.ordenes_con_checklist) == null
+                            ? '—'
+                            : `${textoOGuion(numeroPresente(data.checklist_completados))} / ${textoOGuion(numeroPresente(data.ordenes_con_checklist))}`,
+                      },
+                      { label: 'Rechazos', value: textoOGuion(numeroPresente(data.rechazos_periodo)) },
                     ],
                   ]}
                 />

@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 // DateTimePicker removido - ahora usamos modales personalizados
 import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/services/solicitudesService';
@@ -22,7 +23,7 @@ import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { Card, HostPaperSection, hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
+import { Card, HostPaperSection, hostScreenStyles, HOST_GUTTER, InstitutionalButton } from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -280,7 +281,7 @@ const ModernDatePicker = ({
                           marginRight: spacingMd,
                         }}>
                           <Text style={{
-                            fontSize: 10,
+                            fontSize: TS.captionBold.fontSize,
                             fontWeight: fontWeightSemibold,
                             color: estaSeleccionada ? I.onPrimary : textSecondary,
                             textTransform: 'uppercase',
@@ -540,6 +541,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const [garantiaMeses, setGarantiaMeses] = useState('');
   const [garantiaKm, setGarantiaKm] = useState('');
   const [costoGestionCompra, setCostoGestionCompra] = useState('');
+  const [focusedMoney, setFocusedMoney] = useState<string | null>(null);
 
   // Estados para ofertas secundarias
   const [serviciosDisponibles, setServiciosDisponibles] = useState<Array<{ id: number; nombre: string; descripcion?: string }>>([]);
@@ -1730,7 +1732,12 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <Text style={styles.inputLabel}>
                             Costo Mano de Obra (sin IVA)
                           </Text>
-                          <View style={styles.inputContainer}>
+                          <View
+                            style={[
+                              styles.inputContainer,
+                              focusedMoney === `mano-${index}` && styles.inputContainerFocused,
+                            ]}
+                          >
                             <Text style={styles.currencySymbol}>$</Text>
                             <TextInput
                               style={styles.input}
@@ -1738,6 +1745,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              onFocus={() => setFocusedMoney(`mano-${index}`)}
+                              onBlur={() =>
+                                setFocusedMoney((cur) => (cur === `mano-${index}` ? null : cur))
+                              }
                               keyboardType="decimal-pad"
                             />
                           </View>
@@ -1974,7 +1985,12 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <Text style={styles.inputLabel}>
                             Costo Mano de Obra (sin IVA)
                           </Text>
-                          <View style={styles.inputContainer}>
+                          <View
+                            style={[
+                              styles.inputContainer,
+                              focusedMoney === `mano-${index}` && styles.inputContainerFocused,
+                            ]}
+                          >
                             <Text style={styles.currencySymbol}>$</Text>
                             <TextInput
                               style={styles.input}
@@ -1982,6 +1998,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              onFocus={() => setFocusedMoney(`mano-${index}`)}
+                              onBlur={() =>
+                                setFocusedMoney((cur) => (cur === `mano-${index}` ? null : cur))
+                              }
                               keyboardType="decimal-pad"
                             />
                           </View>
@@ -2354,39 +2374,31 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       <SafeAreaView edges={['bottom']} style={styles.buttonsSafe}>
         <View style={styles.buttonsRow}>
           {onCancel ? (
-            <TouchableOpacity
-              style={styles.cancelButton}
+            <InstitutionalButton
+              label="Cancelar"
+              variant="destructiveOutline"
               onPress={onCancel}
               disabled={loading}
-              activeOpacity={0.85}
-            >
-              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.cancelButtonText} numberOfLines={1}>
-                Cancelar
-              </Text>
-            </TouchableOpacity>
+              style={styles.footerAction}
+              leading={
+                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+            />
           ) : null}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              !onCancel && styles.submitButtonFullWidth,
-              (loading || precioTotal === 0) && styles.submitButtonDisabled,
-            ]}
+          <InstitutionalButton
+            label="Enviar oferta"
+            variant="primary"
             onPress={handleSubmit}
             disabled={loading || precioTotal === 0}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color={I.onPrimary} size="small" />
-            ) : (
-              <>
+            loading={loading}
+            testID="enviar-oferta-cta"
+            style={!onCancel ? styles.submitButtonFullWidth : styles.footerActionGrow}
+            leading={
+              loading ? undefined : (
                 <InstitutionalIcon name="add-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.submitButtonText} numberOfLines={1}>
-                  Enviar oferta
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+              )
+            }
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -2530,6 +2542,7 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
     color: I.ink,
     padding: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : {}),
   },
   precioTotalDestacadoHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -2588,7 +2601,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm + 2,
   },
   inputLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.captionBold.fontSize,
     fontFamily: FF.sansSemiBold,
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     textTransform: 'uppercase',
@@ -2608,11 +2621,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minWidth: 0,
     fontSize: TS.body.fontSize,
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
     padding: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : {}),
+  },
+  inputContainerFocused: {
+    borderColor: COLORS.border.focus,
+    borderWidth: BORDERS.width.medium,
   },
   currencySymbol: {
     fontSize: TS.body.fontSize,
@@ -2865,6 +2884,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: SPACING.fixed.sm,
+  },
+  footerAction: {
+    flex: 1,
+    minWidth: 0,
+  },
+  footerActionGrow: {
+    flex: 1.45,
+    minWidth: 0,
   },
   cancelButton: {
     flex: 1,

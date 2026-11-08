@@ -1,20 +1,23 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   Text,
   ActivityIndicator,
   View,
+  StyleSheet,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { COLORS, BORDERS, SPACING } from '@/app/design-system/tokens';
+import { COLORS, BORDERS, SPACING, GRADIENTS } from '@/app/design-system/tokens';
 import {
   institutionalButtonStyles,
   type InstitutionalButtonSize,
   type InstitutionalButtonVariant,
 } from '@/app/design-system/styles/institutionalButtons';
 import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 
 const I = COLORS.institutional;
 
@@ -54,6 +57,8 @@ export type InstitutionalButtonProps = {
   leading?: React.ReactNode;
   accessibilityLabel?: string;
   testID?: string;
+  /** Web: el diálogo institucional enfoca la acción primaria al abrir. */
+  autoFocus?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -70,6 +75,7 @@ export function InstitutionalButton({
   leading,
   accessibilityLabel,
   testID,
+  autoFocus = false,
   style,
 }: InstitutionalButtonProps) {
   const isDisabled = disabled || loading;
@@ -84,11 +90,14 @@ export function InstitutionalButton({
   ) : (
     <View style={rowCenter}>
       {leading}
-      <Text style={styles.text as TextStyle} numberOfLines={1}>
+      <Text style={styles.text as TextStyle} numberOfLines={size === 'compact' ? 2 : 1}>
         {label}
       </Text>
     </View>
   );
+
+  const webAutoFocus =
+    Platform.OS === 'web' && autoFocus && !isDisabled ? { autoFocus: true } : {};
 
   if (variant === 'primary' && !isDisabled) {
     return (
@@ -98,25 +107,36 @@ export function InstitutionalButton({
         disabled={isDisabled}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
+        {...webAutoFocus}
+        {...webKeyboardProps(isDisabled, onPress)}
         style={({ pressed }) => [
           primaryShell,
           { minHeight: fill.minHeight },
           pressed && (styles.pressed as ViewStyle),
           style,
+          primaryShellLock,
         ]}
       >
         <PrimaryGradientFill
+          colors={GRADIENTS.hostCtaOnText}
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          pointerEvents="none"
           style={[
-            primaryFill,
+            rowCenter,
             {
               minHeight: fill.minHeight,
               paddingVertical: fill.paddingVertical,
               paddingHorizontal: fill.paddingHorizontal,
+              width: '100%',
+              zIndex: 1,
             },
           ]}
         >
           {content}
-        </PrimaryGradientFill>
+        </View>
       </Pressable>
     );
   }
@@ -128,6 +148,9 @@ export function InstitutionalButton({
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      {...webAutoFocus}
+      {...webKeyboardProps(isDisabled, onPress)}
       style={({ pressed }) => [
         styles.button as ViewStyle,
         pressed && !isDisabled && (styles.pressed as ViewStyle),
@@ -149,16 +172,22 @@ const rowCenter = {
 const primaryShell: ViewStyle = {
   borderRadius: BORDERS.radius.md,
   overflow: 'hidden',
-  backgroundColor: I.primary,
+  position: 'relative',
+  backgroundColor: COLORS.primary[700],
   borderWidth: 0,
   borderColor: 'transparent',
 };
 
-const primaryFill = {
-  flex: 1,
-  width: '100%' as const,
-  alignSelf: 'stretch' as const,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+/** El style del caller no puede recortar el relleno (padding/alignItems:center dejaba MAGENTA alrededor). */
+const primaryShellLock: ViewStyle = {
+  padding: 0,
+  paddingVertical: 0,
+  paddingHorizontal: 0,
+  paddingTop: 0,
+  paddingBottom: 0,
+  paddingLeft: 0,
+  paddingRight: 0,
+  alignItems: 'stretch',
+  justifyContent: 'center',
+  overflow: 'hidden',
 };

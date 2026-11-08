@@ -327,7 +327,11 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             {filtro !== 'todas' ? (
               <InstitutionalText role="h4">{TITULO_FILTRO[filtro]}</InstitutionalText>
             ) : null}
-            {cargandoLista ? (
+            {query.isError ? (
+              <InstitutionalText role="caption" color="body" style={styles.resumen}>
+                No se pudieron cargar las cotizaciones. Desliza para reintentar.
+              </InstitutionalText>
+            ) : cargandoLista ? (
               <InstitutionalText role="caption" color="body" style={styles.resumen}>
                 Cargando cotizaciones. Los totales aparecen cuando llega la lista.
               </InstitutionalText>
@@ -366,12 +370,18 @@ export function CotizacionesVista({ estadoInicial }: Props) {
         ListEmptyComponent={(
           <View style={styles.vacio}>
             <InstitutionalText role="bodyBold">
-              {query.isPending ? 'Cargando cotizaciones' : 'Sin resultados'}
+              {query.isError
+                ? 'No se pudieron cargar'
+                : query.isPending
+                  ? 'Cargando cotizaciones'
+                  : 'Sin resultados'}
             </InstitutionalText>
             <InstitutionalText role="caption" color="body">
-              {query.isPending
-                ? 'Estamos trayendo las cotizaciones del taller.'
-                : 'No hay cotizaciones que coincidan con tu búsqueda o filtro.'}
+              {query.isError
+                ? 'Hubo un problema al pedir la lista. Desliza para reintentar.'
+                : query.isPending
+                  ? 'Estamos trayendo las cotizaciones del taller.'
+                  : 'No hay cotizaciones que coincidan con tu búsqueda o filtro.'}
             </InstitutionalText>
           </View>
         )}

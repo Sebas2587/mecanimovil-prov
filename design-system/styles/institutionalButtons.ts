@@ -117,9 +117,9 @@ const variantStyles: Record<
   },
   success: {
     button: {
-      backgroundColor: I.semanticUp,
+      backgroundColor: COLORS.success.dark,
       borderWidth: BORDERS.width.thin,
-      borderColor: I.semanticUp,
+      borderColor: COLORS.success.dark,
       ...SHADOWS.editorial,
     },
     text: {
@@ -138,7 +138,7 @@ const variantStyles: Record<
       paddingHorizontal: SPACING.fixed.xs,
     },
     text: {
-      color: I.primary,
+      color: COLORS.primary[700],
       fontSize: TS.button.fontSize,
       lineHeight: Math.round(TS.button.fontSize * TS.button.lineHeight),
     },
@@ -179,6 +179,9 @@ export function institutionalButtonStyles(
       letterSpacing: TYPOGRAPHY.letterSpacing.normal,
       ...s.text,
       ...v.text,
+      ...(disabled && (variant === 'primary' || variant === 'success')
+        ? { color: I.ink }
+        : {}),
     },
     pressed: {
       opacity: v.pressedOpacity,

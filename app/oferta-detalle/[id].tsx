@@ -55,8 +55,7 @@ export default function OfertaDetalleRedirectScreen() {
       <Stack.Screen
         options={{
           title: 'Detalle de solicitud',
-          headerStyle: { backgroundColor: I.canvas },
-          headerTintColor: I.ink,
+          headerShown: false,
         }}
       />
       <View style={styles.loadingContainer}>

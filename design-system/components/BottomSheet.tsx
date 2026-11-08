@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Children, useEffect } from 'react';
 import {
   Animated,
   Modal,
@@ -72,7 +72,7 @@ export function BottomSheet({
       >
         <Pressable
           onPress={onClose}
-          style={[styles.scrim, IS_WEB && styles.scrimWeb]}
+          style={styles.scrim}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         />
@@ -110,7 +110,7 @@ export function BottomSheet({
             </View>
           )}
           {stickyFooter ? (
-            <View style={styles.stickyInner}>{children}</View>
+            <View style={styles.stickyInner}>{Children.toArray(children)}</View>
           ) : (
             children
           )}
@@ -131,23 +131,11 @@ const styles = StyleSheet.create({
   overlayWeb: {
     justifyContent: 'center',
     alignItems: 'center',
-    ...({
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: '100vh',
-      width: '100vw',
-      boxSizing: 'border-box',
-    } as ViewStyle),
+    ...StyleSheet.absoluteFill,
   },
   scrim: {
     ...StyleSheet.absoluteFill,
   },
-  scrimWeb: {
-    cursor: 'pointer',
-  } as ViewStyle,
   sheet: {
     zIndex: 1,
     backgroundColor: C.background.paper,
@@ -164,10 +152,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BORDERS.radius.modal.md,
     maxWidth: 440,
     width: '92%',
-    maxHeight: '85vh' as unknown as number,
+    maxHeight: '85%',
     paddingTop: SPACING.fixed.xs,
-    // @ts-expect-error web-only cursor
-    cursor: 'default',
     ...SHADOWS.editorial,
   },
   sheetWebSticky: {
@@ -186,6 +172,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
     width: '100%',
+    flexDirection: 'column',
   },
   handleHit: {
     alignItems: 'center',

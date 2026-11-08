@@ -45,7 +45,7 @@ const variantPalette: Record<
   warning: {
     bg: COLORS.background.warning,
     border: withOpacity(I.accentYellow, 0.28),
-    text: COLORS.warning.dark,
+    text: COLORS.warning.darker,
   },
   error: {
     bg: COLORS.background.error,

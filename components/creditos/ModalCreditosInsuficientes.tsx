@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { BlurView } from 'expo-blur';
@@ -14,6 +15,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { creditosMostrados } from '@/utils/copyPresentacion';
 import {
   institutionalCardStyles,
   institutionalStatusColors,
@@ -21,6 +23,7 @@ import {
 
 const I = COLORS.institutional;
 const errorStatus = institutionalStatusColors('error');
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface ModalCreditosInsuficientesProps {
   visible: boolean;
@@ -52,12 +55,12 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
           toValue: 1,
           friction: 8,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
     } else {
@@ -65,12 +68,12 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         Animated.timing(scaleAnim, {
           toValue: 0.9,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
         Animated.timing(opacityAnim, {
           toValue: 0,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
     }
@@ -95,6 +98,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         </Animated.View>
 
         <Animated.View
+          testID="modal-creditos-insuficientes"
           style={[
             styles.modalContainer,
             institutionalCardStyles.surface,
@@ -130,7 +134,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Tu saldo actual:
               </InstitutionalText>
               <InstitutionalText role="body" style={styles.creditoValue}>
-                {verificacion.saldo_actual} créditos
+                {creditosMostrados(verificacion.saldo_actual)} créditos
               </InstitutionalText>
             </View>
             <View style={styles.creditoRow}>
@@ -138,7 +142,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Créditos necesarios:
               </InstitutionalText>
               <InstitutionalText role="body" style={styles.creditoValue}>
-                {verificacion.creditos_necesarios} créditos
+                {creditosMostrados(verificacion.creditos_necesarios)} créditos
               </InstitutionalText>
             </View>
             <View style={[styles.creditoRow, styles.faltantesRow]}>
@@ -146,7 +150,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
                 Te faltan:
               </InstitutionalText>
               <InstitutionalText role="body" color="semanticDown" style={styles.faltantesValue}>
-                {verificacion.creditos_faltantes} créditos
+                {creditosMostrados(verificacion.creditos_faltantes)} créditos
               </InstitutionalText>
             </View>
           </View>

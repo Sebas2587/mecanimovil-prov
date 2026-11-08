@@ -137,6 +137,7 @@ function NegotiationFooter({
           size="default"
           onPress={onCrearOferta}
           style={footerBtn}
+          testID="crear-oferta-cta"
         />
       </View>
     </View>

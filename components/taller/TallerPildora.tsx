@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 
 const I = COLORS.institutional;
 
@@ -39,6 +40,8 @@ export function TallerPildora({
       disabled={bloqueado}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: bloqueado, busy: loading }}
+      {...webKeyboardProps(bloqueado, onPress)}
       style={({ pressed }) => [
         styles.base,
         forma === 'hoja' && styles.hoja,
@@ -78,7 +81,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.lg,
   },
   coral: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.primary[700],
   },
   grafito: {
     backgroundColor: I.surfaceDark,

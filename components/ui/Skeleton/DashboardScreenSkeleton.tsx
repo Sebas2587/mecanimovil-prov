@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, FlatList, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { FinanzasTallerCardSkeleton } from '@/components/dashboard/FinanzasTallerCardSkeleton';
 import { RadarOfferCardSkeleton } from '@/components/ui/Skeleton/RadarOfferCardSkeleton';
 import { OrdenTicketCardSkeleton } from '@/components/ui/Skeleton/OrdenTicketCardSkeleton';
@@ -93,7 +92,7 @@ export const DashboardScreenSkeleton = React.memo(function DashboardScreenSkelet
             </SkeletonPulse>
           </View>
           <View style={styles.glassOuter}>
-            <BlurView intensity={60} tint="light" style={styles.glassInner}>
+            <View style={[styles.glassInner, { backgroundColor: COLORS.background.paper }]}>
               <View style={styles.radarBody}>
                 <FlatList
                   horizontal
@@ -114,7 +113,7 @@ export const DashboardScreenSkeleton = React.memo(function DashboardScreenSkelet
                   ]}
                 />
               </View>
-            </BlurView>
+            </View>
           </View>
         </View>
 

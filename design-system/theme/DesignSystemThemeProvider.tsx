@@ -20,20 +20,20 @@ const FALLBACK_TOKENS = {
       neutralGray: '#EEEEEE',
     },
     primary: {
-      500: '#4E4FEB',
+      500: '#FD2B7B',
     },
     secondary: {
-      500: '#068FFF',
+      500: '#FF7158',
     },
     accent: {
-      500: '#FF6B00',
+      500: '#FF7158',
     },
     text: {
-      primary: '#000000',
-      secondary: '#666666',
+      primary: '#3B3B3B',
+      secondary: '#757575',
     },
     background: {
-      default: '#EEEEEE',
+      default: '#F9F9F9',
       paper: '#FFFFFF',
     },
     border: {
@@ -43,7 +43,7 @@ const FALLBACK_TOKENS = {
   },
   typography: {
     fontSize: {
-      xs: 10,
+      xs: 11,
       sm: 12,
       base: 14,
       md: 16,
@@ -62,9 +62,9 @@ const FALLBACK_TOKENS = {
       bold: '700',
     },
     fontFamily: {
-      regular: 'System',
-      medium: 'System',
-      bold: 'System',
+      regular: 'Poppins_400Regular',
+      medium: 'Poppins_500Medium',
+      bold: 'Poppins_600SemiBold',
     },
     lineHeight: {
       tight: 1.2,

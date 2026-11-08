@@ -10,4 +10,12 @@ describe('marcoListaStyle', () => {
     expect(estilo.marginBottom).toBe(73);
     expect(estilo).not.toHaveProperty('paddingBottom');
   });
+
+  it('un FAB típico deja aire bajo la lista', () => {
+    expect(marcoListaStyle(64).marginBottom).toBe(64);
+  });
+
+  it('FAB + dock suma en el margen del marco', () => {
+    expect(marcoListaStyle(64 + 88).marginBottom).toBe(152);
+  });
 });

@@ -222,44 +222,6 @@ export function VistaPreviaCotizacionClienteModal({
               </View>
             ) : null}
 
-            <View style={styles.totals}>
-              {Number(doc.costo_repuestos_clp) > 0 ? (
-                <View style={styles.totalRow}>
-                  <InstitutionalText role="small" color="muted">Repuestos</InstitutionalText>
-                  <InstitutionalText role="small">{formatearMontoCLP(doc.costo_repuestos_clp)}</InstitutionalText>
-                </View>
-              ) : null}
-              {Number(doc.mano_obra_clp) > 0 ? (
-                <View style={styles.totalRow}>
-                  <InstitutionalText role="small" color="muted">Mano de obra</InstitutionalText>
-                  <InstitutionalText role="small">{formatearMontoCLP(doc.mano_obra_clp)}</InstitutionalText>
-                </View>
-              ) : null}
-              {desc > 0 ? (
-                <View style={styles.totalRow}>
-                  <InstitutionalText role="small" color="muted">
-                    {doc.descuento_etiqueta || 'Descuento'}
-                  </InstitutionalText>
-                  <InstitutionalText role="small">−{formatearMontoCLP(desc)}</InstitutionalText>
-                </View>
-              ) : null}
-              <View style={styles.totalRow}>
-                <InstitutionalText role="bodyBold">
-                  {esEstimacion ? 'Total estimado' : 'Total a pagar'}
-                </InstitutionalText>
-                <InstitutionalText role="h5">
-                  {esEstimacion
-                    ? formatRangoOMonto(doc.total_min_clp, doc.total_max_clp, doc.total_clp)
-                    : formatearMontoCLP(doc.total_clp)}
-                </InstitutionalText>
-              </View>
-              {esEstimacion ? (
-                <InstitutionalText role="caption" color="muted">
-                  Valores de referencia. El taller confirma antes de comprar.
-                </InstitutionalText>
-              ) : null}
-            </View>
-
             <InstitutionalText role="caption" color="muted">
               {doc.fecha_expiracion_publica
                 ? `Válida hasta el ${formatFecha(doc.fecha_expiracion_publica)}. `
@@ -269,6 +231,46 @@ export function VistaPreviaCotizacionClienteModal({
           </View>
         ) : null}
       </ScrollView>
+
+      {doc && !loading && !error ? (
+        <View style={styles.totals} testID="vista-previa-total">
+          {Number(doc.costo_repuestos_clp) > 0 ? (
+            <View style={styles.totalRow}>
+              <InstitutionalText role="small" color="muted">Repuestos</InstitutionalText>
+              <InstitutionalText role="small">{formatearMontoCLP(doc.costo_repuestos_clp)}</InstitutionalText>
+            </View>
+          ) : null}
+          {Number(doc.mano_obra_clp) > 0 ? (
+            <View style={styles.totalRow}>
+              <InstitutionalText role="small" color="muted">Mano de obra</InstitutionalText>
+              <InstitutionalText role="small">{formatearMontoCLP(doc.mano_obra_clp)}</InstitutionalText>
+            </View>
+          ) : null}
+          {desc > 0 ? (
+            <View style={styles.totalRow}>
+              <InstitutionalText role="small" color="muted">
+                {doc.descuento_etiqueta || 'Descuento'}
+              </InstitutionalText>
+              <InstitutionalText role="small">−{formatearMontoCLP(desc)}</InstitutionalText>
+            </View>
+          ) : null}
+          <View style={styles.totalRow}>
+            <InstitutionalText role="bodyBold">
+              {esEstimacion ? 'Total estimado' : 'Total a pagar'}
+            </InstitutionalText>
+            <InstitutionalText role="h5">
+              {esEstimacion
+                ? formatRangoOMonto(doc.total_min_clp, doc.total_max_clp, doc.total_clp)
+                : formatearMontoCLP(doc.total_clp)}
+            </InstitutionalText>
+          </View>
+          {esEstimacion ? (
+            <InstitutionalText role="caption" color="muted">
+              Valores de referencia. El taller confirma antes de comprar.
+            </InstitutionalText>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.footer}>
         <InstitutionalButton
@@ -315,11 +317,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   scroll: {
-    maxHeight: IS_WEB ? 420 : 460,
+    maxHeight: IS_WEB ? 200 : 280,
     flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
   },
   scrollInner: {
-    paddingBottom: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.xl,
   },
   centered: {
     paddingVertical: SPACING.fixed.xl,
@@ -365,6 +369,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   totals: {
+    flexShrink: 0,
     gap: 6,
     paddingTop: SPACING.fixed.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -378,13 +383,20 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 0,
+    flexGrow: 0,
     gap: SPACING.fixed.sm,
     paddingTop: SPACING.fixed.sm,
   },
   footerBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 140,
   },
   footerBtnGrow: {
-    flex: 1.35,
+    flexGrow: 1.35,
+    flexBasis: 160,
+    minWidth: 160,
   },
 });

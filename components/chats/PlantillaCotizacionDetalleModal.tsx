@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Text,
+  Platform,
 } from 'react-native';
 import { Trash2, X } from 'lucide-react-native';
 import {
@@ -22,6 +23,7 @@ import {
   tituloServicioPlantilla,
   vehiculoLineaPlantilla,
 } from '@/utils/plantillaCotizacionPreview';
+import { etiquetaUsoPlantilla, formatFechaCortaEs } from '@/utils/copyPresentacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -60,11 +62,7 @@ export function PlantillaCotizacionDetalleModal({
   const snap = plantilla.snapshot ?? {};
   const modalidad = String(snap.modalidad || 'taller') === 'domicilio' ? 'Domicilio' : 'Taller';
   const duracion = Number(snap.duracion_minutos_estimada || 0) || null;
-  const actualizado = new Date(plantilla.actualizado_en).toLocaleDateString('es-CL', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const actualizado = formatFechaCortaEs(plantilla.actualizado_en);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} stickyFooter style={styles.sheet}>
@@ -91,18 +89,20 @@ export function PlantillaCotizacionDetalleModal({
               ) : null}
             </View>
             <InstitutionalText role="small" color="muted">
-              Usada {plantilla.uso_count}{' '}
-              {plantilla.uso_count === 1 ? 'vez' : 'veces'} · Actualizada {actualizado}
+              {etiquetaUsoPlantilla(plantilla.uso_count)}
+              {actualizado ? ` · Actualizada ${actualizado}` : ''}
             </InstitutionalText>
           </View>
-          <TouchableOpacity
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Cerrar"
-            hitSlop={8}
-          >
-            <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
+          {Platform.OS === 'web' ? null : (
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+              hitSlop={8}
+            >
+              <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: SPACING.fixed.md,
-    paddingBottom: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.xl,
   },
   footer: {
     flexDirection: 'row',

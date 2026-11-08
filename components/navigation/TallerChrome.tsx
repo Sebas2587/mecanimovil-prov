@@ -13,7 +13,10 @@ import {
   Wrench,
 } from 'lucide-react-native';
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
-import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
+import { hostIconPlateColor, hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
+import { BORDERS, COLORS, GRADIENTS, SPACING, TYPOGRAPHY, platformShadow } from '@/app/design-system/tokens';
+import { webKeyboardProps } from '@/utils/webKeyboard';
 import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
 import { useAlerts } from '@/context/AlertsContext';
 import { useAuth } from '@/context/AuthContext';
@@ -73,7 +76,7 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
       accessibilityRole="button"
       accessibilityLabel={nombre || 'Inicio'}
     >
-      <View style={styles.marcaIcono}>
+      <View style={[styles.marcaIcono, !fotoTaller || fotoFallida ? hostIconPlateStyle : null]}>
         {fotoTaller && !fotoFallida ? (
           <Image
             source={{ uri: fotoTaller }}
@@ -83,7 +86,7 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
             accessibilityLabel={`Foto de ${nombre || 'taller'}`}
           />
         ) : (
-          <Wrench size={16} color={I.onPrimary} strokeWidth={2.25} />
+          <Wrench size={16} color={hostIconPlateColor} strokeWidth={2.25} />
         )}
       </View>
       {variante === 'superior' || variante === 'marca' ? (
@@ -165,9 +168,12 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
           style={styles.cta}
           accessibilityRole="button"
           accessibilityLabel="Nueva cotización"
+          {...webKeyboardProps(false, abrirNuevaCotizacion)}
         >
-          <Plus size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          <InstitutionalText role="bodyBold" color="onPrimary">Nueva cotización</InstitutionalText>
+          <PrimaryGradientFill colors={GRADIENTS.hostCtaOnText} style={styles.ctaFill}>
+            <Plus size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalText role="bodyBold" color="onPrimary">Nueva cotización</InstitutionalText>
+          </PrimaryGradientFill>
         </Pressable>
         <View>
           <IconoNav
@@ -232,6 +238,7 @@ export function NuevaCotizacionFlotante({ bottom }: { bottom: number }) {
         style={styles.flotante}
         accessibilityRole="button"
         accessibilityLabel="Nueva cotización"
+        {...webKeyboardProps(false, abrirNuevaCotizacion)}
       >
         <Plus size={16} color={I.onDark} strokeWidth={2.25} />
         <InstitutionalText role="bodyBold" color={I.onDark}>Nueva cotización</InstitutionalText>
@@ -333,7 +340,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -411,13 +417,17 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   cta: {
+    minHeight: 44,
+    borderRadius: BORDERS.radius.pill,
+    overflow: 'hidden',
+  },
+  ctaFill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     minHeight: 44,
     paddingHorizontal: SPACING.fixed.md,
     borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
   },
   utilidades: {
     flexDirection: 'row',
@@ -458,26 +468,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: BORDERS.radius.pill,
     backgroundColor: I.surfaceDark,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    ...platformShadow({
+      shadowColor: COLORS.text.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      elevation: 8,
+    }),
   },
   tabBadge: {
     position: 'absolute',
     top: -6,
     right: -10,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 5,
   },
   tabBadgeText: {
-    fontSize: 10,
+    fontSize: 13,
+    lineHeight: 16,
+    color: I.onPrimary,
     fontFamily: FF.sansSemiBold,
   },
 });

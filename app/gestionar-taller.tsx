@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   TextInput,
   Image,
@@ -32,6 +31,7 @@ import {
   HOST_GUTTER,
 } from '@/app/design-system/components';
 import logger from '@/utils/logger';
+import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -120,12 +120,21 @@ export default function GestionarTallerScreen() {
   // Estados para fotos
   const [fotosLocales, setFotosLocales] = useState<string[]>([]);
 
+  const datosHidratados = React.useRef(false);
+  const skipHydrateValidation = React.useRef(false);
   useEffect(() => {
+    if (datosHidratados.current) return;
+    if (!estadoProveedor?.datos_proveedor && !estadoProveedor?.nombre) return;
+    datosHidratados.current = true;
     cargarDatosTaller();
-  }, []);
+  }, [estadoProveedor]);
 
   // ✅ VALIDACIÓN EN TIEMPO REAL CON DEBOUNCE
   useEffect(() => {
+    if (skipHydrateValidation.current) {
+      skipHydrateValidation.current = false;
+      return;
+    }
     if (!searchQuery.trim()) {
       setValidationStatus('idle');
       setSearchResults([]);
@@ -156,8 +165,17 @@ export default function GestionarTallerScreen() {
           setValidationStatus('invalid');
         }
       } catch (error) {
-        logger.error('Error en validación automática:', error);
-        setValidationStatus('invalid');
+        const msg = String((error as { message?: string })?.message || error);
+        const aborted =
+          (error as { name?: string })?.name === 'AbortError' ||
+          /Failed to fetch|NetworkError|Load failed/i.test(msg);
+        if (aborted) {
+          logger.warn('Validación de dirección sin red (fixture/local).');
+          setValidationStatus('idle');
+        } else {
+          logger.error('Error en validación automática:', error);
+          setValidationStatus('invalid');
+        }
         setSearchResults([]);
       } finally {
         setIsValidating(false);
@@ -185,6 +203,11 @@ export default function GestionarTallerScreen() {
         const ciudad = estadoProveedor.datos_proveedor.direccion_fisica?.ciudad || '';
         const region = estadoProveedor.datos_proveedor.direccion_fisica?.region || '';
 
+        const latRaw = estadoProveedor.datos_proveedor.ubicacion_lat;
+        const lngRaw = estadoProveedor.datos_proveedor.ubicacion_lng;
+        const latitud = Number(latRaw);
+        const longitud = Number(lngRaw);
+
         setDatosTaller({
           nombre: estadoProveedor.nombre || '',
           descripcion: estadoProveedor.datos_proveedor.descripcion || '',
@@ -193,7 +216,13 @@ export default function GestionarTallerScreen() {
           ciudad: ciudad,
           region: region,
           fotos: [], // Las fotos se cargarán desde el backend
+          latitud: Number.isFinite(latitud) ? latitud : undefined,
+          longitud: Number.isFinite(longitud) ? longitud : undefined,
         });
+        if (direccionCompleta) {
+          skipHydrateValidation.current = true;
+          setSearchQuery(direccionCompleta);
+        }
 
         const modalidadActual = estadoProveedor.datos_proveedor.modalidad_atencion;
         if (modalidadActual === 'en_taller' || modalidadActual === 'a_domicilio' || modalidadActual === 'ambas') {
@@ -218,7 +247,7 @@ export default function GestionarTallerScreen() {
       }
     } catch (error) {
       logger.error('Error cargando datos del taller:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del taller');
+      showAlert('Error', 'No se pudieron cargar los datos del taller');
     } finally {
       setLoading(false);
     }
@@ -589,10 +618,9 @@ export default function GestionarTallerScreen() {
       ? `Se ha seleccionado la dirección:\n\n${direccionSimplificada}\n\n📍 Número: ${numeroCasa}\n🏢 Calle: ${calle}\n🏘️ Comuna: ${comuna || 'No especificada'}\n🏙️ Ciudad: ${ciudad || 'No especificada'}\n🌍 País: Chile`
       : `Se ha seleccionado la dirección:\n\n${direccionSimplificada}\n\n🏢 Calle: ${calle}\n🏘️ Comuna: ${comuna || 'No especificada'}\n🏙️ Ciudad: ${ciudad || 'No especificada'}\n🌍 País: Chile\n\n⚠️ Nota: El número de casa se extrajo de tu búsqueda`;
 
-    Alert.alert(
+    showAlert(
       numeroCasa ? '✅ Dirección Seleccionada' : '📍 Dirección Seleccionada',
       mensajeConfirmacion,
-      [{ text: 'Perfecto', style: 'default' }]
     );
   };
 
@@ -661,14 +689,14 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN MEJORADA: Validación de dirección manual con número
   const validarDireccionManual = async () => {
     if (!direccionManual.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una dirección para validar');
+      showAlert('Error', 'Por favor ingresa una dirección para validar');
       return;
     }
 
     // ✅ VALIDACIÓN MEJORADA: Debe incluir número de casa
     const query = direccionManual.trim();
     if (query.length < 8) {
-      Alert.alert(
+      showAlert(
         'Dirección muy corta',
         'Por favor ingresa una dirección más específica que incluya el número de casa (ej: "Manuel de Amat 2960")'
       );
@@ -678,7 +706,7 @@ export default function GestionarTallerScreen() {
     // ✅ VERIFICAR QUE TENGA NÚMERO
     const tieneNumero = /\d+/.test(query);
     if (!tieneNumero) {
-      Alert.alert(
+      showAlert(
         'Falta número de casa',
         'La dirección debe incluir el número de casa para ser válida (ej: "Manuel de Amat 2960")'
       );
@@ -691,10 +719,9 @@ export default function GestionarTallerScreen() {
       const resultados = await buscarDireccionesReales(query);
 
       if (resultados.length === 0) {
-        Alert.alert(
+        showAlert(
           'Dirección no válida',
           'La dirección ingresada no se encontró en Chile o no tiene número de casa. Por favor, ingresa una dirección válida y existente con número.',
-          [{ text: 'Entendido', style: 'default' }]
         );
         return;
       }
@@ -705,7 +732,7 @@ export default function GestionarTallerScreen() {
 
     } catch (error) {
       logger.error('Error validando dirección:', error);
-      Alert.alert(
+      showAlert(
         'Error de validación',
         'No se pudo validar la dirección. Verifica tu conexión a internet e intenta nuevamente.'
       );
@@ -730,7 +757,7 @@ export default function GestionarTallerScreen() {
       }
     } catch (error) {
       logger.error('Error seleccionando foto:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la foto');
+      showAlert('Error', 'No se pudo seleccionar la foto');
     }
   };
 
@@ -742,13 +769,13 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN CORREGIDA: Ahora guarda realmente en el backend
   const handleGuardar = async () => {
     if (!datosTaller.nombre.trim()) {
-      Alert.alert('Error', 'El nombre es obligatorio');
+      showAlert('Error', 'El nombre es obligatorio');
       return;
     }
 
     // La dirección física solo es obligatoria si atiende en local (en_taller/ambas).
     if (!soloDomicilio && !datosTaller.direccion.trim()) {
-      Alert.alert('Error', 'La dirección del taller es obligatoria');
+      showAlert('Error', 'La dirección del taller es obligatoria');
       return;
     }
 
@@ -803,7 +830,7 @@ export default function GestionarTallerScreen() {
 
       logger.log('✅ Respuesta del backend:', response);
 
-      Alert.alert('Éxito', 'Los datos del taller se han guardado correctamente');
+      showAlert('Éxito', 'Los datos del taller se han guardado correctamente');
       setHasChanges(false);
 
       // ✅ REFRESCAR ESTADO DEL PROVEEDOR PARA SINCRONIZAR
@@ -814,16 +841,15 @@ export default function GestionarTallerScreen() {
 
       // ✅ MOSTRAR CONFIRMACIÓN DE LA NUEVA DIRECCIÓN (solo si hay dirección)
       if (datosTaller.direccion.trim()) {
-        Alert.alert(
+        showAlert(
           'Dirección Actualizada',
           `La dirección del taller se ha actualizado a:\n\n${datosTaller.direccion}`,
-          [{ text: 'Perfecto', style: 'default' }]
         );
       }
 
     } catch (error) {
       logger.error('❌ Error guardando datos del taller:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         'No se pudieron guardar los datos del taller. Verifica tu conexión e intenta nuevamente.'
       );
@@ -875,6 +901,9 @@ export default function GestionarTallerScreen() {
                     key={op.value}
                     activeOpacity={0.85}
                     onPress={() => handleModalidadChange(op.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: seleccionada }}
+                    accessibilityLabel={op.titulo}
                     style={[
                       styles.modalidadOption,
                       {
@@ -942,6 +971,8 @@ export default function GestionarTallerScreen() {
                 style={[styles.quickLinkRow, { borderColor: 'transparent' }]}
                 onPress={() => router.push('/gestion-equipo')}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Gestión de equipo"
               >
                 <InstitutionalIcon name="people" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.quickLinkTextWrap}>
@@ -1060,11 +1091,7 @@ export default function GestionarTallerScreen() {
 
                   <View style={styles.validationInfo}>
                     <Text style={styles.addressInstructions}>
-                      💡{' '}
-                      <Text style={styles.instructionBold}>
-                        IMPORTANTE:
-                      </Text>{' '}
-                      Debes incluir el número de la casa/edificio para que la dirección sea válida.
+                      💡 IMPORTANTE: Debes incluir el número de la casa/edificio para que la dirección sea válida.
                     </Text>
 
                     {validationStatus === 'validating' && (
@@ -1170,6 +1197,7 @@ export default function GestionarTallerScreen() {
           ]}
         >
           <InstitutionalButton
+            testID="guardar-taller-cta"
             label="Guardar cambios"
             variant="primary"
             onPress={handleGuardar}

@@ -8,8 +8,7 @@ import {
   Animated,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { X, type LucideIcon, MessageCircle, Sparkles, Send, CircleX, BellRing, CalendarCheck, CheckCircle2 } from 'lucide-react-native';
 import websocketService, { type AgenteIaEvent, type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
@@ -30,8 +29,9 @@ const ALERT_ICON_STROKE = 2.25;
 const OPS_ALERT_AUTO_DISMISS_MS = 10_000;
 const LEAD_ALERT_AUTO_DISMISS_MS = 8_000;
 
-/** Altura aprox. de tab bar (sin safe area). */
-const TAB_BAR_CONTENT_H = Platform.OS === 'ios' ? 84 : 64;
+/** Altura típica de una alerta ops; el test de marco suma FAB + esto si se reserva aparte. */
+export const ALERTS_DOCK_GAP = SPACING.sm;
+export const ALERTS_DOCK_RESERVE = 88;
 
 export type OpsFloatingAlert = {
   id: string;
@@ -56,7 +56,7 @@ type LeadFloatingAlert = {
   id: string;
   title: string;
   message: string;
-  href?: string;
+  href?: Href;
   kind: 'lead';
   leadTone: LeadAlertTone;
 };
@@ -335,7 +335,6 @@ function HomeFloatingAlertsDockInner({
   enabled = true,
   opsAlerts = [],
 }: HomeFloatingAlertsDockProps) {
-  const insets = useSafeAreaInsets();
   const [leadAlerts, setLeadAlerts] = useState<LeadFloatingAlert[]>([]);
 
   useEffect(() => {
@@ -375,15 +374,13 @@ function HomeFloatingAlertsDockInner({
 
   const openLead = useCallback((alert: LeadFloatingAlert) => {
     dismissLead(alert.id);
-    if (alert.href) router.push(alert.href as any);
+    if (alert.href) router.push(alert.href);
   }, [dismissLead]);
 
   if (!enabled || items.length === 0) return null;
 
-  const bottom = TAB_BAR_CONTENT_H + insets.bottom + SPACING.sm;
-
   return (
-    <View pointerEvents="box-none" style={[styles.dock, { bottom }]}>
+    <View pointerEvents="box-none" style={styles.dock}>
       {/* column-reverse: la más reciente queda pegada al menú; el resto sube */}
       <View style={styles.stack}>
         {[...items].reverse().map((alert) => {
@@ -490,10 +487,12 @@ export const HomeFloatingAlertsDock = memo(HomeFloatingAlertsDockInner);
 
 const styles = StyleSheet.create({
   dock: {
-    position: 'absolute',
-    left: SPACING.md,
-    right: SPACING.md,
-    zIndex: 80,
+    width: '100%',
+    flexShrink: 0,
+    flexGrow: 0,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: ALERTS_DOCK_GAP,
   },
   stack: {
     flexDirection: 'column-reverse',

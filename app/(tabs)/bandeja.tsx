@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { ClientesVista } from '@/components/taller/ClientesVista';
 import { esPasoComercial } from '@/utils/pasoComercial';
+import { useMarcoListaStyle } from '@/components/navigation/marcoLista';
 
 export default function BandejaTabScreen() {
   const params = useLocalSearchParams<{
@@ -21,9 +22,10 @@ export default function BandejaTabScreen() {
     if (filtroParam === 'esperando_24h') return 'esperando';
     return null;
   }, [filtroParam, pasoParam]);
+  const marcoLista = useMarcoListaStyle();
 
   return (
-    <TabScreenWrapper>
+    <TabScreenWrapper style={marcoLista}>
       <ClientesVista pasoInicial={paso} busquedaInicial={qParam ?? null} />
     </TabScreenWrapper>
   );

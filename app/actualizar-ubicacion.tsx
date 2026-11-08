@@ -23,6 +23,7 @@ import {
   HostPaperSection,
   HostSectionKicker,
   hostScreenStyles,
+  InstitutionalButton,
 } from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
@@ -461,28 +462,19 @@ export default function ActualizarUbicacionScreen() {
             )}
           </HostPaperSection>
 
-          <TouchableOpacity
-            style={[
-              styles.btnPrimary,
-              { backgroundColor: I.primary },
-              saving && styles.btnDisabled,
-            ]}
+          <InstitutionalButton
+            label={
+              selectedLine || selectedCoords || searchQuery.trim()
+                ? 'Confirmar y guardar'
+                : estadoProveedor?.tipo_proveedor === 'taller'
+                  ? 'Guardar ubicación del taller'
+                  : 'Guardar ubicación base'
+            }
+            variant="primary"
             onPress={guardar}
             disabled={saving}
-            activeOpacity={0.9}
-          >
-            {saving ? (
-              <ActivityIndicator color={I.onPrimary} />
-            ) : (
-              <Text style={[styles.btnPrimaryText, { color: I.onPrimary }]}>
-                {selectedLine || selectedCoords || searchQuery.trim()
-                  ? 'Confirmar y guardar'
-                  : estadoProveedor?.tipo_proveedor === 'taller'
-                    ? 'Guardar ubicación del taller'
-                    : 'Guardar ubicación base'}
-              </Text>
-            )}
-          </TouchableOpacity>
+            loading={saving}
+          />
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -543,7 +535,7 @@ const styles = StyleSheet.create({
   },
   savedCoords: {
     marginTop: 10,
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
@@ -560,7 +552,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pendingTitle: {
-    fontSize: 10,
+    fontSize: TYPOGRAPHY.styles.captionBold.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     textTransform: 'uppercase',
@@ -579,12 +571,12 @@ const styles = StyleSheet.create({
   },
   pendingCoords: {
     marginTop: 6,
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
   label: {
-    fontSize: 10,
+    fontSize: TYPOGRAPHY.styles.captionBold.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,

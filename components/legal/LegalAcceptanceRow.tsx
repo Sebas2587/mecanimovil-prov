@@ -1,10 +1,11 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import LegalFooterLinks from './LegalFooterLinks';
+import { webFocusRingStyle, webKeyboardProps } from '@/utils/webKeyboard';
 
 type Props = {
   checked: boolean;
@@ -12,23 +13,42 @@ type Props = {
   error?: string;
 };
 
+export const LEGAL_CONSENT_LABEL =
+  'Acepto los términos de uso y la política de privacidad';
+
 export default function LegalAcceptanceRow({ checked, onToggle, error }: Props) {
+  const [focused, setFocused] = useState(false);
+  const webA11y = (
+    Platform.OS === 'web'
+      ? {
+          role: 'checkbox',
+          'aria-checked': checked ? 'true' : 'false',
+          'aria-label': LEGAL_CONSENT_LABEL,
+        }
+      : {}
+  ) as PressableProps;
+
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        <TouchableOpacity
+        <Pressable
+          testID="legal-consent-checkbox"
           onPress={onToggle}
-          style={styles.checkboxTouch}
-          activeOpacity={0.7}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={[styles.checkboxTouch, focused && styles.checkboxTouchFocused]}
           accessibilityRole="checkbox"
+          accessibilityLabel={LEGAL_CONSENT_LABEL}
           accessibilityState={{ checked }}
+          {...webA11y}
+          {...webKeyboardProps(false, onToggle)}
         >
           <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
             {checked ? (
               <Check size={14} color={COLORS.institutional.onPrimary} strokeWidth={2.5} />
             ) : null}
           </View>
-        </TouchableOpacity>
+        </Pressable>
         <LegalFooterLinks variant="register" textStyle={styles.text} linkStyle={styles.link} />
       </View>
       {error ? (
@@ -45,7 +65,12 @@ const I = COLORS.institutional;
 const styles = StyleSheet.create({
   wrap: { marginBottom: SPACING.fixed.sm },
   row: { flexDirection: 'row', alignItems: 'flex-start' },
-  checkboxTouch: { paddingTop: 2, marginRight: SPACING.fixed.sm },
+  checkboxTouch: {
+    paddingTop: 2,
+    marginRight: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.sm,
+  },
+  checkboxTouchFocused: webFocusRingStyle as object,
   checkbox: {
     width: 22,
     height: 22,
@@ -64,7 +89,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...institutionalTextStyle('caption', I.body),
   },
-  link: institutionalTextStyle('navLink', I.primary),
+  link: institutionalTextStyle('navLink', COLORS.primary[700]),
   error: {
     marginTop: SPACING.fixed.xs,
   },

@@ -25,30 +25,29 @@ export default function LegalFooterLinks({
   if (variant === 'register') {
     return (
       <Text style={textStyle}>
-        Acepto los{' '}
+        <Text>Acepto los </Text>
         <Text style={[linkBase, linkStyle]} onPress={goTerms}>
           términos de uso
-        </Text>{' '}
-        y la{' '}
-        <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
-          política de privacidad
         </Text>
-        .
+        <Text> y la </Text>
+        <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
+          política de privacidad.
+        </Text>
       </Text>
     );
   }
 
   return (
     <Text style={[styles.footer, textStyle]}>
-      Al continuar, aceptas los{' '}
+      <Text>Al continuar, aceptas los </Text>
       <Text style={[linkBase, linkStyle]} onPress={goTerms}>
         Términos de uso
-      </Text>{' '}
-      y la{' '}
+      </Text>
+      <Text> y la </Text>
       <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
         Política de privacidad
-      </Text>{' '}
-      de MecaniMóvil Proveedores (Ley 21.719).
+      </Text>
+      <Text> de MecaniMóvil Proveedores (Ley 21.719).</Text>
     </Text>
   );
 }

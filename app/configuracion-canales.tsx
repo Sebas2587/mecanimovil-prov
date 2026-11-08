@@ -5,7 +5,6 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  TouchableOpacity,
   Alert,
   AppState,
   AppStateStatus,
@@ -29,6 +28,7 @@ import {
   HostSectionKicker,
   HostSwitch,
   hostScreenStyles,
+  InstitutionalButton,
 } from '@/app/design-system/components';
 import Header from '@/components/Header';
 import omnichannelService, {
@@ -328,47 +328,35 @@ export default function ConfiguracionCanalesScreen() {
             ) : null}
           <View style={styles.actions}>
             {puedeConectar ? (
-              <TouchableOpacity
-                style={styles.btnPrimary}
+              <InstitutionalButton
+                label={conn?.status === 'pendiente' || conn?.status === 'error' ? 'Reintentar' : 'Conectar'}
+                variant="primary"
+                size="compact"
                 onPress={() => handleConectar(cfg.slug)}
                 disabled={isConnecting}
-              >
-                {isConnecting ? (
-                  <ActivityIndicator color={I.onPrimary} />
-                ) : (
-                  <>
-                    <Link2 size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <InstitutionalText role="button" color="onPrimary">
-                      {conn?.status === 'pendiente' || conn?.status === 'error' ? 'Reintentar' : 'Conectar'}
-                    </InstitutionalText>
-                  </>
-                )}
-              </TouchableOpacity>
+                loading={isConnecting}
+                leading={<Link2 size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
             ) : null}
             {conn && conectada && cfg.slug === 'whatsapp' ? (
-              <TouchableOpacity
-                style={styles.btnSecondary}
+              <InstitutionalButton
+                label="Cambiar número"
+                variant="outline"
+                size="compact"
                 onPress={handleCambiarNumero}
                 disabled={isConnecting}
-              >
-                {isConnecting ? (
-                  <ActivityIndicator color={I.primary} />
-                ) : (
-                  <>
-                    <RefreshCw size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <InstitutionalText role="button" color="primary">Cambiar número</InstitutionalText>
-                  </>
-                )}
-              </TouchableOpacity>
+                loading={isConnecting}
+                leading={<RefreshCw size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
             ) : null}
             {conn && (conectada || conn.status === 'pendiente' || conn.status === 'error') ? (
-              <TouchableOpacity
-                style={styles.btnSecondary}
+              <InstitutionalButton
+                label="Desconectar"
+                variant="destructiveOutline"
+                size="compact"
                 onPress={() => conn && handleDesconectar(conn)}
-              >
-                <Unlink size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <InstitutionalText role="button" color="primary">Desconectar</InstitutionalText>
-              </TouchableOpacity>
+                leading={<Unlink size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
             ) : null}
           </View>
         </HostPaperSection>

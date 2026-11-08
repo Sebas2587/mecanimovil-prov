@@ -63,7 +63,7 @@ function DocumentStatusTag({
     tone === 'success'
       ? { bg: withOpacity(I.semanticUp, 0.1), text: I.semanticUp, icon: I.semanticUp }
       : tone === 'warning'
-        ? { bg: withOpacity(I.accentYellow, 0.14), text: COLORS.warning.dark, icon: I.accentYellow }
+        ? { bg: withOpacity(I.accentYellow, 0.14), text: COLORS.warning.darker, icon: I.accentYellow }
         : tone === 'info'
           ? { bg: COLORS.selection.background, text: COLORS.selection.text, icon: I.primary }
           : { bg: I.surfaceSoft, text: I.muted, icon: I.muted };

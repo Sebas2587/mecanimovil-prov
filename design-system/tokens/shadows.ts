@@ -4,6 +4,7 @@
 
 import { Platform } from 'react-native';
 import { platformShadowMap } from './platformShadow';
+import { COLORS } from './colors';
 
 const BASE_SHADOWS = {
   // ============================================
@@ -74,7 +75,7 @@ const BASE_SHADOWS = {
   // SOMBRAS ESPECIALES
   // ============================================
   inputFocus: {
-    shadowColor: '#0052ff',
+    shadowColor: COLORS.border.focus,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

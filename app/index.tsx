@@ -162,7 +162,7 @@ export default function IndexScreen() {
         <InstitutionalButton
           label="Reintentar"
           onPress={handleRetry}
-          variant="secondary"
+          variant="primary"
           style={styles.actionButton}
         />
 
@@ -171,7 +171,7 @@ export default function IndexScreen() {
           <InstitutionalButton
             label="Registrarme como Proveedor"
             onPress={handleGoToOnboarding}
-            variant="success"
+            variant="outline"
             style={styles.actionButton}
           />
 

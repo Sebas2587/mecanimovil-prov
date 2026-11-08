@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, type TextStyle } from 'react-native';
 import { TYPOGRAPHY, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
 import { ChannelBrandGlyph } from '@/components/chats/ChannelBrandIcon';
@@ -24,8 +24,8 @@ function ChannelBadgeComponent({ channel, compact = false }: Props) {
         },
       ]}
     >
-      <ChannelBrandGlyph channel={channel} size={compact ? 11 : 12} color={visual.color} />
-      <Text style={[styles.text, compact && styles.textCompact, { color: visual.color }]}>
+      <ChannelBrandGlyph channel={channel} size={13} color={visual.color} />
+      <Text style={[badgeText, compact && badgeTextCompact, { color: visual.color }]}>
         {visual.label}
       </Text>
     </View>
@@ -35,6 +35,22 @@ function ChannelBadgeComponent({ channel, compact = false }: Props) {
 export const ChannelBadge = memo(ChannelBadgeComponent);
 
 export { channelRespondLabel } from '@/utils/channelVisuals';
+
+const caption = TYPOGRAPHY.styles.caption;
+const badgeText: TextStyle = withWebLineHeight({
+  fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  fontWeight: '600',
+  fontSize: caption.fontSize,
+  lineHeight: caption.lineHeight,
+  letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+  textTransform: 'uppercase',
+});
+const badgeTextCompact: TextStyle = withWebLineHeight({
+  fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  fontWeight: '600',
+  fontSize: caption.fontSize,
+  lineHeight: caption.lineHeight,
+});
 
 const styles = StyleSheet.create({
   badge: {
@@ -54,16 +70,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  text: withWebLineHeight({
-    ...TYPOGRAPHY.styles.caption,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
-    fontSize: 11,
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-    textTransform: 'uppercase',
-  }),
-  textCompact: withWebLineHeight({
-    fontSize: 10,
-    lineHeight: 1.5,
-  }),
 });

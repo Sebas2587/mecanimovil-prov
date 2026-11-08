@@ -17,7 +17,6 @@ import { Card } from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { GLASS_INSET } from '@/app/design-system/blankGlass';
 import {
   CatalogoFechaHoraPickers,
   formatDateApi,
@@ -398,7 +397,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: SPACING.fixed.sm,
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: SPACING.fixed.md,
     paddingTop: SPACING.fixed.md,
     paddingBottom: SPACING.fixed.sm,
     borderTopWidth: BORDERS.width.thin,
