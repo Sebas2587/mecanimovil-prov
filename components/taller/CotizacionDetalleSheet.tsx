@@ -25,6 +25,7 @@ import {
   abrirWhatsAppCotizacion,
   mensajeCotizacionParaCliente,
 } from '@/utils/compartirCotizacionCliente';
+import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import {
@@ -155,6 +156,13 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
     () => (cotizacion ? lineasDesgloseCotizacion(cotizacion) : []),
     [cotizacion],
   );
+  const repuestoPorLinea = useMemo(() => {
+    const mapa = new Map<string, NonNullable<CotizacionCanal['repuestos']>[number]>();
+    (cotizacion?.repuestos ?? []).forEach((repuesto, index) => {
+      mapa.set(`rp-${repuesto.id || index}`, repuesto);
+    });
+    return mapa;
+  }, [cotizacion]);
   const vehiculo = cotizacion
     ? [cotizacion.vehiculo_marca, cotizacion.vehiculo_modelo, cotizacion.vehiculo_anio]
       .filter(Boolean)
@@ -266,15 +274,24 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                   El detalle de piezas y mano de obra está en el documento.
                 </InstitutionalText>
               ) : (
-                lineas.map((linea) => (
-                  <View key={linea.id} style={styles.linea}>
-                    <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
-                      {linea.label}{linea.cantidad > 1 ? ` × ${linea.cantidad}` : ''}
-                    </InstitutionalText>
-                    <InstitutionalText role="caption">{linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto)}</InstitutionalText>
-                  </View>
-                ))
+                lineas.map((linea) => {
+                  const repuesto = repuestoPorLinea.get(linea.id);
+                  return (
+                    <View key={linea.id} style={styles.lineaBloque}>
+                      <View style={styles.linea}>
+                        <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
+                          {linea.label}{linea.cantidad > 1 ? ` × ${linea.cantidad}` : ''}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption">{linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto)}</InstitutionalText>
+                      </View>
+                      {repuesto ? <MargenRepuestoLinea rep={repuesto} /> : null}
+                    </View>
+                  );
+                })
               )}
+              {(cotizacion.repuestos ?? []).length > 0 ? (
+                <ResumenMargenRepuestos repuestos={cotizacion.repuestos} servidor={cotizacion} />
+              ) : null}
               {(cotizacion.descuento_clp || 0) > 0 ? (
                 <View style={styles.linea}>
                   <InstitutionalText role="caption" color="body">Descuento</InstitutionalText>
@@ -579,8 +596,12 @@ const styles = StyleSheet.create({
   bloque: {
     gap: SPACING.fixed.sm,
   },
+  lineaBloque: {
+    gap: SPACING.fixed.xxs,
+  },
   linea: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: SPACING.fixed.md,
   },

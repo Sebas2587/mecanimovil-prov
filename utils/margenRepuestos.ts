@@ -3,8 +3,19 @@ import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
 export type LineaMargenInput = {
   cantidad?: number | null;
   costo_unitario_clp?: number | null;
+  costo_registrado_clp?: number | null;
+  costo_estimado_clp?: number | null;
   precio_unitario_clp?: number | null;
   precio_cobrado_clp?: number | null;
+  /** Porcentaje que ya aplicó el descubrimiento. La UI no lo vuelve a multiplicar. */
+  margen_pct?: number | null;
+};
+
+export type TotalesMargenServidor = {
+  costo_total_repuestos_clp?: number | null;
+  cobrado_total_repuestos_clp?: number | null;
+  ganancia_repuestos_clp?: number | null;
+  margen_repuestos_pct?: number | null;
 };
 
 export type MargenLinea = {
@@ -34,12 +45,30 @@ export function cobradoUnitarioLinea(rep: LineaMargenInput): number {
   return 0;
 }
 
+function montoConocido(valor: unknown): number | null {
+  if (valor == null || valor === '') return null;
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return null;
+  return redondearCLP(numero);
+}
+
+/**
+ * Costo ya congelado. Orden: declarado, unitario del serializer, estimado al descubrir.
+ * No usa el precio cobrado ni vuelve a aplicar margen_pct.
+ */
+export function costoUnitarioConocido(rep: LineaMargenInput): number | null {
+  const registrado = montoConocido(rep.costo_registrado_clp);
+  if (registrado != null) return registrado;
+  const unitario = montoConocido(rep.costo_unitario_clp);
+  if (unitario != null) return unitario;
+  const estimado = montoConocido(rep.costo_estimado_clp);
+  if (estimado != null && estimado > 0) return estimado;
+  return null;
+}
+
 export function margenLineaRepuesto(rep: LineaMargenInput): MargenLinea {
   const cantidad = Math.max(1, redondearCLP(rep.cantidad || 1));
-  const costoRaw = rep.costo_unitario_clp;
-  const costoUnitario = costoRaw == null || !Number.isFinite(Number(costoRaw))
-    ? null
-    : redondearCLP(costoRaw);
+  const costoUnitario = costoUnitarioConocido(rep);
   const cobradoUnitario = cobradoUnitarioLinea(rep);
   const cobradoLinea = cobradoUnitario * cantidad;
   if (costoUnitario == null) {

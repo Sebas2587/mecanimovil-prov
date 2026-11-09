@@ -61,10 +61,24 @@ describe('margenLineaRepuesto', () => {
       costo_unitario_clp: null,
       cantidad: 1,
       precio_unitario_clp: 8000,
+      margen_pct: 40,
     });
     expect(m.margenClp).toBeNull();
     expect(m.margenPct).toBeNull();
     expect(m.costoLinea).toBeNull();
+  });
+
+  it('usa el costo estimado congelado y no vuelve a aplicar el porcentaje', () => {
+    const m = margenLineaRepuesto({
+      costo_unitario_clp: null,
+      costo_estimado_clp: 6000,
+      cantidad: 2,
+      precio_unitario_clp: 10000,
+      margen_pct: 80,
+    });
+    expect(m.costoLinea).toBe(12000);
+    expect(m.cobradoLinea).toBe(20000);
+    expect(m.margenClp).toBe(8000);
   });
 
   it('deja el margen negativo cuando el cobrado no cubre el costo', () => {

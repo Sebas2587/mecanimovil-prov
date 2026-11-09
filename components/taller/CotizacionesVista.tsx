@@ -48,6 +48,7 @@ import {
 } from '@/utils/cotizacionPresentacion';
 import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 import { esCotizacionDePrueba } from '@/utils/filtroCotizacionPrueba';
+import { coincideBusquedaCotizacion } from '@/utils/busquedaCotizacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -111,19 +112,9 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   }, [baseLista]);
 
   const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
     return baseLista.filter((cotizacion) => {
       if (filtro !== 'todas' && estadoCotizacionVista(cotizacion) !== filtro) return false;
-      if (!q) return true;
-      return [
-        cotizacion.cliente_nombre,
-        cotizacion.cliente_telefono,
-        cotizacion.numero_publico,
-        cotizacion.servicio_nombre,
-        cotizacion.vehiculo_marca,
-        cotizacion.vehiculo_modelo,
-        cotizacion.vehiculo_patente,
-      ].some((campo) => (campo || '').toLowerCase().includes(q));
+      return coincideBusquedaCotizacion(cotizacion, busqueda);
     });
   }, [baseLista, busqueda, filtro]);
 
@@ -249,7 +240,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             <TextInput
               value={busqueda}
               onChangeText={setBusqueda}
-              placeholder="Cliente, patente, folio o servicio"
+              placeholder="Cliente, patente, marca o modelo"
               placeholderTextColor={I.muted}
               style={styles.input}
               autoCorrect={false}

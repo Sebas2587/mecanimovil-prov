@@ -161,6 +161,7 @@ summaryDivider: {
   },
 summaryRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
