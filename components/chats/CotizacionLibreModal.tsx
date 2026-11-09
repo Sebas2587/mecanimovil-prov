@@ -24,7 +24,6 @@ import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
-import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
@@ -44,6 +43,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/ap
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import { withWebLineHeight } from '@/utils/webTypography';
 import {
@@ -668,6 +668,12 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion, persistirCotizacion]);
 
+  const pedirVistaPrevia = useCallback((tipo?: 'estimacion' | 'cotizacion') => {
+    const fuente = draftRef.current || cotizacion;
+    if (!fuente) return;
+    gateEnviarCotizacionTaller(fuente, () => abrirVistaPrevia(tipo));
+  }, [cotizacion, abrirVistaPrevia]);
+
   const handleEnviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
@@ -851,7 +857,9 @@ export function CotizacionLibreModal({
             style={styles.scroll}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: footerHeight + SPACING.fixed.md },
+              {
+                paddingBottom: footerHeight + SPACING.fixed.lg,
+              },
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -1002,7 +1010,7 @@ export function CotizacionLibreModal({
                   hideSendActions
                   readonly={!cotizacionPermiteEdicionCompleta(cotizacion)}
                   compactHeader
-                  onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
+                  onEnviarEstimacion={() => pedirVistaPrevia('estimacion')}
                 />
 
                 {shareUrl ? (
@@ -1109,7 +1117,7 @@ export function CotizacionLibreModal({
                   sendDisabled={ocupado}
                   loading={enviando}
                   onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
-                  onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+                  onEnviarFirme={() => pedirVistaPrevia('cotizacion')}
                 />
               </View>
             ) : (
@@ -1124,17 +1132,6 @@ export function CotizacionLibreModal({
             )}
           </View>
         </KeyboardAvoidingView>
-        {cotizacion
-          && cotizacion.estado === 'borrador'
-          && !previewVisible ? (
-          <CotizacionEditorFab
-            visible
-            variant="plus"
-            bottomOffset={footerBottom + 112}
-            onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
-            onAddManoObra={() => editorRef.current?.agregarManoObra()}
-          />
-        ) : null}
         </View>
       </View>
       <VistaPreviaCotizacionClienteModal

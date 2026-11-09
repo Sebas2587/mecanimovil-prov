@@ -1,5 +1,5 @@
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { lineasDesgloseCotizacion, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
+import { lineasDesgloseCotizacion, textoTotalCobradoAlCliente, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import {
   envioTotalBloqueado,
@@ -136,5 +136,34 @@ describe('totales de cotización con total nulo', () => {
     expect(lineas.find((linea) => linea.label === 'Sensor')?.monto).toBeNull();
     expect(lineas.find((linea) => linea.label === 'Cortesía')?.monto).toBe(0);
     expect(textoTotalCotizacion(base({ total_clp: null as never, totales_completos: false }))).toBe('Incompleto');
+  });
+
+  it('el total cobrado ignora sugerencias pendientes aunque el servidor las sume', () => {
+    const conSugerida = base({
+      mano_obra_clp: 40000,
+      total_clp: 225000,
+      totales_completos: true,
+      repuestos: [
+        { id: 'kit', nombre: 'Kit', cantidad: 1, precio_unitario_clp: 120000, origen: 'pedido' },
+        { id: 'bomba', nombre: 'Bomba', cantidad: 1, precio_unitario_clp: 45000, origen: 'pedido' },
+        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen: 'pedido' },
+        {
+          id: 'rod',
+          nombre: 'Rodamiento de volante',
+          cantidad: 1,
+          precio_unitario_clp: 12000,
+          origen: 'sugerencia',
+          estado_sugerencia: 'pendiente',
+        },
+      ],
+    });
+    expect(textoTotalCotizacion(conSugerida)).toBe(formatearMontoCLP(225000));
+    expect(textoTotalCobradoAlCliente(conSugerida)).toBe(formatearMontoCLP(213000));
+    expect(textoTotalCobradoAlCliente({
+      ...conSugerida,
+      repuestos: conSugerida.repuestos.map((rep) => (
+        rep.id === 'rod' ? { ...rep, estado_sugerencia: 'aceptada' as const } : rep
+      )),
+    })).toBe(formatearMontoCLP(225000));
   });
 });

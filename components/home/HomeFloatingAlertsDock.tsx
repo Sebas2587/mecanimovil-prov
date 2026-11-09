@@ -18,6 +18,7 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
+import { alertaHomeCotizador } from '@/utils/decisionCotizador';
 
 const I = COLORS.institutional;
 const PAPER = I.paper || COLORS.background.paper;
@@ -264,14 +265,25 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
 
   switch (event.type) {
     case 'agente_ia_cotizacion_borrador':
+    case 'revision_sugerencias_pendiente':
+    case 'agente_ia_revision_taller':
+    case 'cotizacion_revision_taller': {
+      const alerta = alertaHomeCotizador(event.type, {
+        preview: event.mensaje_preview,
+        pendientes: event.pendientes,
+      });
+      if (!alerta) return null;
       return {
         kind: 'lead',
-        id: `borrador-${event.cotizacion_id || conv || Date.now()}`,
-        title: 'Cotización lista para revisar',
-        leadTone: 'draft',
-        message: 'La IA dejó un borrador. Ábrelo en pendientes o Cotizar con IA.',
-        href: '/cotizaciones?estado=borrador',
+        id: `${alerta.idPrefix}-${event.cotizacion_id || conv || Date.now()}`,
+        title: alerta.title,
+        leadTone: alerta.idPrefix === 'borrador' ? 'draft' : 'escalation',
+        message: alerta.message,
+        href: event.cotizacion_id
+          ? `/cotizacion-canal/${event.cotizacion_id}`
+          : '/cotizaciones?estado=revision',
       };
+    }
     case 'agente_ia_cotizacion_enviada':
       return {
         kind: 'lead',

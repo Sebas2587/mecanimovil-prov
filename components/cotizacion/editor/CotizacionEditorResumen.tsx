@@ -9,6 +9,8 @@ import type { TotalesMargenServidor } from '@/utils/margenRepuestos';
 import { formatearTotalConocido } from '@/utils/totalesCotizacion';
 import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { estilosPartes as styles } from '@/components/cotizacion/editor/estilosPartesEditor';
+import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
+import { cobraAlCliente } from '@/utils/decisionCotizador';
 
 export function CotizacionEditorResumen({
   canon,
@@ -34,6 +36,7 @@ export function CotizacionEditorResumen({
   totalCanonTexto: string;
   servidor?: TotalesMargenServidor | null;
 }) {
+  const cobrados = repuestos.filter(cobraAlCliente);
   return (
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
@@ -44,7 +47,9 @@ export function CotizacionEditorResumen({
             {canon.costo_repuestos_clp == null ? 'Incompleto' : formatearMontoCLP(canon.costo_repuestos_clp)}
           </InstitutionalText>
         </View>
-        <ResumenMargenRepuestos repuestos={repuestos} servidor={servidor} />
+        <SeccionOpcional title="Costo y ganancia" hint="Solo lo ve el taller">
+          <ResumenMargenRepuestos repuestos={cobrados} servidor={servidor} />
+        </SeccionOpcional>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
             Mano de obra

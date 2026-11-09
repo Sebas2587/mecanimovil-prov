@@ -10,7 +10,7 @@ import {
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, Check, Eye, Link2, MessageCircle, Package, Phone, Trash2, Wrench, X } from 'lucide-react-native';
+import { Calendar, Check, Eye, Link2, MessageCircle, Phone, Trash2, X } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
@@ -18,6 +18,7 @@ import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/Cotizaci
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import { cotizacionFabLayout } from '@/components/cotizacion/cotizacionEditorFabLayout';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -47,6 +48,8 @@ import cotizacionCanalService, {
 import { HOLD_REVEAL_PRECIOS_MS, shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { pedirConfirmacionEliminarCotizacion } from '@/utils/eliminarCotizacionTaller';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import {
   CLIPBOARD_MENSAJE_COPIADO,
@@ -90,6 +93,8 @@ function snapshot(c: CotizacionCanal): string {
     ejecucion_adicional: c.ejecucion_adicional,
     fecha_propuesta: c.fecha_propuesta,
     hora_propuesta: c.hora_propuesta,
+    dudas: c.dudas,
+    revision_sugerencias: c.revision_sugerencias,
   });
 }
 
@@ -232,6 +237,8 @@ export default function CotizacionCanalDetalleScreen() {
       if (!prev || prev.id !== actualizada.id) return actualizada;
       return {
         ...actualizada,
+        dudas: actualizada.dudas ?? prev.dudas,
+        revision_sugerencias: actualizada.revision_sugerencias ?? prev.revision_sugerencias,
         repuestos: mergeRepuestosPreservandoEdicion(
           prev.repuestos ?? [],
           actualizada.repuestos ?? [],
@@ -289,6 +296,11 @@ export default function CotizacionCanalDetalleScreen() {
       setGuardando(false);
     }
   }, [draft, persistirSiHayCambios]);
+
+  const pedirVistaPrevia = useCallback((tipo?: 'estimacion' | 'cotizacion') => {
+    if (!draft) return;
+    gateEnviarCotizacionTaller(draft, () => abrirVistaPrevia(tipo));
+  }, [draft, abrirVistaPrevia]);
 
   const enviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
@@ -386,20 +398,15 @@ export default function CotizacionCanalDetalleScreen() {
 
   const eliminar = useCallback(() => {
     if (!draft?.id) return;
-    showConfirm('Eliminar cotización', 'Se cancelará y saldrá de pendientes.', {
-      confirmText: 'Eliminar',
-      onConfirm: async () => {
-        setEliminando(true);
-        try {
-          await cotizacionCanalService.cancelar(draft.id);
-          await invalidateAll();
-          router.back();
-        } catch {
-          showAlert('Error', 'No se pudo eliminar.');
-        } finally {
-          setEliminando(false);
-        }
-      },
+    pedirConfirmacionEliminarCotizacion(async () => {
+      setEliminando(true);
+      try {
+        await cotizacionCanalService.eliminar(draft.id);
+        await invalidateAll();
+        router.back();
+      } finally {
+        setEliminando(false);
+      }
     });
   }, [draft?.id, invalidateAll]);
 
@@ -569,20 +576,7 @@ export default function CotizacionCanalDetalleScreen() {
   const puedeEnviarFirme = draft.puede_enviar_firme ?? pendientesPrecio === 0;
   const shareUrl = draft.share_url || draft.url_publica || '';
   const fabActions: CotizacionFabAction[] = [];
-  if (draft.estado === 'borrador' || editando) {
-    fabActions.push({
-      key: 'mano',
-      label: 'Mano de obra',
-      icon: Wrench,
-      onPress: () => editorRef.current?.agregarManoObra(),
-    });
-    fabActions.push({
-      key: 'repuesto',
-      label: 'Repuesto',
-      icon: Package,
-      onPress: () => editorRef.current?.agregarRepuesto(),
-    });
-  } else {
+  if (draft.estado !== 'borrador' && !editando) {
     if (draft.estado === 'aceptada' && draft.cita_personal_id && !tieneHorarioAgendado) {
       fabActions.push({
         key: 'agendar',
@@ -663,7 +657,7 @@ export default function CotizacionCanalDetalleScreen() {
       });
     }
   }
-  const fabVariant = draft.estado === 'borrador' || editando ? 'plus' : 'more';
+  const fabVariant = 'more' as const;
   const citaParaAdicional = draft.cita_personal_id || draft.cita_origen_id || null;
   const showFooter = Boolean(
     (tieneHorarioAgendado && draft.cita_personal_id)
@@ -671,6 +665,12 @@ export default function CotizacionCanalDetalleScreen() {
     || draft.estado === 'enviada'
     || draft.estado === 'aceptada'
   );
+  const showEditorFab = fabActions.length > 0;
+  const fabLayout = cotizacionFabLayout({
+    showFooter,
+    footerBottom,
+    showFab: showEditorFab,
+  });
 
   return (
     <View style={styles.screen}>
@@ -728,11 +728,12 @@ export default function CotizacionCanalDetalleScreen() {
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
           styles.scrollInner,
-          { paddingBottom: footerBottom + 72 },
+          { paddingBottom: fabLayout.paddingBottom },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.columnaEditor}>
         {trabajoEntregado ? (
           <InstitutionalTag label="Trabajo terminado" variant="success" size="sm" />
         ) : null}
@@ -750,7 +751,7 @@ export default function CotizacionCanalDetalleScreen() {
           readonly={!editable || modoVista}
           hideSendActions
           compactHeader
-          onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
+          onEnviarEstimacion={() => pedirVistaPrevia('estimacion')}
         />
 
         {draft.estado !== 'borrador' ? (
@@ -778,6 +779,7 @@ export default function CotizacionCanalDetalleScreen() {
         {draft.estado === 'enviada' && !editando ? (
           <CotizacionEnviadaSiguientePaso cotizacion={draft} />
         ) : null}
+        </View>
       </ScrollView>
 
       {showFooter ? (
@@ -824,7 +826,7 @@ export default function CotizacionCanalDetalleScreen() {
               sendDisabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
               loading={enviando || guardando}
               onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
-              onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+              onEnviarFirme={() => pedirVistaPrevia('cotizacion')}
             />
           </View>
         ) : null}
@@ -897,16 +899,12 @@ export default function CotizacionCanalDetalleScreen() {
       </View>
       ) : null}
 
-      {!previewVisible && fabActions.length > 0 ? (
+      {!previewVisible && showEditorFab ? (
         <CotizacionEditorFab
           visible
           variant={fabVariant}
           actions={fabActions}
-          bottomOffset={
-            showFooter
-              ? footerBottom + 112
-              : footerBottom + SPACING.fixed.lg
-          }
+          bottomOffset={fabLayout.bottomOffset}
         />
       ) : null}
 
@@ -950,11 +948,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollInner: {
-    gap: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.md,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
+  },
+  columnaEditor: {
+    gap: SPACING.fixed.lg,
+    alignSelf: 'stretch',
+    maxWidth: '100%',
   },
   footerFila: {
     flexDirection: 'row',

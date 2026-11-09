@@ -15,6 +15,7 @@ import cotizacionCanalService, {
   type VistaPreviaPublica,
 } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { visibleAlCliente } from '@/utils/decisionCotizador';
 
 const I = COLORS.institutional;
 const IS_WEB = Platform.OS === 'web';
@@ -96,7 +97,8 @@ export function VistaPreviaCotizacionClienteModal({
     mano_obra_clp: doc?.mano_obra_clp ?? 0,
     servicio_nombre: doc?.servicio_nombre,
   }).filter((lin) => lin.monto_clp > 0);
-  const reps = Array.isArray(doc?.repuestos) ? doc.repuestos : [];
+  const reps = (Array.isArray(doc?.repuestos) ? doc.repuestos : [])
+    .filter((rep) => visibleAlCliente(rep));
   const desc = Math.max(0, Math.round(Number(doc?.descuento_clp) || 0));
   const clienteNombre = doc?.cliente?.nombre || doc?.cliente_nombre || '';
   const esEstimacion = tipoDocumento === 'estimacion';

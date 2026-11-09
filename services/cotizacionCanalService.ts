@@ -1,6 +1,13 @@
 import api from './api';
 import { hidratarPreciosCotizacion } from '@/utils/cotizacionPreciosWeb';
 import {
+  hidratarDecisionesCotizacion,
+  type DudaCotizador,
+  type OrigenLinea,
+  type RevisionSugerencias,
+  type SugerenciaEstado,
+} from '@/utils/decisionCotizador';
+import {
   bytesPdfDesdeRespuesta,
   esPdf,
   filenameDesdeContentDisposition,
@@ -231,6 +238,12 @@ export interface RepuestoCotizacion {
   motivo_seleccion?: string;
   /** Cuántas alternativas había disponibles. */
   alternativas_descartadas?: number;
+  /** Pedido por el taller, o complemento sugerido por el cotizador. Ausente = pedido. */
+  origen?: OrigenLinea | string;
+  /** Por qué el cotizador sugiere esta línea. Vacío en las pedidas. */
+  motivo_sugerencia?: string;
+  /** Solo sugerencias: pendiente no se cobra; aceptada entra al total; descartada no. */
+  estado_sugerencia?: SugerenciaEstado | string;
 }
 
 export type CanalCotizacion =
@@ -373,6 +386,10 @@ export interface CotizacionCanal {
       precio_catalogo_clp?: number;
     }>;
   };
+  /** Dudas del cotizador al taller. Pendientes bloquean el envío. */
+  dudas?: DudaCotizador[];
+  /** pendiente: espera opinión. resuelta: el agente puede continuar. */
+  revision_sugerencias?: RevisionSugerencias;
   cotizacion_original_id?: number | null;
   es_cotizacion_adicional?: boolean;
   motivo_servicio_adicional?: string;
@@ -474,6 +491,8 @@ export type VistaPreviaPublica = {
     precio_unitario_clp?: number;
     precio_min_clp?: number;
     precio_max_clp?: number;
+    origen?: OrigenLinea | string;
+    estado_sugerencia?: SugerenciaEstado | string;
   }>;
   costo_repuestos_clp?: number;
   descuento_clp?: number;
@@ -622,7 +641,23 @@ function conservarCostoLocal(
       out[clave] = src[clave];
     }
   });
+  if (!out.origen && src.origen) out.origen = src.origen;
+  if (!out.motivo_sugerencia && src.motivo_sugerencia) out.motivo_sugerencia = src.motivo_sugerencia;
+  if (!out.estado_sugerencia && src.estado_sugerencia) out.estado_sugerencia = src.estado_sugerencia;
   return out;
+}
+
+function conDecisionDe(
+  dest: RepuestoCotizacion,
+  src?: RepuestoCotizacion | null,
+): RepuestoCotizacion {
+  if (!src) return dest;
+  return {
+    ...dest,
+    origen: src.origen ?? dest.origen,
+    motivo_sugerencia: src.motivo_sugerencia || dest.motivo_sugerencia,
+    estado_sugerencia: src.estado_sugerencia ?? dest.estado_sugerencia,
+  };
 }
 
 function aplicarPrecioLocal(
@@ -705,7 +740,7 @@ export function mergeRepuestosPreservandoEdicion(
     const rRem = rLoc.id
       ? remoto.find((r) => r.id === rLoc.id)
       : remoto[idx];
-    return fusionarLineaRepuesto(rLoc, rRem);
+    return conDecisionDe(fusionarLineaRepuesto(rLoc, rRem), rRem);
   });
 }
 
@@ -736,7 +771,7 @@ export function fusionarRepuestosEnviados(
     if (keepLocalPrecio) {
       next = aplicarPrecioLocal(next, src);
     }
-    return conservarCostoLocal(next, src);
+    return conDecisionDe(conservarCostoLocal(next, src), src);
   });
 }
 
@@ -748,8 +783,12 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
   );
 }
 
+function hidratarCotizacion(c: CotizacionCanal): CotizacionCanal {
+  return hidratarDecisionesCotizacion(hidratarPreciosCotizacion(c));
+}
+
 function hidratarLista(rows: CotizacionCanal[]): CotizacionCanal[] {
-  return rows.map(hidratarPreciosCotizacion);
+  return rows.map(hidratarCotizacion);
 }
 
 class CotizacionCanalService {
@@ -812,7 +851,7 @@ class CotizacionCanalService {
     };
     return {
       ...data,
-      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
+      cotizacion: hidratarCotizacion(data.cotizacion),
     };
   }
 
@@ -827,13 +866,13 @@ class CotizacionCanalService {
     };
     return {
       ...data,
-      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
+      cotizacion: hidratarCotizacion(data.cotizacion),
     };
   }
 
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {
     const response = await api.patch(`/ordenes/cotizaciones-canal/${id}/`, patch);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async vistaPrevia(id: number): Promise<VistaPreviaPublica> {
@@ -968,12 +1007,40 @@ class CotizacionCanalService {
 
   async cancelar(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar/`);
-    return response.data as CotizacionCanal;
+    return hidratarCotizacion(response.data as CotizacionCanal);
+  }
+
+  async eliminar(id: number): Promise<{ eliminada: boolean; id: number; estado: string; modo: string }> {
+    const response = await api.delete(`/ordenes/cotizaciones-canal/${id}/`);
+    return response.data as { eliminada: boolean; id: number; estado: string; modo: string };
+  }
+
+  async decidirSugerencia(
+    id: number,
+    lineaId: string,
+    accion: 'aceptar' | 'descartar',
+  ): Promise<CotizacionCanal> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/sugerencias/`, {
+      linea_id: lineaId,
+      accion,
+    });
+    const data = response.data as CotizacionCanal | { cotizacion?: CotizacionCanal };
+    const body = 'cotizacion' in data && data.cotizacion ? data.cotizacion : data as CotizacionCanal;
+    return hidratarCotizacion(body);
+  }
+
+  async confirmarDuda(id: number, dudaId: string): Promise<CotizacionCanal> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/dudas/confirmar/`, {
+      id: dudaId,
+    });
+    const data = response.data as CotizacionCanal | { cotizacion?: CotizacionCanal };
+    const body = 'cotizacion' in data && data.cotizacion ? data.cotizacion : data as CotizacionCanal;
+    return hidratarCotizacion(body);
   }
 
   async cancelarBusqueda(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar-busqueda/`);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async marcarAceptada(id: number): Promise<CotizacionCanal> {
@@ -1013,7 +1080,7 @@ class CotizacionCanalService {
   ): Promise<CotizacionCanal> {
     const qs = opts?.sinRetry ? '?sin_retry=1' : '';
     const response = await api.get(`/ordenes/cotizaciones-canal/${id}/${qs}`);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async listarPlantillas(filtro?: {

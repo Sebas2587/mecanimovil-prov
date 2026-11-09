@@ -9,13 +9,18 @@ import {
   MessageCircle,
   Phone,
   RotateCcw,
+  Trash2,
   X,
 } from 'lucide-react-native';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
 import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  payloadEdicionCotizacion,
+  type CotizacionCanal,
+  type RepuestoCotizacion,
+} from '@/services/cotizacionCanalService';
 import { useCotizacionCanalDetalleQuery, COTIZACION_CANAL_DETALLE_QUERY_KEY } from '@/hooks/useCotizacionCanalDetalleQuery';
 import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTallerQuery';
 import { PIPELINE_COMERCIAL_QUERY_KEY } from '@/hooks/usePipelineComercialQuery';
@@ -28,6 +33,17 @@ import {
 import { MargenRepuestoLinea, ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { DudasCotizador } from '@/components/cotizacion/DudasCotizador';
+import { RevisionTallerBanner } from '@/components/cotizacion/RevisionTallerBanner';
+import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
+import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
+import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
+import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
+import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
+import {
+  pedirConfirmacionEliminarCotizacion,
+  puedeEliminarCotizacion,
+} from '@/utils/eliminarCotizacionTaller';
 import {
   estadoCotizacionVista,
   etiquetaEstadoCotizacion,
@@ -35,7 +51,7 @@ import {
   fechaLargaCotizacion,
   lineasDesgloseCotizacion,
   textoParcialCotizacion,
-  textoTotalCotizacion,
+  textoTotalCobradoAlCliente,
 } from '@/utils/cotizacionPresentacion';
 
 const I = COLORS.institutional;
@@ -151,6 +167,68 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
     }));
   }, [cotizacion, onClose]);
 
+  const persistirDecision = useCallback(async (next: CotizacionCanal) => {
+    if (!cotizacionId) return;
+    setBusy(true);
+    try {
+      await cotizacionCanalService.actualizar(cotizacionId, payloadEdicionCotizacion(next));
+      await refrescar();
+    } catch {
+      showAlert('No se pudo guardar', 'Revisa la cotización e inténtalo de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  }, [cotizacionId, refrescar]);
+
+  const decidirSugerencia = useCallback((repuesto: RepuestoCotizacion, estado: 'pendiente' | 'aceptada' | 'descartada') => {
+    if (!cotizacion || !cotizacionId || repuesto.id == null) return;
+    if (estado === 'pendiente') {
+      void persistirDecision({
+        ...cotizacion,
+        repuestos: (cotizacion.repuestos ?? []).map((linea) => (
+          linea.id === repuesto.id ? { ...linea, estado_sugerencia: 'pendiente' } : linea
+        )),
+      });
+      return;
+    }
+    setBusy(true);
+    void cotizacionCanalService.decidirSugerencia(
+      cotizacionId,
+      String(repuesto.id),
+      estado === 'aceptada' ? 'aceptar' : 'descartar',
+    ).then(() => refrescar()).catch((error) => {
+      showAlert(
+        'No se pudo decidir',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Esa línea no es una sugerencia o ya no está.'),
+      );
+    }).finally(() => setBusy(false));
+  }, [cotizacion, cotizacionId, persistirDecision, refrescar]);
+
+  const confirmarDudaDetalle = useCallback((id: string) => {
+    if (!cotizacionId) return;
+    setBusy(true);
+    void cotizacionCanalService.confirmarDuda(cotizacionId, id).then(() => refrescar()).catch((error) => {
+      showAlert(
+        'No se pudo confirmar',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Revisa la duda e inténtalo de nuevo.'),
+      );
+    }).finally(() => setBusy(false));
+  }, [cotizacionId, refrescar]);
+
+  const eliminar = useCallback(() => {
+    if (!cotizacionId) return;
+    pedirConfirmacionEliminarCotizacion(async () => {
+      setBusy(true);
+      try {
+        await cotizacionCanalService.eliminar(cotizacionId);
+        await refrescar();
+        onClose();
+      } finally {
+        setBusy(false);
+      }
+    });
+  }, [cotizacionId, onClose, refrescar]);
+
   const estado = cotizacion ? estadoCotizacionVista(cotizacion) : null;
   const lineas = useMemo(
     () => (cotizacion ? lineasDesgloseCotizacion(cotizacion) : []),
@@ -249,6 +327,13 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
               </Pressable>
             ) : null}
 
+            <RevisionTallerBanner cotizacion={cotizacion} />
+            <DudasCotizador
+              dudas={dudasDe(cotizacion)}
+              editable={estado === 'borrador'}
+              onConfirmar={confirmarDudaDetalle}
+            />
+
             {estado === 'agendada' && cotizacion.fecha_agendada ? (
               <View style={styles.cita}>
                 <View style={styles.citaIcono}>
@@ -282,15 +367,37 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                         <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
                           {linea.label}{linea.cantidad > 1 ? ` × ${linea.cantidad}` : ''}
                         </InstitutionalText>
-                        <InstitutionalText role="caption">{linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto)}</InstitutionalText>
+                        <InstitutionalText role="caption">
+                          {linea.sugerida && !linea.cobra
+                            ? 'No se cobra'
+                            : (linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto))}
+                        </InstitutionalText>
                       </View>
-                      {repuesto ? <MargenRepuestoLinea rep={repuesto} /> : null}
+                      {repuesto ? (
+                        <>
+                          <SugerenciaLinea
+                            rep={repuesto}
+                            compact
+                            editable={estado === 'borrador'}
+                            onDecidir={(estadoSugerencia) => decidirSugerencia(repuesto, estadoSugerencia)}
+                          />
+                          <ValidacionRepuestoLinea rep={repuesto} />
+                          <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
+                            <MargenRepuestoLinea rep={repuesto} />
+                          </SeccionOpcional>
+                        </>
+                      ) : null}
                     </View>
                   );
                 })
               )}
               {(cotizacion.repuestos ?? []).length > 0 ? (
-                <ResumenMargenRepuestos repuestos={cotizacion.repuestos} servidor={cotizacion} />
+                <SeccionOpcional title="Costo y ganancia" hint="Solo el taller">
+                  <ResumenMargenRepuestos
+                    repuestos={(cotizacion.repuestos ?? []).filter(cobraAlCliente)}
+                    servidor={cotizacion}
+                  />
+                </SeccionOpcional>
               ) : null}
               {(cotizacion.descuento_clp || 0) > 0 ? (
                 <View style={styles.linea}>
@@ -300,7 +407,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
               ) : null}
               <View style={styles.total}>
                 <InstitutionalText role="bodyBold">Total</InstitutionalText>
-                <InstitutionalText role="bodyBold">{textoTotalCotizacion(cotizacion)}</InstitutionalText>
+                <InstitutionalText role="bodyBold">{textoTotalCobradoAlCliente(cotizacion)}</InstitutionalText>
               </View>
               {textoParcialCotizacion(cotizacion) ? (
                 <View style={styles.linea}>
@@ -331,10 +438,12 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
         <Acciones
           estado={estado}
           busy={busy}
+          puedeEliminar={puedeEliminarCotizacion(cotizacion)}
           onAceptar={() => void aceptar()}
           onRechazar={rechazar}
           onAgendar={agendar}
           onAbrir={abrirDocumento}
+          onEliminar={eliminar}
         />
       ) : null}
     </BottomSheet>
@@ -401,17 +510,21 @@ function Seguimiento({ cotizacion }: { cotizacion: CotizacionCanal }) {
 function Acciones({
   estado,
   busy,
+  puedeEliminar,
   onAceptar,
   onRechazar,
   onAgendar,
   onAbrir,
+  onEliminar,
 }: {
   estado: ReturnType<typeof estadoCotizacionVista>;
   busy: boolean;
+  puedeEliminar: boolean;
   onAceptar: () => void;
   onRechazar: () => void;
   onAgendar: () => void;
   onAbrir: () => void;
+  onEliminar: () => void;
 }) {
   if (busy) {
     return (
@@ -424,14 +537,22 @@ function Acciones({
     return (
       <View style={styles.acciones}>
         <Boton label="Continuar cotización" onPress={onAbrir} primario icon={FileText} />
+        {puedeEliminar ? (
+          <Boton label="Eliminar" onPress={onEliminar} peligro icon={Trash2} />
+        ) : null}
       </View>
     );
   }
   if (estado === 'enviada') {
     return (
-      <View style={styles.accionesFila}>
-        <Boton label="No aceptó" onPress={onRechazar} icon={X} />
-        <Boton label="Cliente aceptó" onPress={onAceptar} primario icon={Check} flex={2} />
+      <View style={styles.acciones}>
+        <View style={styles.accionesFila}>
+          <Boton label="No aceptó" onPress={onRechazar} icon={X} />
+          <Boton label="Cliente aceptó" onPress={onAceptar} primario icon={Check} flex={2} />
+        </View>
+        {puedeEliminar ? (
+          <Boton label="Eliminar" onPress={onEliminar} peligro icon={Trash2} />
+        ) : null}
       </View>
     );
   }
@@ -465,24 +586,37 @@ function Boton({
   label,
   onPress,
   primario = false,
+  peligro = false,
   icon: Icono,
   flex = 1,
 }: {
   label: string;
   onPress: () => void;
   primario?: boolean;
+  peligro?: boolean;
   icon: typeof Check;
   flex?: number;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.boton, primario ? styles.botonPrimario : styles.botonSecundario, { flex }]}
+      style={[
+        styles.boton,
+        primario ? styles.botonPrimario : peligro ? styles.botonPeligro : styles.botonSecundario,
+        { flex },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Icono size={16} color={primario ? I.onPrimary : I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-      <InstitutionalText role="captionBold" color={primario ? 'onPrimary' : 'ink'}>
+      <Icono
+        size={16}
+        color={primario ? I.onPrimary : peligro ? I.semanticDown : I.ink}
+        strokeWidth={ICON_STROKE_WIDTH}
+      />
+      <InstitutionalText
+        role="captionBold"
+        color={primario ? 'onPrimary' : peligro ? 'semanticDown' : 'ink'}
+      >
         {label}
       </InstitutionalText>
     </Pressable>
@@ -659,6 +793,7 @@ const styles = StyleSheet.create({
   },
   acciones: {
     paddingTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   accionesFila: {
     flexDirection: 'row',
@@ -681,5 +816,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: I.hairline,
     backgroundColor: I.surfaceSoft,
+  },
+  botonPeligro: {
+    borderWidth: 1,
+    borderColor: I.semanticDown,
+    backgroundColor: I.paper,
   },
 });

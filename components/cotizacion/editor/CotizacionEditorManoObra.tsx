@@ -8,6 +8,7 @@ import { InstitutionalSectionHeader } from '@/app/design-system/components/Insti
 import { Card } from '@/app/design-system/components';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import type { ManoObraLinea } from '@/services/cotizacionCanalService';
 import { MAX_MANO_OBRA_LINEAS } from '@/services/cotizacionCanalService';
 import { redondearCLP } from '@/utils/formatearMontoCLP';
@@ -97,12 +98,14 @@ export function CotizacionEditorManoObra({
   valoresEstimados,
   onUpdate,
   onDelete,
+  onAgregar,
 }: {
   lineasMo: ManoObraLinea[];
   editable: boolean;
   valoresEstimados: boolean;
   onUpdate: (index: number, patch: Partial<ManoObraLinea>) => void;
   onDelete: (index: number) => void;
+  onAgregar?: () => void;
 }) {
   return (
       <View style={styles.section}>
@@ -118,6 +121,12 @@ export function CotizacionEditorManoObra({
           <InstitutionalText role="caption" color="muted">
             Máximo {MAX_MANO_OBRA_LINEAS} líneas de mano de obra.
           </InstitutionalText>
+        ) : editable && onAgregar ? (
+          <TallerPildora
+            label="Agregar mano de obra"
+            tono="suave"
+            onPress={onAgregar}
+          />
         ) : null}
         {lineasMo.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>

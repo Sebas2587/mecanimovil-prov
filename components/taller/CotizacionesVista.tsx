@@ -20,6 +20,7 @@ import {
   BadgeCheck,
   CircleCheck,
   CircleX,
+  HelpCircle,
   Layers,
   Search,
   Send,
@@ -43,20 +44,27 @@ import {
   estadoCotizacionVista,
   etiquetaEstadoCotizacion,
   fechaCortaCotizacion,
-  textoTotalCotizacion,
+  textoTotalCobradoAlCliente,
   type EstadoCotizacionVista,
 } from '@/utils/cotizacionPresentacion';
 import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 import { esCotizacionDePrueba } from '@/utils/filtroCotizacionPrueba';
 import { coincideBusquedaCotizacion } from '@/utils/busquedaCotizacion';
+import { esperaRevisionTaller, resumenRevisionTaller } from '@/utils/decisionCotizador';
+import {
+  pedirConfirmacionEliminarCotizacion,
+  puedeEliminarCotizacion,
+} from '@/utils/eliminarCotizacionTaller';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
-type Filtro = 'todas' | EstadoCotizacionVista;
+type Filtro = 'todas' | 'revision' | EstadoCotizacionVista;
 
 const FILTROS: { value: Filtro; label: string; icon: LucideIcon }[] = [
   { value: 'todas', label: 'Todas', icon: Layers },
+  { value: 'revision', label: 'Por decidir', icon: HelpCircle },
   { value: 'enviada', label: 'Enviadas', icon: Send },
   { value: 'aceptada', label: 'Aceptadas', icon: CircleCheck },
   { value: 'agendada', label: 'Agendadas', icon: CalendarCheck },
@@ -102,6 +110,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const conteos = useMemo(() => {
     const base: Record<Filtro, number> = {
       todas: baseLista.length,
+      revision: 0,
       borrador: 0,
       enviada: 0,
       aceptada: 0,
@@ -112,6 +121,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     for (const cotizacion of baseLista) {
       const estado = estadoCotizacionVista(cotizacion);
       base[estado] = (base[estado] ?? 0) + 1;
+      if (esperaRevisionTaller(cotizacion)) base.revision += 1;
     }
     return base;
   }, [baseLista]);
@@ -119,6 +129,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const servidorYaFiltro = consulta.length > 0 && busqueda.trim().length > 0 && !query.isPlaceholderData;
   const visibles = useMemo(() => {
     return baseLista.filter((cotizacion) => {
+      if (filtro === 'revision') return esperaRevisionTaller(cotizacion) && (servidorYaFiltro || coincideBusquedaCotizacion(cotizacion, busqueda));
       if (filtro !== 'todas' && estadoCotizacionVista(cotizacion) !== filtro) return false;
       if (servidorYaFiltro) return true;
       return coincideBusquedaCotizacion(cotizacion, busqueda);
@@ -199,6 +210,14 @@ export function CotizacionesVista({ estadoInicial }: Props) {
         },
       },
     );
+  }, [query, queryClient]);
+  const eliminarCotizacion = useCallback((cotizacion: CotizacionCanal) => {
+    pedirConfirmacionEliminarCotizacion(async () => {
+      await cotizacionCanalService.eliminar(cotizacion.id);
+      await query.refetch();
+      await queryClient.invalidateQueries({ queryKey: [PIPELINE_COMERCIAL_QUERY_KEY] });
+      setAbiertaId((actual) => (actual === cotizacion.id ? null : actual));
+    });
   }, [query, queryClient]);
   const mostrarBuscador = useCallback((visible: boolean) => {
     if (buscadorVisible.current === visible) return;
@@ -389,6 +408,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             onOpen={abrir}
             onAgendar={agendar}
             onQuitar={quitarCotizacion}
+            onEliminar={eliminarCotizacion}
           />
         )}
       />
@@ -399,6 +419,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
 }
 
 const TITULO_FILTRO: Record<Exclude<Filtro, 'todas'>, string> = {
+  revision: 'Por decidir',
   borrador: 'Por revisar',
   enviada: 'Esperando respuesta',
   aceptada: 'Por agendar',
@@ -409,7 +430,8 @@ const TITULO_FILTRO: Record<Exclude<Filtro, 'todas'>, string> = {
 
 function filtroInicial(value: string | null | undefined): Filtro {
   if (
-    value === 'borrador'
+    value === 'revision'
+    || value === 'borrador'
     || value === 'enviada'
     || value === 'aceptada'
     || value === 'agendada'
@@ -454,16 +476,20 @@ const CotizacionCard = memo(function CotizacionCard({
   onOpen,
   onAgendar,
   onQuitar,
+  onEliminar,
 }: {
   cotizacion: CotizacionCanal;
   onOpen: (id: number) => void;
   onAgendar: (cotizacion: CotizacionCanal) => void;
   onQuitar: (cotizacion: CotizacionCanal) => void;
+  onEliminar: (cotizacion: CotizacionCanal) => void;
 }) {
   const estado = estadoCotizacionVista(cotizacion);
+  const revision = resumenRevisionTaller(cotizacion);
   const handlePress = useCallback(() => onOpen(cotizacion.id), [cotizacion.id, onOpen]);
   const handleAgendar = useCallback(() => onAgendar(cotizacion), [cotizacion, onAgendar]);
   const handleQuitar = useCallback(() => onQuitar(cotizacion), [cotizacion, onQuitar]);
+  const handleEliminar = useCallback(() => onEliminar(cotizacion), [cotizacion, onEliminar]);
   const vehiculo = [
     cotizacion.vehiculo_marca,
     cotizacion.vehiculo_modelo,
@@ -515,7 +541,16 @@ const CotizacionCard = memo(function CotizacionCard({
             </InstitutionalText>
           </View>
         ) : null}
-        {estado === 'borrador' ? (
+        {estado === 'borrador' && puedeEliminarCotizacion(cotizacion) ? (
+          <Pressable
+            onPress={handleEliminar}
+            style={styles.cardQuitar}
+            accessibilityRole="button"
+            accessibilityLabel={`Eliminar cotización de ${nombre}`}
+          >
+            <InstitutionalText role="captionBold" color="semanticDown">Eliminar</InstitutionalText>
+          </Pressable>
+        ) : estado === 'borrador' ? (
           <View pointerEvents="none" style={styles.cardFecha}>
             <InstitutionalText role="captionBold">Continuar</InstitutionalText>
           </View>
@@ -533,12 +568,22 @@ const CotizacionCard = memo(function CotizacionCard({
         <InstitutionalText role="caption" color="body" numberOfLines={2}>
           {[cotizacion.servicio_nombre, vehiculo, cotizacion.vehiculo_patente].filter(Boolean).join(' · ')}
         </InstitutionalText>
+        {revision.espera ? (
+          <InstitutionalText role="captionBold" color="primary" numberOfLines={2}>
+            Por decidir{revision.sugerencias || revision.dudas
+              ? ` · ${[
+                revision.sugerencias ? (revision.sugerencias === 1 ? '1 sugerencia' : `${revision.sugerencias} sugerencias`) : '',
+                revision.dudas ? (revision.dudas === 1 ? '1 duda' : `${revision.dudas} dudas`) : '',
+              ].filter(Boolean).join(' · ')}`
+              : ''}
+          </InstitutionalText>
+        ) : null}
         {fecha ? (
           <InstitutionalText role="caption" color="body">
             {cotizacion.enviada_en ? `Enviada el ${fecha}` : `Creada el ${fecha}`}
           </InstitutionalText>
         ) : null}
-        <InstitutionalText role="bodyBold">{textoTotalCotizacion(cotizacion)}</InstitutionalText>
+        <InstitutionalText role="bodyBold">{textoTotalCobradoAlCliente(cotizacion)}</InstitutionalText>
       </Pressable>
     </View>
   );

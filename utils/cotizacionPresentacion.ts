@@ -1,9 +1,11 @@
 import {
   resolverManoObraLineas,
   type CotizacionCanal,
+  type RepuestoCotizacion,
 } from '@/services/cotizacionCanalService';
+import { cobraAlCliente, esLineaSugerida, sugerenciaEstado } from '@/utils/decisionCotizador';
 import { redondearCLP } from '@/utils/formatearMontoCLP';
-import { lecturaTotalServidor, precioPresente } from '@/utils/totalesCotizacion';
+import { lecturaTotalServidor, precioPresente, totalesDesdeLineas } from '@/utils/totalesCotizacion';
 
 export type EstadoCotizacionVista =
   | 'borrador'
@@ -86,6 +88,8 @@ export type LineaDesglose = {
   /** Null cuando el precio de la línea no vino. No es cero. */
   monto: number | null;
   cantidad: number;
+  cobra?: boolean;
+  sugerida?: boolean;
 };
 
 export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesglose[] {
@@ -99,15 +103,19 @@ export function lineasDesgloseCotizacion(cotizacion: CotizacionCanal): LineaDesg
     });
   });
   (cotizacion.repuestos ?? []).forEach((repuesto, index) => {
+    if (esLineaSugerida(repuesto) && sugerenciaEstado(repuesto) === 'descartada') return;
     const cantidad = Math.max(1, redondearCLP(repuesto.cantidad) || 1);
     const precio = precioPresente(repuesto.precio_unitario_clp)
       ? redondearCLP(repuesto.precio_unitario_clp)
       : null;
+    const cobra = cobraAlCliente(repuesto);
     lineas.push({
       id: `rp-${repuesto.id || index}`,
       label: repuesto.nombre?.trim() || 'Repuesto',
-      monto: precio == null ? null : redondearCLP(cantidad * precio),
+      monto: !cobra || precio == null ? null : redondearCLP(cantidad * precio),
       cantidad,
+      cobra,
+      sugerida: esLineaSugerida(repuesto),
     });
   });
   return lineas.filter((linea) => linea.label);
@@ -125,6 +133,36 @@ export function textoTotalCotizacion(cotizacion: {
   total_persistido_clp?: unknown;
 }): string {
   return lecturaTotalServidor(cotizacion).texto;
+}
+
+/** Total cobrado al cliente: ignora sugerencias pendientes o descartadas cuando hay líneas. */
+export function textoTotalCobradoAlCliente(cotizacion: {
+  total_clp?: unknown;
+  totales_completos?: boolean | null;
+  total_conocido_parcial_clp?: unknown;
+  total_persistido_clp?: unknown;
+  mano_obra_clp?: number | null;
+  mano_obra_lineas?: { monto_clp?: number | string | null }[] | null;
+  descuento_tipo?: string | null;
+  descuento_alcance?: string | null;
+  descuento_valor?: number | string | null;
+  repuestos?: RepuestoCotizacion[] | null;
+}): string {
+  if (Array.isArray(cotizacion.repuestos) && cotizacion.repuestos.length > 0) {
+    const lineasMo = Array.isArray(cotizacion.mano_obra_lineas) && cotizacion.mano_obra_lineas.length > 0
+      ? cotizacion.mano_obra_lineas
+      : (cotizacion.mano_obra_clp != null ? [{ monto_clp: cotizacion.mano_obra_clp }] : []);
+    const canon = totalesDesdeLineas({
+      repuestos: cotizacion.repuestos,
+      manoObraLineas: lineasMo,
+      descuentoTipo: cotizacion.descuento_tipo,
+      descuentoAlcance: cotizacion.descuento_alcance,
+      descuentoValor: cotizacion.descuento_valor,
+    });
+    if (!canon.totales_completos) return 'Incompleto';
+    return lecturaTotalServidor({ total_clp: canon.total_clp, totales_completos: true }).texto;
+  }
+  return textoTotalCotizacion(cotizacion);
 }
 
 export function textoParcialCotizacion(cotizacion: {

@@ -14,7 +14,10 @@ import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
 import { ReferenciaTiendaLinea } from '@/components/cotizacion/ReferenciaTiendaLinea';
 import { MargenRepuestoLinea } from '@/components/cotizacion/MargenRepuestos';
 import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
+import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
+import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { TallerPildora } from '@/components/taller/TallerPildora';
+import { esLineaSugerida, sugerenciaEstado, type SugerenciaEstado } from '@/utils/decisionCotizador';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -75,6 +78,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rangoCliente = null,
   onConsultarCasas,
   consultandoCasas = false,
+  onDecidirSugerencia,
 }: {
   rep: RepuestoCotizacion;
   index: number;
@@ -90,6 +94,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rangoCliente?: string | null;
   onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
   consultandoCasas?: boolean;
+  onDecidirSugerencia?: (rep: RepuestoCotizacion, estado: SugerenciaEstado) => void;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
@@ -174,73 +179,19 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      <View style={styles.estadoRow}>
-        <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
-        {consolidacionBadge ? (
-          <InstitutionalTag
-            label={consolidacionBadge}
-            variant="info"
-            size="sm"
-            uppercase={false}
-          />
-        ) : null}
-        {metaTexto ? (
-          <InstitutionalText
-            role="caption"
-            color="muted"
-            numberOfLines={1}
-            style={styles.metaTexto}
-          >
-            {metaTexto}
-          </InstitutionalText>
-        ) : null}
-        {rep.seleccion_cliente ? (
-          <InstitutionalTag
-            label="Elegido por el cliente"
-            variant="success"
-            size="sm"
-            uppercase={false}
-          />
-        ) : null}
-        {casaLabel ? (
-          urlProducto ? (
-            <TouchableOpacity
-              onPress={() => {
-                Linking.openURL(urlProducto).catch(() => undefined);
-              }}
-              accessibilityRole="link"
-              accessibilityLabel={`Abrir fuente en ${origenLabel || casaLabel}`}
-              hitSlop={6}
-            >
-              <InstitutionalTag
-                label={casaLabel}
-                variant="neutral"
-                size="sm"
-                uppercase={false}
-              />
-            </TouchableOpacity>
-          ) : (
-            <InstitutionalTag
-              label={casaLabel}
-              variant="neutral"
-              size="sm"
-              uppercase={false}
-            />
-          )
-        ) : null}
-      </View>
-
-      {motivoSeleccion ? (
-        <View style={styles.motivoSeleccionRow}>
-          <InstitutionalText
-            role="caption"
-            color="muted"
-            style={styles.motivoSeleccionTexto}
-          >
-            💡 {motivoSeleccion}
-          </InstitutionalText>
-        </View>
-      ) : null}
+      {esLineaSugerida(rep) ? (
+        <SugerenciaLinea
+          rep={rep}
+          editable={editable}
+          onDecidir={(estadoSugerencia) => (
+            onDecidirSugerencia
+              ? onDecidirSugerencia(rep, estadoSugerencia)
+              : onUpdate(index, { estado_sugerencia: estadoSugerencia })
+          )}
+        />
+      ) : (
+        <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
+      )}
 
       <ValidacionRepuestoLinea rep={rep} />
 
@@ -318,8 +269,6 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
         </InstitutionalText>
       ) : null}
-      <ReferenciaTiendaLinea rep={rep} />
-      <MargenRepuestoLinea rep={rep} />
       {rangoCliente ? (
         <InstitutionalText role="caption" color="muted">
           {rangoCliente}
@@ -327,30 +276,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
       ) : null}
       {editable && puedeBuscarIa && onBuscarIa && !precioPendiente ? (
         <TallerPildora
-          label="Buscar precio"
+          label="Pedir precio a la IA"
           tono="suave"
           onPress={() => onBuscarIa?.(rep)}
           leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
         />
-      ) : null}
-      {editable && onConsultarCasas && !precioPendiente && (certeza === 'sin_precio' || rep.consulta_casas?.puede_consultar_otras) ? (
-        <TallerPildora
-          label={rep.consulta_casas?.puede_consultar_otras ? 'Consultar otras casas' : 'Consultar casas'}
-          tono="suave"
-          loading={consultandoCasas}
-          disabled={consultandoCasas}
-          onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
-        />
-      ) : null}
-      {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre ? (
-        <InstitutionalText role="caption" color="muted">
-          Precio de {rep.proveedor_nombre}
-        </InstitutionalText>
-      ) : null}
-      {rep.consulta_casas?.estado === 'sin_respuesta' && rep.consulta_casas.casa ? (
-        <InstitutionalText role="caption" color="muted">
-          {rep.consulta_casas.casa} no respondió. La cotización sigue en espera.
-        </InstitutionalText>
       ) : null}
       {mostrarRango || hayPrecioParaConfirmar ? (
         <View style={styles.precioMetaRow}>
@@ -375,7 +305,99 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {motivo}
         </InstitutionalText>
       ) : null}
-      <FuenteFichaInterna rep={rep} vehiculoAnio={vehiculoAnio} />
+      <SeccionOpcional
+        title="Costo, tienda y margen"
+        hint={[casaLabel, origenLabel, consolidacionBadge].filter(Boolean).join(' · ') || 'Detalle de la línea'}
+      >
+        <View style={styles.estadoRow}>
+          <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
+          {consolidacionBadge ? (
+            <InstitutionalTag
+              label={consolidacionBadge}
+              variant="info"
+              size="sm"
+              uppercase={false}
+            />
+          ) : null}
+          {metaTexto ? (
+            <InstitutionalText
+              role="caption"
+              color="muted"
+              numberOfLines={1}
+              style={styles.metaTexto}
+            >
+              {metaTexto}
+            </InstitutionalText>
+          ) : null}
+          {rep.seleccion_cliente ? (
+            <InstitutionalTag
+              label="Elegido por el cliente"
+              variant="success"
+              size="sm"
+              uppercase={false}
+            />
+          ) : null}
+          {casaLabel ? (
+            urlProducto ? (
+              <TouchableOpacity
+                onPress={() => {
+                  Linking.openURL(urlProducto).catch(() => undefined);
+                }}
+                accessibilityRole="link"
+                accessibilityLabel={`Abrir fuente en ${origenLabel || casaLabel}`}
+                hitSlop={6}
+              >
+                <InstitutionalTag
+                  label={casaLabel}
+                  variant="neutral"
+                  size="sm"
+                  uppercase={false}
+                />
+              </TouchableOpacity>
+            ) : (
+              <InstitutionalTag
+                label={casaLabel}
+                variant="neutral"
+                size="sm"
+                uppercase={false}
+              />
+            )
+          ) : null}
+        </View>
+        {motivoSeleccion ? (
+          <View style={styles.motivoSeleccionRow}>
+            <InstitutionalText
+              role="caption"
+              color="muted"
+              style={styles.motivoSeleccionTexto}
+            >
+              {motivoSeleccion}
+            </InstitutionalText>
+          </View>
+        ) : null}
+        <ReferenciaTiendaLinea rep={rep} />
+        <MargenRepuestoLinea rep={rep} />
+        <FuenteFichaInterna rep={rep} vehiculoAnio={vehiculoAnio} />
+        {editable && onConsultarCasas && !precioPendiente && (certeza === 'sin_precio' || rep.consulta_casas?.puede_consultar_otras) ? (
+          <TallerPildora
+            label={rep.consulta_casas?.puede_consultar_otras ? 'Consultar otras casas' : 'Consultar casas'}
+            tono="suave"
+            loading={consultandoCasas}
+            disabled={consultandoCasas}
+            onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
+          />
+        ) : null}
+        {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre ? (
+          <InstitutionalText role="caption" color="muted">
+            Precio de {rep.proveedor_nombre}
+          </InstitutionalText>
+        ) : null}
+        {rep.consulta_casas?.estado === 'sin_respuesta' && rep.consulta_casas.casa ? (
+          <InstitutionalText role="caption" color="muted">
+            {rep.consulta_casas.casa} no respondió. La cotización sigue en espera.
+          </InstitutionalText>
+        ) : null}
+      </SeccionOpcional>
       {rep.especificacion_pendiente && specOps.length && editable ? (
         <View style={styles.specBlock}>
           <InstitutionalText role="caption" color="muted">
@@ -421,6 +443,8 @@ export function CotizacionEditorRepuestos({
   captionRango,
   onConsultarCasas,
   consultandoRepuestoId,
+  onDecidirSugerencia,
+  onAgregar,
 }: {
   repuestos: RepuestoCotizacion[];
   editable: boolean;
@@ -441,12 +465,47 @@ export function CotizacionEditorRepuestos({
   captionRango: (rep: RepuestoCotizacion) => string | null;
   onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
   consultandoRepuestoId: string | null;
+  onDecidirSugerencia?: (rep: RepuestoCotizacion, estado: SugerenciaEstado) => void;
+  onAgregar?: () => void;
 }) {
+  const pedidos = repuestos
+    .map((rep, index) => ({ rep, index }))
+    .filter(({ rep }) => !esLineaSugerida(rep));
+  const sugeridos = repuestos
+    .map((rep, index) => ({ rep, index }))
+    .filter(({ rep }) => esLineaSugerida(rep))
+    .sort((a, b) => {
+      const orden = { pendiente: 0, aceptada: 1, descartada: 2 } as const;
+      return orden[sugerenciaEstado(a.rep)] - orden[sugerenciaEstado(b.rep)];
+    });
+  const pendientes = sugeridos.filter(({ rep }) => sugerenciaEstado(rep) === 'pendiente').length;
+
+  const renderFila = ({ rep, index }: { rep: RepuestoCotizacion; index: number }) => (
+    <RepuestoRow
+      key={rep.id ?? `rep-${index}`}
+      rep={rep}
+      index={index}
+      editable={editable}
+      buscandoPrecio={lineaEnBusquedaWeb(rep)}
+      vehiculoAnio={vehiculoAnio}
+      onUpdate={onUpdate}
+      onDelete={onDelete}
+      onConfirmar={onConfirmar}
+      onEspecificacion={onEspecificacion}
+      onBuscarIa={onBuscarIa}
+      puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
+      rangoCliente={captionRango(rep)}
+      onConsultarCasas={onConsultarCasas}
+      consultandoCasas={consultandoRepuestoId === String(rep.id || '')}
+      onDecidirSugerencia={onDecidirSugerencia}
+    />
+  );
+
   return (
       <View style={styles.section}>
         <InstitutionalSectionHeader
-          title="Repuestos"
-          count={repuestos.length > 0 ? repuestos.length : undefined}
+          title="Ítems pedidos"
+          count={pedidos.length > 0 ? pedidos.length : undefined}
         />
         <CotizacionPreciosEstadoBanner
           pendiente={busquedaPendiente}
@@ -459,37 +518,54 @@ export function CotizacionEditorRepuestos({
           fichaExigente={resumenPrecios.fichaExigente}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          {`El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl. ${avisoMargen}`.trim()}
+          {`Agregar ítem suma un repuesto. Pedir ayuda a la IA consulta catálogo, historial y tiendas. ${avisoMargen}`.trim()}
         </InstitutionalText>
-        {repuestos.length === 0 ? (
+        {editable && (onAgregar || onBuscar) ? (
+          <View style={styles.accionesFila}>
+            {onAgregar ? (
+              <TallerPildora
+                label="Agregar ítem"
+                tono="suave"
+                onPress={onAgregar}
+              />
+            ) : null}
+            {onBuscar ? (
+              <TallerPildora
+                label="Pedir ayuda a la IA"
+                tono="suave"
+                onPress={onBuscar}
+                loading={cotizandoItems}
+                disabled={cotizandoItems || busquedaPendiente}
+                leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+            ) : null}
+          </View>
+        ) : null}
+        {pedidos.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>
             <InstitutionalText role="caption" color="muted">
-              Sin repuestos listados
+              Aún no hay ítems pedidos. Súmelos con Agregar ítem o pida ayuda a la IA.
             </InstitutionalText>
           </Card>
         ) : (
           <View style={styles.repuestosList}>
-            {repuestos.map((rep, idx) => (
-              <RepuestoRow
-                key={rep.id ?? `rep-${idx}`}
-                rep={rep}
-                index={idx}
-                editable={editable}
-                buscandoPrecio={lineaEnBusquedaWeb(rep)}
-                vehiculoAnio={vehiculoAnio}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onConfirmar={onConfirmar}
-                onEspecificacion={onEspecificacion}
-                onBuscarIa={onBuscarIa}
-                puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
-                rangoCliente={captionRango(rep)}
-                onConsultarCasas={onConsultarCasas}
-                consultandoCasas={consultandoRepuestoId === String(rep.id || '')}
-              />
-            ))}
+            {pedidos.map(renderFila)}
           </View>
         )}
+        {sugeridos.length > 0 ? (
+          <View style={styles.section}>
+            <InstitutionalSectionHeader
+              title="Sugerencias por revisar"
+              count={pendientes > 0 ? pendientes : sugeridos.length}
+            />
+            <InstitutionalText role="caption" color="muted">
+              La IA las propone. Aceptar las suma al total. Descartar las deja fuera. Mientras estén pendientes no se cobran.
+            </InstitutionalText>
+            <View style={styles.repuestosList}>
+              {sugeridos.map(renderFila)}
+            </View>
+          </View>
+        ) : null}
       </View>
   );
 }

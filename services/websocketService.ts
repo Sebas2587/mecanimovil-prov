@@ -125,6 +125,7 @@ export interface AgenteIaEvent {
   cotizacion_id?: number | string;
   cita_id?: number | string;
   mensaje_preview?: string;
+  pendientes?: number;
   prioridad?: string;
   lead_categoria?: string;
   timestamp?: string;
@@ -434,6 +435,9 @@ class WebSocketService {
         case 'agente_ia_cotizacion_rechazada':
         case 'agente_ia_cita_confirmada':
         case 'agente_ia_escalamiento':
+        case 'revision_sugerencias_pendiente':
+        case 'agente_ia_revision_taller':
+        case 'cotizacion_revision_taller':
           devLog('🤖 Evento agente IA:', data);
           this.handleAgenteIaEvent(data as AgenteIaEvent);
           break;

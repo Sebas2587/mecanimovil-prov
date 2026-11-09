@@ -29,7 +29,8 @@ import { router } from 'expo-router';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { ModalAjusteBorrador } from './ModalAjusteBorrador';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { envioTotalBloqueado, lecturaTotalServidor } from '@/utils/totalesCotizacion';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
+import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 import { showAlert } from '@/utils/platformAlert';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import logger from '@/utils/logger';
@@ -57,23 +58,20 @@ export function CotizacionesPendientesSection({
     );
   }, [cotizaciones]);
 
-  const handleAprobarRapido = useCallback(async (cotizacion: CotizacionCanal) => {
-    const bloqueo = envioTotalBloqueado(cotizacion);
-    if (bloqueo) {
-      showAlert('Total incompleto', bloqueo);
-      return;
-    }
-    try {
-      setApprovingId(cotizacion.id);
-      await cotizacionCanalService.enviar(cotizacion.id);
-      showAlert('Cotización Enviada', `La cotización para ${cotizacion.cliente_nombre || 'el cliente'} ha sido aprobada y enviada.`);
-      onRefresh();
-    } catch (error: any) {
-      logger.error('Error al aprobar cotización:', error);
-      showAlert('Error', error?.message || 'No se pudo enviar la cotización.');
-    } finally {
-      setApprovingId(null);
-    }
+  const handleAprobarRapido = useCallback((cotizacion: CotizacionCanal) => {
+    gateEnviarCotizacionTaller(cotizacion, async () => {
+      try {
+        setApprovingId(cotizacion.id);
+        await cotizacionCanalService.enviar(cotizacion.id);
+        showAlert('Cotización Enviada', `La cotización para ${cotizacion.cliente_nombre || 'el cliente'} ha sido aprobada y enviada.`);
+        onRefresh();
+      } catch (error: any) {
+        logger.error('Error al aprobar cotización:', error);
+        showAlert('Error', error?.message || 'No se pudo enviar la cotización.');
+      } finally {
+        setApprovingId(null);
+      }
+    });
   }, [onRefresh]);
 
   const handleAbrirAjuste = useCallback((cotizacion: CotizacionCanal) => {
