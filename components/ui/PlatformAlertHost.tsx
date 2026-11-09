@@ -153,7 +153,8 @@ export function PlatformAlertHost() {
                   style={stackActions ? styles.btnStack : styles.btnRow}
                   onPress={() => {
                     if (request.kind === 'buttons') {
-                      setRequest(null);
+                      queueRef.current = dequeueAlert(queueRef.current);
+                      setRequest(queueRef.current.current);
                       btn.onPress?.();
                     } else {
                       close(true);
