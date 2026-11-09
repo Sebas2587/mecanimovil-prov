@@ -1,6 +1,12 @@
 import { vistaReferenciaTienda } from '@/utils/referenciaTienda';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { margenLineaRepuesto, resumenMargenRepuestos, textoMargenClp } from '@/utils/margenRepuestos';
+import {
+  cobradoUnitarioLinea,
+  margenLineaRepuesto,
+  resumenMargenRepuestos,
+  textoCobradoClp,
+  textoMargenClp,
+} from '@/utils/margenRepuestos';
 
 describe('vistaReferenciaTienda', () => {
   it('nombra la tienda del link y deja la casa sugerida aparte', () => {
@@ -105,5 +111,18 @@ describe('resumenMargenRepuestos', () => {
     expect(r.haySinCosto).toBe(true);
     expect(textoMargenClp(r.ganancia)).toBe('sin costo registrado');
     expect(textoMargenClp(0)).not.toBe('sin costo registrado');
+  });
+
+  it('no convierte un cobrado nulo en $0', () => {
+    expect(cobradoUnitarioLinea({ precio_unitario_clp: null, precio_cobrado_clp: null })).toBeNull();
+    expect(textoCobradoClp(null)).toBe('Incompleto');
+    expect(textoCobradoClp(0)).toBe('$0');
+    const r = resumenMargenRepuestos([
+      { costo_unitario_clp: 6000, cantidad: 1, precio_unitario_clp: null },
+    ]);
+    expect(r.cobradoTotal).toBeNull();
+    expect(r.ganancia).toBeNull();
+    expect(r.costoTotal).toBe(6000);
+    expect(textoCobradoClp(r.cobradoTotal)).toBe('Incompleto');
   });
 });

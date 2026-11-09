@@ -21,35 +21,33 @@ export type TotalesMargenServidor = {
 export type MargenLinea = {
   cantidad: number;
   costoUnitario: number | null;
-  cobradoUnitario: number;
+  cobradoUnitario: number | null;
   costoLinea: number | null;
-  cobradoLinea: number;
+  cobradoLinea: number | null;
   margenClp: number | null;
   margenPct: number | null;
 };
 
 export type ResumenMargen = {
   costoTotal: number | null;
-  cobradoTotal: number;
+  cobradoTotal: number | null;
   ganancia: number | null;
   margenPct: number | null;
   haySinCosto: boolean;
 };
-
-/** Cobrado que el taller está editando. Si aún no hay unitario, el del serializer. */
-export function cobradoUnitarioLinea(rep: LineaMargenInput): number {
-  const editado = Number(rep.precio_unitario_clp);
-  if (Number.isFinite(editado)) return redondearCLP(editado);
-  const servidor = Number(rep.precio_cobrado_clp);
-  if (Number.isFinite(servidor)) return redondearCLP(servidor);
-  return 0;
-}
 
 function montoConocido(valor: unknown): number | null {
   if (valor == null || valor === '') return null;
   const numero = Number(valor);
   if (!Number.isFinite(numero)) return null;
   return redondearCLP(numero);
+}
+
+/** Cobrado que el taller está editando. Null no es $0. El cero explícito sí. */
+export function cobradoUnitarioLinea(rep: LineaMargenInput): number | null {
+  const editado = montoConocido(rep.precio_unitario_clp);
+  if (editado != null) return editado;
+  return montoConocido(rep.precio_cobrado_clp);
 }
 
 /**
@@ -70,13 +68,13 @@ export function margenLineaRepuesto(rep: LineaMargenInput): MargenLinea {
   const cantidad = Math.max(1, redondearCLP(rep.cantidad || 1));
   const costoUnitario = costoUnitarioConocido(rep);
   const cobradoUnitario = cobradoUnitarioLinea(rep);
-  const cobradoLinea = cobradoUnitario * cantidad;
-  if (costoUnitario == null) {
+  const cobradoLinea = cobradoUnitario == null ? null : cobradoUnitario * cantidad;
+  if (costoUnitario == null || cobradoUnitario == null) {
     return {
       cantidad,
-      costoUnitario: null,
+      costoUnitario,
       cobradoUnitario,
-      costoLinea: null,
+      costoLinea: costoUnitario == null ? null : costoUnitario * cantidad,
       cobradoLinea,
       margenClp: null,
       margenPct: null,
@@ -98,47 +96,50 @@ export function margenLineaRepuesto(rep: LineaMargenInput): MargenLinea {
 
 export function resumenMargenRepuestos(lineas: LineaMargenInput[]): ResumenMargen {
   let costoConocido = 0;
-  let cobradoConCosto = 0;
   let cobradoTotal = 0;
   let gananciaConocida = 0;
   let conCosto = 0;
   let haySinCosto = false;
+  let haySinCobrado = false;
   for (const linea of lineas) {
     const m = margenLineaRepuesto(linea);
-    cobradoTotal += m.cobradoLinea;
-    if (m.margenClp == null || m.costoLinea == null) {
+    if (m.cobradoLinea == null) haySinCobrado = true;
+    else cobradoTotal += m.cobradoLinea;
+    if (m.costoLinea == null) {
       haySinCosto = true;
       continue;
     }
     conCosto += 1;
     costoConocido += m.costoLinea;
-    cobradoConCosto += m.cobradoLinea;
-    gananciaConocida += m.margenClp;
+    if (m.margenClp != null) gananciaConocida += m.margenClp;
   }
-  if (conCosto === 0 || haySinCosto) {
-    return {
-      costoTotal: null,
-      cobradoTotal,
-      ganancia: null,
-      margenPct: null,
-      haySinCosto: lineas.length > 0,
-    };
-  }
+  const cobrado = haySinCobrado ? null : cobradoTotal;
+  const costoTotal = haySinCosto || conCosto === 0 ? null : costoConocido;
+  const ganancia = haySinCosto || haySinCobrado || conCosto === 0 ? null : gananciaConocida;
   return {
-    costoTotal: costoConocido,
-    cobradoTotal,
-    ganancia: gananciaConocida,
-    margenPct: costoConocido > 0 ? (gananciaConocida / costoConocido) * 100 : null,
-    haySinCosto,
+    costoTotal,
+    cobradoTotal: cobrado,
+    ganancia,
+    margenPct: costoTotal != null && ganancia != null && costoTotal > 0
+      ? (ganancia / costoTotal) * 100
+      : null,
+    haySinCosto: haySinCosto || lineas.length > 0 && conCosto === 0,
   };
 }
 
 export const TEXTO_SIN_COSTO = 'sin costo registrado';
+export const TEXTO_INCOMPLETO = 'Incompleto';
 
 export function textoMargenClp(valor: number | null): string {
   if (valor == null) return TEXTO_SIN_COSTO;
   if (valor < 0) return `−${formatearMontoCLP(Math.abs(valor))}`;
   return formatearMontoCLP(valor);
+}
+
+/** Precio cobrado nulo: Incompleto. El cero explícito sí se formatea. */
+export function textoCobradoClp(valor: number | null): string {
+  if (valor == null) return TEXTO_INCOMPLETO;
+  return textoMargenClp(valor);
 }
 
 export function textoMargenPct(pct: number | null): string {

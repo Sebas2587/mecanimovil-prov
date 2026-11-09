@@ -6,6 +6,7 @@ import {
   margenLineaRepuesto,
   resumenMargenRepuestos,
   TEXTO_SIN_COSTO,
+  textoCobradoClp,
   textoMargenClp,
   textoMargenPct,
   type LineaMargenInput,
@@ -33,10 +34,10 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
         Costo final {m.costoLinea == null ? TEXTO_SIN_COSTO : textoMargenClp(m.costoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color="muted">
-        Cobrado {textoMargenClp(m.cobradoLinea)}
+        Cobrado {textoCobradoClp(m.cobradoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color={colorDe(m.margenClp)}>
-        Ganancia {m.margenClp == null ? TEXTO_SIN_COSTO : textoMargenClp(m.margenClp)}
+        Ganancia {m.margenClp == null ? (m.cobradoLinea == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO) : textoMargenClp(m.margenClp)}
         {pct ? ` ${pct}` : ''}
       </InstitutionalText>
     </View>
@@ -53,7 +54,7 @@ export function ResumenMargenRepuestos({
 }) {
   if (!repuestos.length) return null;
   const r = resumenMargenRepuestos(repuestos);
-  const usarServidor = !r.haySinCosto && r.ganancia == null && servidor?.ganancia_repuestos_clp != null;
+  const usarServidor = !r.haySinCosto && r.cobradoTotal != null && r.ganancia == null && servidor?.ganancia_repuestos_clp != null;
   const costoTotal = usarServidor ? servidor?.costo_total_repuestos_clp ?? null : r.costoTotal;
   const cobradoTotal = usarServidor && servidor?.cobrado_total_repuestos_clp != null
     ? servidor.cobrado_total_repuestos_clp
@@ -63,10 +64,12 @@ export function ResumenMargenRepuestos({
   return (
     <View style={styles.resumen} testID="economia-repuestos-totales" accessibilityLabel="Costo final, cobrado y ganancia de repuestos">
       <Fila label="Costo final repuestos" valor={costoTotal == null ? TEXTO_SIN_COSTO : textoMargenClp(costoTotal)} />
-      <Fila label="Cobrado repuestos" valor={textoMargenClp(cobradoTotal)} />
+      <Fila label="Cobrado repuestos" valor={textoCobradoClp(cobradoTotal)} />
       <Fila
         label="Ganancia repuestos"
-        valor={ganancia == null ? TEXTO_SIN_COSTO : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
+        valor={ganancia == null
+          ? (cobradoTotal == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO)
+          : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
         color={colorDe(ganancia)}
       />
     </View>

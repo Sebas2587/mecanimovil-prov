@@ -46,27 +46,81 @@ async function sinZoomLock(page: Page) {
   expect(viewport ?? '').not.toContain('user-scalable=no');
 }
 
+function shellAislado(codigo: string) {
+  const env = { ...process.env };
+  env.DB_NAME = 'mecanimovil_cotiz_3624';
+  env.BACKEND_DIR = '/tmp/mecanimovil-backend-costo';
+  env.DATABASE_URL = 'postgis://mecani_test:test123@127.0.0.1:5432/mecanimovil_cotiz_3624';
+  env.DEBUG = 'True';
+  env.SECURE_SSL_REDIRECT = 'False';
+  env.SECRET_KEY = 'test-secret-key-for-ci-only-never-use-in-production';
+  env.GDAL_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgdal.so';
+  delete env.REDIS_URL;
+  delete env.CELERY_BROKER_URL;
+  delete env.CELERY_RESULT_BACKEND;
+  execFileSync(
+    '/tmp/mecanimovil-backend/venv/bin/python',
+    ['scripts/isolated_backend.py', 'shell', '-c', codigo],
+    { cwd: '/agent/repos/mecanimovil-prov', env, stdio: 'pipe' },
+  );
+}
+
 function publicarToken(id: number) {
-  execFileSync('bash', ['-lc', `
-    set -euo pipefail
-    cd /agent/repos/mecanimovil-prov
-    export DB_NAME=mecanimovil_cotiz_3624
-    export BACKEND_DIR=/tmp/mecanimovil-backend-costo
-    export DATABASE_URL="postgis://mecani_test:test123@127.0.0.1:5432/$DB_NAME"
-    export DEBUG=True
-    export SECURE_SSL_REDIRECT=False
-    export SECRET_KEY=test-secret-key-for-ci-only-never-use-in-production
-    export GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
-    unset REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND
-    /tmp/mecanimovil-backend/venv/bin/python scripts/isolated_backend.py shell -c "from django.utils.crypto import get_random_string; from mecanimovilapp.apps.ordenes.models import CotizacionCanal; qs=CotizacionCanal.objects.exclude(pk=${id}).filter(token='${TOKEN_PUBLICO}');
+  shellAislado(`from django.utils.crypto import get_random_string
+from mecanimovilapp.apps.ordenes.models import CotizacionCanal
+qs = CotizacionCanal.objects.exclude(pk=${id}).filter(token='${TOKEN_PUBLICO}')
 for row in qs:
-    row.token='old-'+get_random_string(12); row.save(update_fields=['token'])
-c=CotizacionCanal.objects.get(pk=${id}); c.token='${TOKEN_PUBLICO}'; c.save(update_fields=['token'])"
-  `], { stdio: 'pipe' });
+    row.token = 'old-' + get_random_string(12)
+    row.save(update_fields=['token'])
+c = CotizacionCanal.objects.get(pk=${id})
+c.token = '${TOKEN_PUBLICO}'
+c.save(update_fields=['token'])`);
+}
+
+function sembrarTallerAjeno() {
+  shellAislado(`from django.contrib.auth import get_user_model
+from mecanimovilapp.apps.usuarios.models import MiembroTaller, Taller
+User = get_user_model()
+owner, created = User.objects.get_or_create(username='taller_ajeno', defaults={'email': 'taller.ajeno@test.com', 'is_active': True})
+owner.email = 'taller.ajeno@test.com'
+owner.is_active = True
+owner.set_password('test123')
+owner.save()
+taller, _ = Taller.objects.get_or_create(usuario=owner, defaults={'nombre': 'Taller Ajeno', 'telefono': '+56955556666', 'estado_verificacion': 'aprobado', 'verificado': True, 'onboarding_completado': True, 'activo': True, 'modalidad_atencion': 'ambas', 'tipo_cobertura_marca': 'multimarca'})
+taller.nombre = 'Taller Ajeno'
+taller.estado_verificacion = 'aprobado'
+taller.verificado = True
+taller.onboarding_completado = True
+taller.activo = True
+taller.save()
+mandante, _ = MiembroTaller.objects.get_or_create(taller=taller, rol='mandante', defaults={'usuario': owner, 'nombre': 'Dueño Ajeno', 'activo': True, 'modalidad_tecnico': 'en_taller'})
+if mandante.usuario_id != owner.id or not mandante.activo:
+    mandante.usuario = owner
+    mandante.activo = True
+    mandante.save(update_fields=['usuario', 'activo'])`);
 }
 
 test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async ({ browser, request }) => {
   test.setTimeout(180000);
+  sembrarTallerAjeno();
+  const loginAjeno = await request.post(`${API}/usuarios/login-proveedor/`, {
+    data: { username: 'taller.ajeno@test.com', password: 'test123' },
+  });
+  expect(loginAjeno.ok()).toBeTruthy();
+  const ajeno = await loginAjeno.json();
+  const authAjeno = { Authorization: `Token ${ajeno.token}` };
+  const cotizacionAjena = await request.post(`${API}/ordenes/cotizaciones-canal/crear-borrador/`, {
+    headers: authAjeno,
+    data: {
+      cliente_nombre: 'Cliente Taller Ajeno',
+      cliente_telefono: '+56955550000',
+      servicio_nombre: 'Cambio de correa',
+      modalidad: 'taller',
+      vehiculo: { marca: 'Honda', modelo: 'Civic', anio: 2016, patente: 'AJ-EN-99' },
+    },
+  });
+  expect(cotizacionAjena.ok()).toBeTruthy();
+
   const login = await request.post(`${API}/usuarios/login-proveedor/`, {
     data: { username: 'taller@test.com', password: 'test123' },
   });
@@ -225,6 +279,20 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   await page.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-BUSQUEDA-390.png', fullPage: false });
   await sinDesborde(page);
 
+  await buscador.fill('');
+  const pedidoAjeno = page.waitForResponse((res) => {
+    if (!res.url().includes('/cotizaciones-canal/') || !res.ok()) return false;
+    return new URL(res.url()).searchParams.get('q') === 'ajeno';
+  });
+  await buscador.pressSequentially('ajeno', { delay: 20 });
+  const cuerpoAjeno = await (await pedidoAjeno).json() as { results?: { cliente_nombre?: string }[] };
+  expect((cuerpoAjeno.results ?? []).every((fila) => !/ajeno/i.test(fila.cliente_nombre || ''))).toBeTruthy();
+  await expect(page.getByText('Cliente Taller Ajeno')).toHaveCount(0);
+  await expect(page.getByText('José Costos Busqueda')).toHaveCount(0);
+
+  await buscador.fill('');
+  await buscador.pressSequentially('jose', { delay: 20 });
+  await expect(page.getByText('José Costos Busqueda').first()).toBeVisible();
   await page.getByRole('button', { name: /Abrir cotización de José Costos Busqueda/ }).first().click();
   await expect(page.getByText('Costo final repuestos')).toBeVisible();
   await expect(page.getByText('Ganancia repuestos').first()).toBeVisible();
