@@ -31,6 +31,8 @@ import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBo
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import { RevisionCotizador } from '@/components/cotizacion/ValidacionCotizacion';
+import { DudasCotizador } from '@/components/cotizacion/DudasCotizador';
+import { RevisionTallerBanner } from '@/components/cotizacion/RevisionTallerBanner';
 import {
   lineaPendientePrecio,
   COPY_PRECIO_TALLER,
@@ -65,6 +67,11 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
+import {
+  confirmarDuda,
+  dudasDe,
+  responderDuda,
+} from '@/utils/decisionCotizador';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -197,7 +204,38 @@ export const CotizacionIaEditor = React.forwardRef<
   const [precioBusy, setPrecioBusy] = useState(false);
   const [consultandoRepuestoId, setConsultandoRepuestoId] = useState<string | null>(null);
   const [descargandoOrdenCompra, setDescargandoOrdenCompra] = useState(false);
+  const [confirmandoRevision, setConfirmandoRevision] = useState(false);
   const puedePdfOrdenCompra = cotizacionTieneOrdenCompraPdf(cotizacion.id);
+
+  const responderDudaCotizador = useCallback((id: string, respuesta: string) => {
+    const current = cotizacionRef.current;
+    onChange({
+      ...current,
+      dudas_cotizador: responderDuda(dudasDe(current), id, respuesta),
+    });
+  }, [onChange]);
+
+  const confirmarDudaCotizador = useCallback((id: string) => {
+    const current = cotizacionRef.current;
+    onChange({
+      ...current,
+      dudas_cotizador: confirmarDuda(dudasDe(current), id),
+    });
+  }, [onChange]);
+
+  const confirmarRevision = useCallback(async () => {
+    const current = cotizacionRef.current;
+    if (!current.id) return;
+    setConfirmandoRevision(true);
+    try {
+      const next = await cotizacionCanalService.confirmarRevisionTaller(current.id, current);
+      onChange(next);
+    } catch {
+      showAlert('No se pudo confirmar', 'Revisa las sugerencias y las dudas e inténtalo de nuevo.');
+    } finally {
+      setConfirmandoRevision(false);
+    }
+  }, [onChange]);
 
   const descargarPdfOrdenCompra = useCallback(async () => {
     if (!puedePdfOrdenCompra || descargandoOrdenCompra) return;
@@ -644,6 +682,7 @@ export const CotizacionIaEditor = React.forwardRef<
           nombre: '',
           cantidad: 1,
           precio_unitario_clp: 0,
+          origen_linea: 'pedido',
         },
         ...reps,
       ],
@@ -655,7 +694,7 @@ export const CotizacionIaEditor = React.forwardRef<
     if (!onEnviar) return;
     const bloqueo = envioTotalBloqueado(current);
     if (bloqueo) {
-      showAlert('Total incompleto', bloqueo);
+      showAlert(bloqueo.includes('duda') ? 'Falta tu opinión' : 'Total incompleto', bloqueo);
       return;
     }
     if (
@@ -825,25 +864,16 @@ export const CotizacionIaEditor = React.forwardRef<
         />
       ) : null}
 
+      <RevisionTallerBanner
+        cotizacion={cotizacion}
+        confirming={confirmandoRevision}
+        onConfirmar={editable ? () => { void confirmarRevision(); } : undefined}
+      />
+
       {editable && cotizacion.estado === 'borrador' && cotizacion.metadata?.reabierta_por_taller ? (
         <InstitutionalText role="caption" color="muted">
           Corriges esta cotización en borrador. Confirma precios y vuelve a enviarla. El cliente sigue viendo la versión anterior hasta ese envío.
         </InstitutionalText>
-      ) : null}
-
-      {puedePdfOrdenCompra ? (
-        <TallerPildora
-          label="PDF para casa de repuestos"
-          tono="suave"
-          forma="hoja"
-          loading={descargandoOrdenCompra}
-          disabled={descargandoOrdenCompra}
-          onPress={() => {
-            void descargarPdfOrdenCompra();
-          }}
-          leading={<FileDown size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-          style={styles.accionSuelta}
-        />
       ) : null}
 
       {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
@@ -945,118 +975,116 @@ export const CotizacionIaEditor = React.forwardRef<
           ) : null}
 
           {showClienteCard ? (
-            <Card elevated padding="host" style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
-              <View style={styles.factsHeader}>
-                <View style={styles.motorCopy}>
-                  <InstitutionalText role="captionBold" color="muted">
-                    Cliente
-                  </InstitutionalText>
-                  <InstitutionalText role="h5" numberOfLines={1}>
-                    {cotizacion.cliente_nombre || 'Sin nombre'}
-                  </InstitutionalText>
-                </View>
-              </View>
-              {editable ? (
-                <View style={styles.contactBlock}>
-                  <InstitutionalField
-                    label="Nombre del cliente"
-                    value={cotizacion.cliente_nombre || ''}
-                    onChangeText={(t) => onChange({ ...cotizacion, cliente_nombre: t })}
-                    placeholder="Nombre"
-                    editable={editable}
-                  />
-                  <InstitutionalField
-                    label="Teléfono"
-                    value={cotizacion.cliente_telefono || ''}
-                    onChangeText={(t) => onChange({ ...cotizacion, cliente_telefono: t })}
-                    placeholder="+56 9 ..."
-                    keyboardType="phone-pad"
-                    editable={editable}
-                  />
-                  <InstitutionalField
-                    label="Dirección de servicio"
-                    value={cotizacion.direccion_servicio || ''}
-                    onChangeText={(t) => onChange({ ...cotizacion, direccion_servicio: t })}
-                    placeholder="Calle, comuna"
-                    editable={editable}
-                    multiline
-                  />
-                  {!cotizacion.conversation ? (
-                    <InstitutionalText role="caption" color="muted">
-                      {cotizacion.cliente_telefono?.trim()
-                        ? HINT_CLIENTE_SIN_CANAL_CON_TELEFONO
-                        : HINT_CLIENTE_SIN_CANAL_SIN_TELEFONO}
-                    </InstitutionalText>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={styles.factsGrid}>
-                  <View style={styles.clienteAcciones}>
-                    {cotizacion.cliente_telefono ? (
-                      <TouchableOpacity
-                        style={styles.iconoCircular}
-                        onPress={() => {
-                          const tel = (cotizacion.cliente_telefono || '').replace(/[^\d+]/g, '');
-                          if (tel) void Linking.openURL(`tel:${tel}`);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Llamar al cliente"
-                      >
-                        <Phone size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                      </TouchableOpacity>
-                    ) : null}
-                    {cotizacion.cliente_telefono ? (
-                      <TouchableOpacity
-                        style={styles.iconoCircular}
-                        onPress={() => {
-                          const tel = (cotizacion.cliente_telefono || '').replace(/\D/g, '');
-                          if (tel) void Linking.openURL(`https://wa.me/${tel}`);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Escribir por WhatsApp"
-                      >
-                        <MessageCircle size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                  {cotizacion.cliente_telefono ? (
-                    <View style={styles.factRow}>
-                      <InstitutionalText role="small" color="muted">
-                        Teléfono
-                      </InstitutionalText>
-                      <View style={styles.factValueRow}>
-                        <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <InstitutionalText role="captionBold" color="ink" numberOfLines={1}>
-                          {cotizacion.cliente_telefono}
+            <View style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
+              <SeccionOpcional
+                title={cotizacion.cliente_nombre?.trim() || 'Cliente'}
+                hint={cotizacion.cliente_telefono?.trim() || 'Nombre, teléfono y dirección'}
+              >
+                <Card elevated padding="host">
+                  {editable ? (
+                    <View style={styles.contactBlock}>
+                      <InstitutionalField
+                        label="Nombre del cliente"
+                        value={cotizacion.cliente_nombre || ''}
+                        onChangeText={(t) => onChange({ ...cotizacion, cliente_nombre: t })}
+                        placeholder="Nombre"
+                        editable={editable}
+                      />
+                      <InstitutionalField
+                        label="Teléfono"
+                        value={cotizacion.cliente_telefono || ''}
+                        onChangeText={(t) => onChange({ ...cotizacion, cliente_telefono: t })}
+                        placeholder="+56 9 ..."
+                        keyboardType="phone-pad"
+                        editable={editable}
+                      />
+                      <InstitutionalField
+                        label="Dirección de servicio"
+                        value={cotizacion.direccion_servicio || ''}
+                        onChangeText={(t) => onChange({ ...cotizacion, direccion_servicio: t })}
+                        placeholder="Calle, comuna"
+                        editable={editable}
+                        multiline
+                      />
+                      {!cotizacion.conversation ? (
+                        <InstitutionalText role="caption" color="muted">
+                          {cotizacion.cliente_telefono?.trim()
+                            ? HINT_CLIENTE_SIN_CANAL_CON_TELEFONO
+                            : HINT_CLIENTE_SIN_CANAL_SIN_TELEFONO}
                         </InstitutionalText>
-                      </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                  {cotizacion.direccion_servicio ? (
-                    <View style={styles.factRow}>
-                      <InstitutionalText role="small" color="muted">
-                        Dirección
-                      </InstitutionalText>
-                      <View style={styles.factValueRow}>
-                        <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <InstitutionalText role="captionBold" color="ink" numberOfLines={2} style={styles.factValue}>
-                          {cotizacion.direccion_servicio}
-                        </InstitutionalText>
+                  ) : (
+                    <View style={styles.factsGrid}>
+                      <View style={styles.clienteAcciones}>
+                        {cotizacion.cliente_telefono ? (
+                          <TouchableOpacity
+                            style={styles.iconoCircular}
+                            onPress={() => {
+                              const tel = (cotizacion.cliente_telefono || '').replace(/[^\d+]/g, '');
+                              if (tel) void Linking.openURL(`tel:${tel}`);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Llamar al cliente"
+                          >
+                            <Phone size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                          </TouchableOpacity>
+                        ) : null}
+                        {cotizacion.cliente_telefono ? (
+                          <TouchableOpacity
+                            style={styles.iconoCircular}
+                            onPress={() => {
+                              const tel = (cotizacion.cliente_telefono || '').replace(/\D/g, '');
+                              if (tel) void Linking.openURL(`https://wa.me/${tel}`);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Escribir por WhatsApp"
+                          >
+                            <MessageCircle size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
+                      {cotizacion.cliente_telefono ? (
+                        <View style={styles.factRow}>
+                          <InstitutionalText role="small" color="muted">
+                            Teléfono
+                          </InstitutionalText>
+                          <View style={styles.factValueRow}>
+                            <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                            <InstitutionalText role="captionBold" color="ink" numberOfLines={1}>
+                              {cotizacion.cliente_telefono}
+                            </InstitutionalText>
+                          </View>
+                        </View>
+                      ) : null}
+                      {cotizacion.direccion_servicio ? (
+                        <View style={styles.factRow}>
+                          <InstitutionalText role="small" color="muted">
+                            Dirección
+                          </InstitutionalText>
+                          <View style={styles.factValueRow}>
+                            <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                            <InstitutionalText role="captionBold" color="ink" numberOfLines={2} style={styles.factValue}>
+                              {cotizacion.direccion_servicio}
+                            </InstitutionalText>
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                </View>
-              )}
-            </Card>
+                  )}
+                </Card>
+              </SeccionOpcional>
+            </View>
           ) : null}
         </View>
       ) : null}
 
       {editable || cotizacion.descripcion_problema || cotizacion.aviso_motor ? (
+      <SeccionOpcional
+        title="Servicio"
+        hint={cotizacion.servicio_nombre?.trim() || 'Nombre y detalle del trabajo'}
+      >
       <Card elevated={editable} padding="host" style={styles.sectionCard}>
-        {editable || cotizacion.descripcion_problema ? (
-          <InstitutionalSectionHeader title="Servicio" />
-        ) : null}
         {editable ? (
           <View style={styles.contactBlock}>
             <InstitutionalField
@@ -1092,9 +1120,18 @@ export const CotizacionIaEditor = React.forwardRef<
           </View>
         ) : null}
       </Card>
+      </SeccionOpcional>
       ) : null}
 
-      <RevisionCotizador alertas={cotizacion.alertas_validacion} />
+      {(cotizacion.alertas_validacion?.length ?? 0) > 0 ? (
+        <SeccionOpcional
+          title="Validación del cotizador"
+          hint="Compatibilidad, pack vs unidad y enlace"
+          defaultOpen
+        >
+          <RevisionCotizador alertas={cotizacion.alertas_validacion} />
+        </SeccionOpcional>
+      ) : null}
 
       <CotizacionEditorManoObra
         lineasMo={lineasMo}
@@ -1126,6 +1163,13 @@ export const CotizacionIaEditor = React.forwardRef<
         consultandoRepuestoId={consultandoRepuestoId}
       />
 
+      <DudasCotizador
+        dudas={dudasDe(cotizacion)}
+        editable={editable}
+        onResponder={responderDudaCotizador}
+        onConfirmar={confirmarDudaCotizador}
+      />
+
       <CotizacionEditorResumen
         canon={canon}
         repuestos={repuestos}
@@ -1137,6 +1181,21 @@ export const CotizacionIaEditor = React.forwardRef<
         totalCanonTexto={totalCanonTexto}
         servidor={cotizacion}
       />
+
+      {puedePdfOrdenCompra ? (
+        <TallerPildora
+          label="PDF para casa de repuestos"
+          tono="suave"
+          forma="hoja"
+          loading={descargandoOrdenCompra}
+          disabled={descargandoOrdenCompra}
+          onPress={() => {
+            void descargarPdfOrdenCompra();
+          }}
+          leading={<FileDown size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          style={styles.accionSuelta}
+        />
+      ) : null}
 
       <SeccionOpcional
         title="Ajustes opcionales"

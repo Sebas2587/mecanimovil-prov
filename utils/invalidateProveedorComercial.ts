@@ -13,6 +13,8 @@ const AGENTE_COMERCIAL_PUSH_TYPES = new Set([
   'agente_ia_cotizacion_rechazada',
   'agente_ia_cita_confirmada',
   'agente_ia_escalamiento',
+  'agente_ia_revision_taller',
+  'cotizacion_revision_taller',
 ]);
 
 /** Inbox, Cotizar con IA, pipeline/bandeja y órdenes/citas. */

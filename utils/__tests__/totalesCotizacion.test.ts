@@ -1,5 +1,5 @@
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { lineasDesgloseCotizacion, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
+import { lineasDesgloseCotizacion, textoTotalCobradoAlCliente, textoTotalCotizacion } from '@/utils/cotizacionPresentacion';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import {
   envioTotalBloqueado,
@@ -136,5 +136,33 @@ describe('totales de cotización con total nulo', () => {
     expect(lineas.find((linea) => linea.label === 'Sensor')?.monto).toBeNull();
     expect(lineas.find((linea) => linea.label === 'Cortesía')?.monto).toBe(0);
     expect(textoTotalCotizacion(base({ total_clp: null as never, totales_completos: false }))).toBe('Incompleto');
+  });
+
+  it('el total cobrado ignora sugerencias pendientes aunque el servidor las sume', () => {
+    const conSugerida = base({
+      mano_obra_clp: 40000,
+      total_clp: 213000,
+      totales_completos: true,
+      repuestos: [
+        { id: 'kit', nombre: 'Kit', cantidad: 1, precio_unitario_clp: 120000, origen_linea: 'pedido' },
+        {
+          id: 'bomba',
+          nombre: 'Bomba',
+          cantidad: 1,
+          precio_unitario_clp: 45000,
+          origen_linea: 'sugerido',
+          sugerencia_estado: 'pendiente',
+        },
+        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen_linea: 'pedido' },
+      ],
+    });
+    expect(textoTotalCotizacion(conSugerida)).toBe(formatearMontoCLP(213000));
+    expect(textoTotalCobradoAlCliente(conSugerida)).toBe(formatearMontoCLP(168000));
+    expect(textoTotalCobradoAlCliente({
+      ...conSugerida,
+      repuestos: conSugerida.repuestos.map((rep) => (
+        rep.id === 'bomba' ? { ...rep, sugerencia_estado: 'aceptada' as const } : rep
+      )),
+    })).toBe(formatearMontoCLP(213000));
   });
 });

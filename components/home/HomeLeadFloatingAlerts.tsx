@@ -30,11 +30,15 @@ function mapEvent(event: AgenteIaEvent): FloatingLeadAlert | null {
 
   switch (event.type) {
     case 'agente_ia_cotizacion_borrador':
+    case 'agente_ia_revision_taller':
+    case 'cotizacion_revision_taller':
       return {
-        id: `borrador-${event.cotizacion_id || conv || Date.now()}`,
-        title: 'Cotización lista para revisar',
-        message: 'La IA dejó un borrador. Ábrelo en pendientes o Cotizar con IA.',
-        href: '/cotizaciones?estado=borrador',
+        id: `revision-${event.cotizacion_id || conv || Date.now()}`,
+        title: 'El cotizador espera tu opinión',
+        message: event.mensaje_preview || 'Hay sugerencias o dudas para decidir en la cotización.',
+        href: event.cotizacion_id
+          ? `/cotizacion-canal/${event.cotizacion_id}`
+          : '/cotizaciones?estado=revision',
       };
     case 'agente_ia_cotizacion_enviada':
       return {

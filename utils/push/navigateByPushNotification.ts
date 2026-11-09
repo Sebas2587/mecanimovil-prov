@@ -128,9 +128,17 @@ export function navigateByPushNotification(
       router.push('/creditos');
       return true;
 
-    case 'agente_ia_cotizacion_borrador': {
+    case 'agente_ia_cotizacion_borrador':
+    case 'agente_ia_revision_taller':
+    case 'cotizacion_revision_taller': {
       if (queryClient) invalidateProveedorComercialQueries(queryClient);
-      router.push('/cotizar-ia');
+      const cotizacionId =
+        data.cotizacion_id != null ? String(data.cotizacion_id).trim() : '';
+      if (cotizacionId) {
+        router.push(`/cotizacion-canal/${cotizacionId}`);
+        return true;
+      }
+      router.push('/cotizaciones?estado=revision');
       return true;
     }
 

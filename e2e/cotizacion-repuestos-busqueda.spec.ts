@@ -242,6 +242,7 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
 
   await page.goto(`${BASE_URL}/cotizacion-canal/${id}`);
   await cerrarAvisoLegal(page);
+  await page.getByRole('button', { name: 'Costo y ganancia' }).first().click();
   await expect(page.getByText('Costo final repuestos')).toBeVisible();
   await expect(page.getByText('Cobrado repuestos').first()).toBeVisible();
   await expect(page.getByText('Ganancia repuestos').first()).toBeVisible();
@@ -294,6 +295,7 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   await buscador.pressSequentially('jose', { delay: 20 });
   await expect(page.getByText('José Costos Busqueda').first()).toBeVisible();
   await page.getByRole('button', { name: /Abrir cotización de José Costos Busqueda/ }).first().click();
+  await page.getByRole('button', { name: 'Costo y ganancia' }).first().click();
   await expect(page.getByText('Costo final repuestos')).toBeVisible();
   await expect(page.getByText('Ganancia repuestos').first()).toBeVisible();
   await expect(page.getByText('$8.000').first()).toBeVisible();
@@ -306,8 +308,10 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${BASE_URL}/cotizacion-canal/${sinId}`);
   await cerrarAvisoLegal(page);
-  await expect(page.getByText('Costo final sin costo registrado').first()).toBeVisible();
-  await expect(page.getByText('Ganancia sin costo registrado').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Costo y ganancia' }).first().click();
+  await expect(page.getByText('Costo final repuestos').first()).toBeVisible();
+  await expect(page.getByText('sin costo registrado').first()).toBeVisible();
+  await expect(page.getByText('Ganancia repuestos').first()).toBeVisible();
   await expect(page.getByText('Cobrado repuestos').first()).toBeVisible();
   await expect(page.getByText('$24.000').first()).toBeVisible();
   await expect(page.getByText('Costo final $0')).toHaveCount(0);

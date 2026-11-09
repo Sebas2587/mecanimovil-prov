@@ -47,6 +47,7 @@ import cotizacionCanalService, {
 import { HOLD_REVEAL_PRECIOS_MS, shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { pedirConfirmacionEliminarCotizacion } from '@/utils/eliminarCotizacionTaller';
 import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import {
   CLIPBOARD_MENSAJE_COPIADO,
@@ -90,6 +91,8 @@ function snapshot(c: CotizacionCanal): string {
     ejecucion_adicional: c.ejecucion_adicional,
     fecha_propuesta: c.fecha_propuesta,
     hora_propuesta: c.hora_propuesta,
+    dudas_cotizador: c.dudas_cotizador,
+    revision_taller_estado: c.revision_taller_estado,
   });
 }
 
@@ -230,13 +233,24 @@ export default function CotizacionCanalDetalleScreen() {
     );
     const aplicar = (prev: CotizacionCanal | null): CotizacionCanal => {
       if (!prev || prev.id !== actualizada.id) return actualizada;
+      const revision = prev.revision_taller_estado === 'lista' || actualizada.revision_taller_estado === 'lista'
+        ? 'lista'
+        : (prev.revision_taller_estado || actualizada.revision_taller_estado);
       return {
         ...actualizada,
+        revision_taller_estado: revision,
+        dudas_cotizador: prev.dudas_cotizador ?? actualizada.dudas_cotizador,
         repuestos: mergeRepuestosPreservandoEdicion(
           prev.repuestos ?? [],
           actualizada.repuestos ?? [],
         ),
         mano_obra_lineas: prev.mano_obra_lineas ?? actualizada.mano_obra_lineas,
+        metadata: {
+          ...(actualizada.metadata || {}),
+          ...(prev.metadata || {}),
+          revision_taller_estado: revision,
+          dudas_cotizador: prev.dudas_cotizador ?? actualizada.dudas_cotizador,
+        } as CotizacionCanal['metadata'],
       };
     };
     if (seq !== persistSeqRef.current) {
@@ -386,20 +400,15 @@ export default function CotizacionCanalDetalleScreen() {
 
   const eliminar = useCallback(() => {
     if (!draft?.id) return;
-    showConfirm('Eliminar cotización', 'Se cancelará y saldrá de pendientes.', {
-      confirmText: 'Eliminar',
-      onConfirm: async () => {
-        setEliminando(true);
-        try {
-          await cotizacionCanalService.cancelar(draft.id);
-          await invalidateAll();
-          router.back();
-        } catch {
-          showAlert('Error', 'No se pudo eliminar.');
-        } finally {
-          setEliminando(false);
-        }
-      },
+    pedirConfirmacionEliminarCotizacion(async () => {
+      setEliminando(true);
+      try {
+        await cotizacionCanalService.eliminar(draft.id);
+        await invalidateAll();
+        router.back();
+      } finally {
+        setEliminando(false);
+      }
     });
   }, [draft?.id, invalidateAll]);
 

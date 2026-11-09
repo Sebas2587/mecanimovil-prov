@@ -3,11 +3,15 @@
  * Null y vacío no son 0. Un 0 numérico sí es un total.
  */
 
+import { cobraAlCliente, mensajeBloqueoDudas, type CotizacionDecision } from '@/utils/decisionCotizador';
+
 export type LineaRepuestoTotal = {
   id?: string | number | null;
   nombre?: string | null;
   cantidad?: number | string | null;
   precio_unitario_clp?: number | string | null;
+  origen_linea?: string | null;
+  sugerencia_estado?: string | null;
 };
 
 export type LineaManoObraTotal = {
@@ -118,6 +122,7 @@ export function totalesDesdeLineas(input: {
       faltantes.push(String(indice));
       return;
     }
+    if (!cobraAlCliente(rep)) return;
     if (!precioPresente(rep.precio_unitario_clp)) {
       faltantes.push(String(rep.nombre || rep.id || indice));
       return;
@@ -195,7 +200,7 @@ export function lecturaTotalServidor(cotizacion: {
   };
 }
 
-type CotizacionEnvio = {
+type CotizacionEnvio = Omit<CotizacionDecision, 'repuestos'> & {
   total_clp?: unknown;
   totales_completos?: boolean | null;
   total_persistido_clp?: unknown;
@@ -208,6 +213,8 @@ type CotizacionEnvio = {
 
 /** Null si se puede enviar. El mensaje explica por qué no se manda como $0. */
 export function envioTotalBloqueado(cotizacion: CotizacionEnvio): string | null {
+  const dudas = mensajeBloqueoDudas(cotizacion);
+  if (dudas) return dudas;
   if (Array.isArray(cotizacion.repuestos)) {
     const canon = totalesDesdeLineas({
       repuestos: cotizacion.repuestos,

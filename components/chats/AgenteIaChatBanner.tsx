@@ -76,10 +76,10 @@ export function AgenteIaChatBanner({ conversationId }: Props) {
         </View>
         <View style={styles.flex}>
           <InstitutionalText role="caption" style={styles.label}>
-            {esperandoRevision ? 'Cotización IA lista para revisar' : 'Agente IA respondiendo'}
+            {esperandoRevision ? 'El cotizador espera tu opinión' : 'Agente IA respondiendo'}
           </InstitutionalText>
           {esperandoRevision ? (
-            <InstitutionalTag label="Revisa precios antes de enviar" variant="warning" size="sm" />
+            <InstitutionalTag label="Sugerencias y dudas por decidir" variant="warning" size="sm" />
           ) : (
             <InstitutionalTag label="Capturando información" variant="primary" size="sm" />
           )}

@@ -1,6 +1,14 @@
 import api from './api';
 import { hidratarPreciosCotizacion } from '@/utils/cotizacionPreciosWeb';
 import {
+  hidratarDecisionesCotizacion,
+  serializarDecisionesMetadata,
+  type DudaCotizador,
+  type OrigenLinea,
+  type RevisionTallerEstado,
+  type SugerenciaEstado,
+} from '@/utils/decisionCotizador';
+import {
   bytesPdfDesdeRespuesta,
   esPdf,
   filenameDesdeContentDisposition,
@@ -231,6 +239,12 @@ export interface RepuestoCotizacion {
   motivo_seleccion?: string;
   /** Cuántas alternativas había disponibles. */
   alternativas_descartadas?: number;
+  /** Pedido por el taller, o complemento sugerido por el cotizador. Ausente = pedido. */
+  origen_linea?: OrigenLinea | string;
+  /** Por qué el cotizador sugiere esta línea. Vacío en las pedidas. */
+  motivo_sugerencia?: string;
+  /** Solo sugeridas: pendiente no se cobra; aceptada entra al total; descartada no. */
+  sugerencia_estado?: SugerenciaEstado | string;
 }
 
 export type CanalCotizacion =
@@ -373,6 +387,10 @@ export interface CotizacionCanal {
       precio_catalogo_clp?: number;
     }>;
   };
+  /** Dudas del cotizador al taller. Pendientes bloquean el envío. */
+  dudas_cotizador?: DudaCotizador[];
+  /** pendiente: espera opinión. lista: el agente puede continuar. */
+  revision_taller_estado?: RevisionTallerEstado | string;
   cotizacion_original_id?: number | null;
   es_cotizacion_adicional?: boolean;
   motivo_servicio_adicional?: string;
@@ -474,6 +492,8 @@ export type VistaPreviaPublica = {
     precio_unitario_clp?: number;
     precio_min_clp?: number;
     precio_max_clp?: number;
+    origen_linea?: OrigenLinea | string;
+    sugerencia_estado?: SugerenciaEstado | string;
   }>;
   costo_repuestos_clp?: number;
   descuento_clp?: number;
@@ -548,6 +568,7 @@ function sanitizarRepuestoEdicion(rep: RepuestoCotizacion): RepuestoCotizacion {
 
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
   const lineasMo = resolverManoObraLineas(c);
+  const metadata = serializarDecisionesMetadata(c);
   const patch: Partial<CotizacionCanal> = {
     servicio_nombre: c.servicio_nombre,
     descripcion_problema: c.descripcion_problema,
@@ -565,6 +586,9 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     politicas_cotizacion: c.politicas_cotizacion,
     dias_validez: clampDiasValidez(c.dias_validez),
     duracion_minutos_estimada: c.duracion_minutos_estimada,
+    dudas_cotizador: metadata.dudas_cotizador,
+    revision_taller_estado: metadata.revision_taller_estado,
+    metadata: metadata as CotizacionCanal['metadata'],
   };
   if (c.es_cotizacion_adicional) {
     const modo = c.ejecucion_adicional || 'misma_visita';
@@ -622,6 +646,10 @@ function conservarCostoLocal(
       out[clave] = src[clave];
     }
   });
+  if (!out.origen_linea && src.origen_linea) out.origen_linea = src.origen_linea;
+  if (!out.motivo_sugerencia && src.motivo_sugerencia) out.motivo_sugerencia = src.motivo_sugerencia;
+  if (!out.sugerencia_estado && src.sugerencia_estado) out.sugerencia_estado = src.sugerencia_estado;
+  else if (src.sugerencia_estado) out.sugerencia_estado = src.sugerencia_estado;
   return out;
 }
 
@@ -748,8 +776,12 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
   );
 }
 
+function hidratarCotizacion(c: CotizacionCanal): CotizacionCanal {
+  return hidratarDecisionesCotizacion(hidratarPreciosCotizacion(c));
+}
+
 function hidratarLista(rows: CotizacionCanal[]): CotizacionCanal[] {
-  return rows.map(hidratarPreciosCotizacion);
+  return rows.map(hidratarCotizacion);
 }
 
 class CotizacionCanalService {
@@ -812,7 +844,7 @@ class CotizacionCanalService {
     };
     return {
       ...data,
-      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
+      cotizacion: hidratarCotizacion(data.cotizacion),
     };
   }
 
@@ -827,13 +859,13 @@ class CotizacionCanalService {
     };
     return {
       ...data,
-      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
+      cotizacion: hidratarCotizacion(data.cotizacion),
     };
   }
 
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {
     const response = await api.patch(`/ordenes/cotizaciones-canal/${id}/`, patch);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async vistaPrevia(id: number): Promise<VistaPreviaPublica> {
@@ -968,12 +1000,62 @@ class CotizacionCanalService {
 
   async cancelar(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar/`);
-    return response.data as CotizacionCanal;
+    return hidratarCotizacion(response.data as CotizacionCanal);
+  }
+
+  async eliminar(id: number): Promise<void> {
+    await api.delete(`/ordenes/cotizaciones-canal/${id}/`);
+  }
+
+  async confirmarRevisionTaller(id: number, cotizacion: CotizacionCanal): Promise<CotizacionCanal> {
+    const lista: CotizacionCanal = {
+      ...cotizacion,
+      revision_taller_estado: 'lista',
+      metadata: serializarDecisionesMetadata({
+        ...cotizacion,
+        revision_taller_estado: 'lista',
+      }) as CotizacionCanal['metadata'],
+    };
+    const metadata = serializarDecisionesMetadata(lista);
+    const patch: Partial<CotizacionCanal> = {
+      ...payloadEdicionCotizacion(lista),
+      revision_taller_estado: 'lista',
+    };
+    const conservar = (remoto: CotizacionCanal): CotizacionCanal => hidratarCotizacion({
+      ...remoto,
+      revision_taller_estado: 'lista',
+      dudas_cotizador: lista.dudas_cotizador ?? remoto.dudas_cotizador,
+      repuestos: mergeRepuestosPreservandoEdicion(
+        lista.repuestos ?? [],
+        remoto.repuestos ?? [],
+      ),
+      metadata: {
+        ...(remoto.metadata || {}),
+        ...metadata,
+        revision_taller_estado: 'lista',
+      } as CotizacionCanal['metadata'],
+    });
+    try {
+      const response = await api.post(`/ordenes/cotizaciones-canal/${id}/revision-taller/`, {
+        dudas_cotizador: metadata.dudas_cotizador,
+        decisiones_lineas: metadata.decisiones_lineas,
+        revision_taller_estado: 'lista',
+      });
+      const data = response.data as CotizacionCanal | { cotizacion?: CotizacionCanal };
+      const body = 'cotizacion' in data && data.cotizacion ? data.cotizacion : data as CotizacionCanal;
+      if (body && typeof body === 'object' && 'id' in body) {
+        return conservar(body);
+      }
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status && status !== 404 && status !== 405) throw error;
+    }
+    return conservar(await this.actualizar(id, patch));
   }
 
   async cancelarBusqueda(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar-busqueda/`);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async marcarAceptada(id: number): Promise<CotizacionCanal> {
@@ -1013,7 +1095,7 @@ class CotizacionCanalService {
   ): Promise<CotizacionCanal> {
     const qs = opts?.sinRetry ? '?sin_retry=1' : '';
     const response = await api.get(`/ordenes/cotizaciones-canal/${id}/${qs}`);
-    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
+    return hidratarCotizacion(response.data as CotizacionCanal);
   }
 
   async listarPlantillas(filtro?: {

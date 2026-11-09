@@ -434,6 +434,8 @@ class WebSocketService {
         case 'agente_ia_cotizacion_rechazada':
         case 'agente_ia_cita_confirmada':
         case 'agente_ia_escalamiento':
+        case 'agente_ia_revision_taller':
+        case 'cotizacion_revision_taller':
           devLog('🤖 Evento agente IA:', data);
           this.handleAgenteIaEvent(data as AgenteIaEvent);
           break;

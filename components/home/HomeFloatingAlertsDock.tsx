@@ -264,13 +264,17 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
 
   switch (event.type) {
     case 'agente_ia_cotizacion_borrador':
+    case 'agente_ia_revision_taller':
+    case 'cotizacion_revision_taller':
       return {
         kind: 'lead',
-        id: `borrador-${event.cotizacion_id || conv || Date.now()}`,
-        title: 'Cotización lista para revisar',
+        id: `revision-${event.cotizacion_id || conv || Date.now()}`,
+        title: 'El cotizador espera tu opinión',
         leadTone: 'draft',
-        message: 'La IA dejó un borrador. Ábrelo en pendientes o Cotizar con IA.',
-        href: '/cotizaciones?estado=borrador',
+        message: event.mensaje_preview || 'Hay sugerencias o dudas para decidir en la cotización.',
+        href: event.cotizacion_id
+          ? `/cotizacion-canal/${event.cotizacion_id}`
+          : '/cotizaciones?estado=revision',
       };
     case 'agente_ia_cotizacion_enviada':
       return {
