@@ -1152,6 +1152,7 @@ export const CotizacionIaEditor = React.forwardRef<
         valoresEstimados={Boolean(cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo)}
         onUpdate={actualizarManoObraLinea}
         onDelete={eliminarManoObraLinea}
+        onAgregar={editable ? agregarManoObraLinea : undefined}
       />
 
       <CotizacionEditorRepuestos
@@ -1175,6 +1176,7 @@ export const CotizacionIaEditor = React.forwardRef<
         onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
         consultandoRepuestoId={consultandoRepuestoId}
         onDecidirSugerencia={editable ? decidirSugerenciaLinea : undefined}
+        onAgregar={editable ? agregarRepuesto : undefined}
       />
 
       <DudasCotizador

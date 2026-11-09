@@ -44,6 +44,17 @@ describe('vistaValidacionLinea', () => {
     expect(vista?.alertas).toHaveLength(3);
   });
 
+  it('no repite el motivo si también viene en alertas', () => {
+    const texto = 'No hay ficha de tienda. El precio se asumió para cotizar. Casa sugerida: Adriazola.';
+    const vista = vistaValidacionLinea({
+      validacion_estado: 'asumido',
+      validacion_motivo: texto,
+      alertas: [texto, texto],
+    });
+    expect(vista?.motivo).toBe(texto);
+    expect(vista?.alertas).toEqual([]);
+  });
+
   it('no arma badge si el estado falta o no se reconoce', () => {
     expect(vistaValidacionLinea({})).toBeNull();
     expect(vistaValidacionLinea({ validacion_estado: '' })).toBeNull();

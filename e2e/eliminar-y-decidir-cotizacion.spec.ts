@@ -45,24 +45,6 @@ async function capturas(page: Page, stem: string, keep?: Locator) {
   await page.setViewportSize({ width: 390, height: 844 });
 }
 
-async function sinSolape(
-  page: Page,
-  etiqueta: string,
-  objetivo: Locator,
-  modo: 'lado' | 'arriba' = 'lado',
-) {
-  const fab = page.getByTestId('cotizacion-editor-fab');
-  if (!await fab.isVisible()) return;
-  const cajaFab = await fab.boundingBox();
-  const caja = await objetivo.boundingBox();
-  if (!cajaFab || !caja) return;
-  if (modo === 'arriba') {
-    expect(cajaFab.y + cajaFab.height, etiqueta).toBeLessThanOrEqual(caja.y + 2);
-    return;
-  }
-  expect(caja.x + caja.width, etiqueta).toBeLessThanOrEqual(cajaFab.x + 1);
-}
-
 function shellAislado(codigo: string) {
   const env = { ...process.env };
   env.DB_NAME = 'mecanimovil_cotiz_3624';
@@ -273,8 +255,11 @@ c.save(update_fields=['repuestos', 'metadata'])`);
   await page.goto(`${BASE_URL}/cotizacion-canal/${decisionId}`);
   await cerrarAvisoLegal(page);
   await expect(page.getByText('Ítems pedidos').first()).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByRole('button', { name: 'Agregar ítem' })).toBeVisible();
+  await expect(page.getByTestId('cotizacion-editor-fab')).toHaveCount(0);
   const etiquetaPedido = page.getByText('Pedido', { exact: true });
   await expect(etiquetaPedido.nth(2)).toBeVisible();
+  await expect(page.getByText('No hay ficha de tienda. El precio se asumió para cotizar. Casa sugerida: Adriazola.').first()).toBeVisible();
   await capturas(page, 'COTIZACION-DECISION-PEDIDOS', etiquetaPedido.nth(1));
   await expect(page.getByText('Sugerencias por revisar').first()).toBeVisible();
   await expect(page.getByText('Rodamiento de volante')).toBeVisible();
@@ -290,10 +275,7 @@ c.save(update_fields=['repuestos', 'metadata'])`);
     (nodo as HTMLElement).scrollIntoView({ block: 'center', inline: 'nearest' });
   });
   await capturas(page, 'COTIZACION-DECISION-EDITOR', avisoSugerencia);
-  await sinSolape(page, 'FAB tapa el aviso de sugerencia', avisoSugerencia);
-  await sinSolape(page, 'FAB tapa la nota de IVA', page.getByText(/Los precios de línea ya incluyen IVA/));
-  const pie = page.getByRole('button', { name: /Confirmar precios|Enviar cotización/ });
-  await sinSolape(page, 'FAB tapa la barra inferior', pie, 'arriba');
+  await expect(page.getByRole('button', { name: 'Enviar cotización' })).toBeVisible();
 
   const getDecision = await request.get(`${API}/ordenes/cotizaciones-canal/${decisionId}/`, { headers: auth });
   expect(getDecision.ok()).toBeTruthy();
@@ -337,19 +319,13 @@ c.save(update_fields=['repuestos', 'metadata'])`);
     (nodo as HTMLElement).scrollIntoView({ block: 'center', inline: 'nearest' });
   });
   await capturas(page, 'COTIZACION-DECISION-LISTA', notaIva);
-  await sinSolape(page, 'FAB tapa la nota de IVA al cerrar', notaIva);
   await sinDesborde(page);
   await page.setViewportSize({ width: 320, height: 700 });
   await notaIva.evaluate((nodo) => {
     (nodo as HTMLElement).scrollIntoView({ block: 'center', inline: 'nearest' });
   });
-  await sinSolape(page, 'FAB tapa IVA a 320', notaIva);
-  await sinSolape(
-    page,
-    'FAB tapa la barra a 320',
-    page.getByRole('button', { name: /Confirmar precios|Enviar cotización/ }),
-    'arriba',
-  );
+  await expect(notaIva).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar cotización' })).toBeVisible();
   await sinDesborde(page);
   await sinZoomLock(page);
 

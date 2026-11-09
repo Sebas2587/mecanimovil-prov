@@ -38,6 +38,12 @@ emptyRepuestos: {
     gap: SPACING.fixed.sm,
     alignItems: 'flex-start',
   },
+accionesFila: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
 estadoPunto: {
     width: 6,
     height: 6,

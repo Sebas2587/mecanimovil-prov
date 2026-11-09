@@ -24,8 +24,6 @@ import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
-import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
-import { cotizacionFabLayout } from '@/components/cotizacion/cotizacionEditorFabLayout';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
@@ -146,7 +144,6 @@ export function CotizacionLibreModal({
   const footerBottom = webFooterBottom(webViewport, insets.bottom, SPACING.md);
   const footerApilado = webViewport.touch || viewportWidth < 520;
   const [footerHeight, setFooterHeight] = useState(128);
-  const fabLayout = cotizacionFabLayout({ showFooter: true, footerBottom });
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -854,13 +851,12 @@ export function CotizacionLibreModal({
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingBottom: footerHeight + fabLayout.paddingBottom,
+                paddingBottom: footerHeight + SPACING.fixed.lg,
               },
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-          <View style={styles.scrollBody}>
             {!cotizacion && faseIa !== 'idle' ? (
               <CotizacionIaProgreso
                 fase={faseIa === 'listo' ? 'listo' : faseIa === 'precios' ? 'precios' : 'generando'}
@@ -1044,13 +1040,6 @@ export function CotizacionLibreModal({
                 {errorIa ? <Text style={styles.errorBanner}>{errorIa}</Text> : null}
               </>
             )}
-          </View>
-          {cotizacion && cotizacion.estado === 'borrador' && !previewVisible ? (
-            <View
-              style={[styles.scrollRail, { width: fabLayout.gutterFab }]}
-              pointerEvents="none"
-            />
-          ) : null}
           </ScrollView>
 
           <View
@@ -1136,17 +1125,6 @@ export function CotizacionLibreModal({
             )}
           </View>
         </KeyboardAvoidingView>
-        {cotizacion
-          && cotizacion.estado === 'borrador'
-          && !previewVisible ? (
-          <CotizacionEditorFab
-            visible
-            variant="plus"
-            bottomOffset={fabLayout.bottomOffset}
-            onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
-            onAddManoObra={() => editorRef.current?.agregarManoObra()}
-          />
-        ) : null}
         </View>
       </View>
       <VistaPreviaCotizacionClienteModal
@@ -1260,18 +1238,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.md,
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-  },
-  scrollBody: {
-    flex: 1,
-    minWidth: 0,
     gap: SPACING.fixed.xs,
-  },
-  scrollRail: {
-    flexShrink: 0,
+    flexGrow: 1,
   },
   sectionTitle: {
     marginBottom: SPACING.fixed.xxs,

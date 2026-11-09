@@ -10,7 +10,7 @@ import {
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, Check, Eye, Link2, MessageCircle, Package, Phone, Trash2, Wrench, X } from 'lucide-react-native';
+import { Calendar, Check, Eye, Link2, MessageCircle, Phone, Trash2, X } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
@@ -570,20 +570,7 @@ export default function CotizacionCanalDetalleScreen() {
   const puedeEnviarFirme = draft.puede_enviar_firme ?? pendientesPrecio === 0;
   const shareUrl = draft.share_url || draft.url_publica || '';
   const fabActions: CotizacionFabAction[] = [];
-  if (draft.estado === 'borrador' || editando) {
-    fabActions.push({
-      key: 'mano',
-      label: 'Mano de obra',
-      icon: Wrench,
-      onPress: () => editorRef.current?.agregarManoObra(),
-    });
-    fabActions.push({
-      key: 'repuesto',
-      label: 'Repuesto',
-      icon: Package,
-      onPress: () => editorRef.current?.agregarRepuesto(),
-    });
-  } else {
+  if (draft.estado !== 'borrador' && !editando) {
     if (draft.estado === 'aceptada' && draft.cita_personal_id && !tieneHorarioAgendado) {
       fabActions.push({
         key: 'agendar',
@@ -664,7 +651,7 @@ export default function CotizacionCanalDetalleScreen() {
       });
     }
   }
-  const fabVariant = draft.estado === 'borrador' || editando ? 'plus' : 'more';
+  const fabVariant = 'more' as const;
   const citaParaAdicional = draft.cita_personal_id || draft.cita_origen_id || null;
   const showFooter = Boolean(
     (tieneHorarioAgendado && draft.cita_personal_id)
@@ -672,7 +659,12 @@ export default function CotizacionCanalDetalleScreen() {
     || draft.estado === 'enviada'
     || draft.estado === 'aceptada'
   );
-  const fabLayout = cotizacionFabLayout({ showFooter, footerBottom });
+  const showEditorFab = fabActions.length > 0;
+  const fabLayout = cotizacionFabLayout({
+    showFooter,
+    footerBottom,
+    showFab: showEditorFab,
+  });
 
   return (
     <View style={styles.screen}>
@@ -736,7 +728,6 @@ export default function CotizacionCanalDetalleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.columnaEditor}>
-        <View style={styles.columnaEditorCuerpo}>
         {trabajoEntregado ? (
           <InstitutionalTag label="Trabajo terminado" variant="success" size="sm" />
         ) : null}
@@ -781,14 +772,6 @@ export default function CotizacionCanalDetalleScreen() {
 
         {draft.estado === 'enviada' && !editando ? (
           <CotizacionEnviadaSiguientePaso cotizacion={draft} />
-        ) : null}
-        </View>
-        {fabActions.length > 0 ? (
-          <View
-            style={[styles.columnaEditorRail, { width: fabLayout.gutterFab }]}
-            pointerEvents="none"
-            testID="cotizacion-editor-fab-rail"
-          />
         ) : null}
         </View>
       </ScrollView>
@@ -910,7 +893,7 @@ export default function CotizacionCanalDetalleScreen() {
       </View>
       ) : null}
 
-      {!previewVisible && fabActions.length > 0 ? (
+      {!previewVisible && showEditorFab ? (
         <CotizacionEditorFab
           visible
           variant={fabVariant}
@@ -965,19 +948,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   columnaEditor: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    alignSelf: 'stretch',
-    width: '100%',
-    maxWidth: '100%',
-  },
-  columnaEditorCuerpo: {
-    flex: 1,
-    minWidth: 0,
     gap: SPACING.fixed.lg,
-  },
-  columnaEditorRail: {
-    flexShrink: 0,
+    alignSelf: 'stretch',
+    maxWidth: '100%',
   },
   footerFila: {
     flexDirection: 'row',

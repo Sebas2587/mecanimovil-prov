@@ -444,6 +444,7 @@ export function CotizacionEditorRepuestos({
   onConsultarCasas,
   consultandoRepuestoId,
   onDecidirSugerencia,
+  onAgregar,
 }: {
   repuestos: RepuestoCotizacion[];
   editable: boolean;
@@ -465,6 +466,7 @@ export function CotizacionEditorRepuestos({
   onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
   consultandoRepuestoId: string | null;
   onDecidirSugerencia?: (rep: RepuestoCotizacion, estado: SugerenciaEstado) => void;
+  onAgregar?: () => void;
 }) {
   const pedidos = repuestos
     .map((rep, index) => ({ rep, index }))
@@ -516,22 +518,33 @@ export function CotizacionEditorRepuestos({
           fichaExigente={resumenPrecios.fichaExigente}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          {`El + pide un ítem. Pedir ayuda a la IA consulta catálogo, historial y tiendas. ${avisoMargen}`.trim()}
+          {`Agregar ítem suma un repuesto. Pedir ayuda a la IA consulta catálogo, historial y tiendas. ${avisoMargen}`.trim()}
         </InstitutionalText>
-        {editable && onBuscar ? (
-          <TallerPildora
-            label="Pedir ayuda a la IA"
-            tono="suave"
-            onPress={onBuscar}
-            loading={cotizandoItems}
-            disabled={cotizandoItems || busquedaPendiente}
-            leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-          />
+        {editable && (onAgregar || onBuscar) ? (
+          <View style={styles.accionesFila}>
+            {onAgregar ? (
+              <TallerPildora
+                label="Agregar ítem"
+                tono="suave"
+                onPress={onAgregar}
+              />
+            ) : null}
+            {onBuscar ? (
+              <TallerPildora
+                label="Pedir ayuda a la IA"
+                tono="suave"
+                onPress={onBuscar}
+                loading={cotizandoItems}
+                disabled={cotizandoItems || busquedaPendiente}
+                leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+            ) : null}
+          </View>
         ) : null}
         {pedidos.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>
             <InstitutionalText role="caption" color="muted">
-              Aún no hay ítems pedidos. Súmelos con + o pida ayuda a la IA.
+              Aún no hay ítems pedidos. Súmelos con Agregar ítem o pida ayuda a la IA.
             </InstitutionalText>
           </Card>
         ) : (

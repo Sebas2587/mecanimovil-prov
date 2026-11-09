@@ -47,6 +47,21 @@ export function textosAlertas(valor: unknown): string[] {
   return valor.map((item) => String(item ?? '').trim()).filter(Boolean);
 }
 
+/** Quita alertas que repiten el motivo u otra alerta ya listada. */
+export function alertasSinDuplicar(motivo: string, alertas: string[]): string[] {
+  const visto = new Set<string>();
+  const motivoClave = motivo.trim().toLowerCase();
+  if (motivoClave) visto.add(motivoClave);
+  const salida: string[] = [];
+  for (const alerta of alertas) {
+    const clave = alerta.trim().toLowerCase();
+    if (!clave || visto.has(clave)) continue;
+    visto.add(clave);
+    salida.push(alerta);
+  }
+  return salida;
+}
+
 export function detalleEsLargo(motivo: string, alertas: string[]): boolean {
   if (alertas.length > UMBRAL_ALERTAS) return true;
   const largo = motivo.length + alertas.join(' ').length;
@@ -63,7 +78,7 @@ export function vistaValidacionLinea(rep: {
   const motivo = rep.validacion_estado === 'ok'
     ? ''
     : String(rep.validacion_motivo ?? '').trim();
-  const alertas = textosAlertas(rep.alertas);
+  const alertas = alertasSinDuplicar(motivo, textosAlertas(rep.alertas));
   return {
     estado: rep.validacion_estado,
     etiqueta: meta.etiqueta,
@@ -88,7 +103,7 @@ export function alertasValidacionVisibles(valor: unknown): AlertaValidacionVista
     const estado = esEstadoValidacion(fila.estado) ? fila.estado : '';
     const meta = estado ? POR_ESTADO[estado] : null;
     const motivo = estado === 'ok' ? '' : String(fila.motivo ?? '').trim();
-    const alertas = textosAlertas(fila.alertas);
+    const alertas = alertasSinDuplicar(motivo, textosAlertas(fila.alertas));
     const repuesto = String(fila.repuesto ?? '').trim();
     if (!repuesto && !motivo && alertas.length === 0 && !estado) continue;
     salida.push({
