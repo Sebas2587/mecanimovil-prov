@@ -5,6 +5,7 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { ResumenMargenRepuestos } from '@/components/cotizacion/MargenRepuestos';
 import { formatRangoClp } from '@/components/cotizacion/repuestoCerteza';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import type { TotalesMargenServidor } from '@/utils/margenRepuestos';
 import { formatearTotalConocido } from '@/utils/totalesCotizacion';
 import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { estilosPartes as styles } from '@/components/cotizacion/editor/estilosPartesEditor';
@@ -18,6 +19,7 @@ export function CotizacionEditorResumen({
   bandaCliente,
   desgloseCanon,
   totalCanonTexto,
+  servidor,
 }: {
   canon: {
     costo_repuestos_clp: number | null;
@@ -30,18 +32,19 @@ export function CotizacionEditorResumen({
   bandaCliente: { hayRango: boolean; min: number; max: number };
   desgloseCanon: { neto: number; iva: number } | null;
   totalCanonTexto: string;
+  servidor?: TotalesMargenServidor | null;
 }) {
   return (
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
-            Repuestos
+            Repuestos cobrados
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
             {canon.costo_repuestos_clp == null ? 'Incompleto' : formatearMontoCLP(canon.costo_repuestos_clp)}
           </InstitutionalText>
         </View>
-        <ResumenMargenRepuestos repuestos={repuestos} />
+        <ResumenMargenRepuestos repuestos={repuestos} servidor={servidor} />
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
             Mano de obra

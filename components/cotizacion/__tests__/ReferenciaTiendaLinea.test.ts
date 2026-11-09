@@ -1,6 +1,12 @@
 import { vistaReferenciaTienda } from '@/utils/referenciaTienda';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { margenLineaRepuesto, resumenMargenRepuestos, textoMargenClp } from '@/utils/margenRepuestos';
+import {
+  cobradoUnitarioLinea,
+  margenLineaRepuesto,
+  resumenMargenRepuestos,
+  textoCobradoClp,
+  textoMargenClp,
+} from '@/utils/margenRepuestos';
 
 describe('vistaReferenciaTienda', () => {
   it('nombra la tienda del link y deja la casa sugerida aparte', () => {
@@ -61,10 +67,24 @@ describe('margenLineaRepuesto', () => {
       costo_unitario_clp: null,
       cantidad: 1,
       precio_unitario_clp: 8000,
+      margen_pct: 40,
     });
     expect(m.margenClp).toBeNull();
     expect(m.margenPct).toBeNull();
     expect(m.costoLinea).toBeNull();
+  });
+
+  it('usa el costo estimado congelado y no vuelve a aplicar el porcentaje', () => {
+    const m = margenLineaRepuesto({
+      costo_unitario_clp: null,
+      costo_estimado_clp: 6000,
+      cantidad: 2,
+      precio_unitario_clp: 10000,
+      margen_pct: 80,
+    });
+    expect(m.costoLinea).toBe(12000);
+    expect(m.cobradoLinea).toBe(20000);
+    expect(m.margenClp).toBe(8000);
   });
 
   it('deja el margen negativo cuando el cobrado no cubre el costo', () => {
@@ -79,16 +99,30 @@ describe('margenLineaRepuesto', () => {
 });
 
 describe('resumenMargenRepuestos', () => {
-  it('suma ganancia en vivo y marca líneas sin costo', () => {
+  it('anula costo y ganancia del total si una línea no tiene costo', () => {
     const r = resumenMargenRepuestos([
       { costo_unitario_clp: 6000, cantidad: 2, precio_unitario_clp: 8000 },
       { costo_unitario_clp: null, cantidad: 1, precio_unitario_clp: 5000 },
     ]);
-    expect(r.ganancia).toBe(4000);
+    expect(r.ganancia).toBeNull();
+    expect(r.costoTotal).toBeNull();
     expect(r.cobradoTotal).toBe(21000);
-    expect(r.costoTotal).toBe(12000);
-    // margenPct ahora es markup on cost: (4000 / 12000) * 100 = 33.33
-    expect(Math.round((r.margenPct || 0) * 100) / 100).toBeCloseTo(33.33, 1);
+    expect(r.margenPct).toBeNull();
     expect(r.haySinCosto).toBe(true);
+    expect(textoMargenClp(r.ganancia)).toBe('sin costo registrado');
+    expect(textoMargenClp(0)).not.toBe('sin costo registrado');
+  });
+
+  it('no convierte un cobrado nulo en $0', () => {
+    expect(cobradoUnitarioLinea({ precio_unitario_clp: null, precio_cobrado_clp: null })).toBeNull();
+    expect(textoCobradoClp(null)).toBe('Incompleto');
+    expect(textoCobradoClp(0)).toBe('$0');
+    const r = resumenMargenRepuestos([
+      { costo_unitario_clp: 6000, cantidad: 1, precio_unitario_clp: null },
+    ]);
+    expect(r.cobradoTotal).toBeNull();
+    expect(r.ganancia).toBeNull();
+    expect(r.costoTotal).toBe(6000);
+    expect(textoCobradoClp(r.cobradoTotal)).toBe('Incompleto');
   });
 });

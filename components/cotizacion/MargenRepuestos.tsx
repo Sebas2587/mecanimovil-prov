@@ -5,9 +5,12 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import {
   margenLineaRepuesto,
   resumenMargenRepuestos,
+  TEXTO_SIN_COSTO,
+  textoCobradoClp,
   textoMargenClp,
   textoMargenPct,
   type LineaMargenInput,
+  type TotalesMargenServidor,
 } from '@/utils/margenRepuestos';
 
 type ColorMargen = 'semanticUp' | 'semanticDown' | 'muted';
@@ -26,15 +29,15 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
   const m = margenLineaRepuesto(rep);
   const pct = textoMargenPct(m.margenPct);
   return (
-    <View style={styles.row} accessibilityLabel="Costo, cobrado y margen">
+    <View style={styles.row} testID="economia-repuesto-linea" accessibilityLabel="Costo final, cobrado y ganancia">
       <InstitutionalText role="caption" color="muted">
-        Costo {m.costoLinea == null ? 'sin costo' : textoMargenClp(m.costoLinea)}
+        Costo final {m.costoLinea == null ? TEXTO_SIN_COSTO : textoMargenClp(m.costoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color="muted">
-        Cobrado {textoMargenClp(m.cobradoLinea)}
+        Cobrado {textoCobradoClp(m.cobradoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color={colorDe(m.margenClp)}>
-        Margen {m.margenClp == null ? 'sin costo' : textoMargenClp(m.margenClp)}
+        Ganancia {m.margenClp == null ? (m.cobradoLinea == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO) : textoMargenClp(m.margenClp)}
         {pct ? ` ${pct}` : ''}
       </InstitutionalText>
     </View>
@@ -42,24 +45,33 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
 });
 
 /** Totales de repuestos. Se recalcula con las líneas actuales del editor. */
-export function ResumenMargenRepuestos({ repuestos }: { repuestos: LineaMargenInput[] }) {
+export function ResumenMargenRepuestos({
+  repuestos,
+  servidor,
+}: {
+  repuestos: LineaMargenInput[];
+  servidor?: TotalesMargenServidor | null;
+}) {
   if (!repuestos.length) return null;
   const r = resumenMargenRepuestos(repuestos);
-  const pct = textoMargenPct(r.margenPct);
+  const usarServidor = !r.haySinCosto && r.cobradoTotal != null && r.ganancia == null && servidor?.ganancia_repuestos_clp != null;
+  const costoTotal = usarServidor ? servidor?.costo_total_repuestos_clp ?? null : r.costoTotal;
+  const cobradoTotal = usarServidor && servidor?.cobrado_total_repuestos_clp != null
+    ? servidor.cobrado_total_repuestos_clp
+    : r.cobradoTotal;
+  const ganancia = usarServidor ? servidor?.ganancia_repuestos_clp ?? null : r.ganancia;
+  const pct = textoMargenPct(usarServidor ? servidor?.margen_repuestos_pct ?? null : r.margenPct);
   return (
-    <View style={styles.resumen} accessibilityLabel="Margen de repuestos">
-      <Fila label="Costo repuestos" valor={r.costoTotal == null ? 'sin costo' : textoMargenClp(r.costoTotal)} />
-      <Fila label="Cobrado repuestos" valor={textoMargenClp(r.cobradoTotal)} />
+    <View style={styles.resumen} testID="economia-repuestos-totales" accessibilityLabel="Costo final, cobrado y ganancia de repuestos">
+      <Fila label="Costo final repuestos" valor={costoTotal == null ? TEXTO_SIN_COSTO : textoMargenClp(costoTotal)} />
+      <Fila label="Cobrado repuestos" valor={textoCobradoClp(cobradoTotal)} />
       <Fila
         label="Ganancia repuestos"
-        valor={r.ganancia == null ? 'sin costo' : `${textoMargenClp(r.ganancia)}${pct ? ` ${pct}` : ''}`}
-        color={colorDe(r.ganancia)}
+        valor={ganancia == null
+          ? (cobradoTotal == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO)
+          : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
+        color={colorDe(ganancia)}
       />
-      {r.haySinCosto && r.ganancia != null ? (
-        <InstitutionalText role="caption" color="muted">
-          Hay repuestos sin costo. La ganancia no los incluye.
-        </InstitutionalText>
-      ) : null}
     </View>
   );
 }
@@ -96,6 +108,7 @@ const styles = StyleSheet.create({
   },
   fila: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: SPACING.fixed.sm,

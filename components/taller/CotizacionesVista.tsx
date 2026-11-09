@@ -48,6 +48,7 @@ import {
 } from '@/utils/cotizacionPresentacion';
 import { lecturaTotalServidor } from '@/utils/totalesCotizacion';
 import { esCotizacionDePrueba } from '@/utils/filtroCotizacionPrueba';
+import { coincideBusquedaCotizacion } from '@/utils/busquedaCotizacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -78,13 +79,18 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     setFiltro(filtroInicial(estadoInicial));
   }, [estadoInicial]);
   const [busqueda, setBusqueda] = useState('');
+  const [consulta, setConsulta] = useState('');
   const [ocultarPruebas, setOcultarPruebas] = useState(true);
   const [buscadorEnfocado, setBuscadorEnfocado] = useState(false);
   const [abiertaId, setAbiertaId] = useState<number | null>(null);
   const progresoBuscador = useRef(new Animated.Value(1)).current;
   const offsetAnterior = useRef(0);
   const buscadorVisible = useRef(true);
-  const query = useCotizacionesCanalTallerQuery();
+  useEffect(() => {
+    const handle = setTimeout(() => setConsulta(busqueda.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [busqueda]);
+  const query = useCotizacionesCanalTallerQuery(true, consulta);
   const queryClient = useQueryClient();
   const cotizaciones = query.data ?? [];
   const cargandoLista = query.isPending && query.data == null;
@@ -110,22 +116,14 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     return base;
   }, [baseLista]);
 
+  const servidorYaFiltro = consulta.length > 0 && busqueda.trim().length > 0 && !query.isPlaceholderData;
   const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
     return baseLista.filter((cotizacion) => {
       if (filtro !== 'todas' && estadoCotizacionVista(cotizacion) !== filtro) return false;
-      if (!q) return true;
-      return [
-        cotizacion.cliente_nombre,
-        cotizacion.cliente_telefono,
-        cotizacion.numero_publico,
-        cotizacion.servicio_nombre,
-        cotizacion.vehiculo_marca,
-        cotizacion.vehiculo_modelo,
-        cotizacion.vehiculo_patente,
-      ].some((campo) => (campo || '').toLowerCase().includes(q));
+      if (servidorYaFiltro) return true;
+      return coincideBusquedaCotizacion(cotizacion, busqueda);
     });
-  }, [baseLista, busqueda, filtro]);
+  }, [baseLista, busqueda, filtro, servidorYaFiltro]);
 
   const sumaEstados = (estados: EstadoCotizacionVista[]) => {
     const buscados = new Set(estados);
@@ -249,7 +247,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             <TextInput
               value={busqueda}
               onChangeText={setBusqueda}
-              placeholder="Cliente, patente, folio o servicio"
+              placeholder="Cliente, patente, marca o modelo"
               placeholderTextColor={I.muted}
               style={styles.input}
               autoCorrect={false}

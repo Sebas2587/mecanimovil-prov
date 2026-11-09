@@ -1135,6 +1135,7 @@ export const CotizacionIaEditor = React.forwardRef<
         bandaCliente={bandaCliente}
         desgloseCanon={desgloseCanon}
         totalCanonTexto={totalCanonTexto}
+        servidor={cotizacion}
       />
 
       <SeccionOpcional

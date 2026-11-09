@@ -19,6 +19,7 @@ import {
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
 import { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import { coincideBusquedaCotizacion } from '@/utils/busquedaCotizacion';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import {
   HOST_GUTTER,
@@ -79,23 +80,10 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
 
   const borradoresFiltrados = useMemo(() => {
     if (!searchQuery.trim()) return borradoresPorRevisar;
-    const q = searchQuery.trim().toLowerCase();
-    return borradoresPorRevisar.filter((item) => {
-      const cliente = clienteLabel(item).toLowerCase();
-      const servicio = (item.servicio_nombre || '').toLowerCase();
-      const patente = (item.vehiculo_patente || '').toLowerCase();
-      const marca = (item.vehiculo_marca || '').toLowerCase();
-      const modelo = (item.vehiculo_modelo || '').toLowerCase();
-      const folio = (item.numero_publico || '').toLowerCase();
-      return (
-        cliente.includes(q)
-        || servicio.includes(q)
-        || patente.includes(q)
-        || marca.includes(q)
-        || modelo.includes(q)
-        || folio.includes(q)
-      );
-    });
+    return borradoresPorRevisar.filter((item) => coincideBusquedaCotizacion({
+      ...item,
+      cliente_nombre: clienteLabel(item),
+    }, searchQuery));
   }, [borradoresPorRevisar, searchQuery]);
 
   const abrirDetalle = useCallback((item: CotizacionCanal) => {

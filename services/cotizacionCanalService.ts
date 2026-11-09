@@ -168,6 +168,10 @@ export interface RepuestoCotizacion {
   nota_referencia?: string;
   /** Costo unitario para el taller. null si no se conoce. */
   costo_unitario_clp?: number | null;
+  /** Costo que el taller declaró. No se infiere del precio cobrado. */
+  costo_registrado_clp?: number | null;
+  /** Costo congelado al descubrir el precio. No es un segundo margen. */
+  costo_estimado_clp?: number | null;
   /** Precio unitario cobrado al cliente, según el serializer. */
   precio_cobrado_clp?: number;
   /** Margen de la línea que calculó el backend. La UI lo recalcula al editar. */
@@ -607,6 +611,20 @@ export function patchPrecioEscritoPorTaller(precio: number): Partial<RepuestoCot
   };
 }
 
+function conservarCostoLocal(
+  next: RepuestoCotizacion,
+  src: RepuestoCotizacion,
+): RepuestoCotizacion {
+  const out = { ...next };
+  const claves = ['costo_unitario_clp', 'costo_estimado_clp', 'costo_registrado_clp'] as const;
+  claves.forEach((clave) => {
+    if (out[clave] == null && src[clave] != null) {
+      out[clave] = src[clave];
+    }
+  });
+  return out;
+}
+
 function aplicarPrecioLocal(
   dest: RepuestoCotizacion,
   src: RepuestoCotizacion,
@@ -657,15 +675,15 @@ function fusionarLineaRepuesto(
     || ((remoto.precio_unitario_clp || 0) > 0 && localCero)
   );
   if (localFirme) {
-    return {
+    return conservarCostoLocal({
       ...aplicarPrecioLocal(remoto, rLoc),
       nombre: nombreLocal || remoto.nombre,
-    };
+    }, rLoc);
   }
   const precio = remoteMejor
     ? remoto.precio_unitario_clp
     : (rLoc.precio_unitario_clp ?? remoto.precio_unitario_clp);
-  return {
+  return conservarCostoLocal({
     ...remoto,
     nombre: nombreLocal || remoto.nombre,
     cantidad: rLoc.cantidad ?? rRem.cantidad,
@@ -673,7 +691,7 @@ function fusionarLineaRepuesto(
     certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'
       ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
       : (rRem.certeza || rLoc.certeza),
-  };
+  }, rLoc);
 }
 
 /** Fusiona precios/fuentes remotos sobre las líneas que el taller todavía tiene. */
@@ -718,7 +736,7 @@ export function fusionarRepuestosEnviados(
     if (keepLocalPrecio) {
       next = aplicarPrecioLocal(next, src);
     }
-    return next;
+    return conservarCostoLocal(next, src);
   });
 }
 
@@ -968,10 +986,12 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
-  async listar(params?: { page?: number; page_size?: number }): Promise<CotizacionCanal[]> {
+  async listar(params?: { page?: number; page_size?: number; q?: string }): Promise<CotizacionCanal[]> {
     const search = new URLSearchParams();
     if (params?.page != null) search.set('page', String(params.page));
     if (params?.page_size != null) search.set('page_size', String(params.page_size));
+    const consulta = params?.q?.trim();
+    if (consulta) search.set('q', consulta);
     const qs = search.toString();
     const url = qs ? `/ordenes/cotizaciones-canal/?${qs}` : '/ordenes/cotizaciones-canal/';
     const response = await api.get(url);
