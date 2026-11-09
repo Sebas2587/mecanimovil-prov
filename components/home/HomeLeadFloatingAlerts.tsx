@@ -13,6 +13,7 @@ import websocketService, { type AgenteIaEvent } from '@/app/services/websocketSe
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
+import { alertaHomeCotizador } from '@/utils/decisionCotizador';
 
 const I = COLORS.institutional;
 
@@ -32,15 +33,21 @@ function mapEvent(event: AgenteIaEvent): FloatingLeadAlert | null {
     case 'agente_ia_cotizacion_borrador':
     case 'revision_sugerencias_pendiente':
     case 'agente_ia_revision_taller':
-    case 'cotizacion_revision_taller':
+    case 'cotizacion_revision_taller': {
+      const alerta = alertaHomeCotizador(event.type, {
+        preview: event.mensaje_preview,
+        pendientes: event.pendientes,
+      });
+      if (!alerta) return null;
       return {
-        id: `revision-${event.cotizacion_id || conv || Date.now()}`,
-        title: 'El cotizador espera tu opinión',
-        message: event.mensaje_preview || 'Hay sugerencias o dudas para decidir en la cotización.',
+        id: `${alerta.idPrefix}-${event.cotizacion_id || conv || Date.now()}`,
+        title: alerta.title,
+        message: alerta.message,
         href: event.cotizacion_id
           ? `/cotizacion-canal/${event.cotizacion_id}`
           : '/cotizaciones?estado=revision',
       };
+    }
     case 'agente_ia_cotizacion_enviada':
       return {
         id: `enviada-${event.cotizacion_id || Date.now()}`,

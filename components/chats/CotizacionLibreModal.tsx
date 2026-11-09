@@ -43,6 +43,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/ap
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import { withWebLineHeight } from '@/utils/webTypography';
 import {
@@ -667,6 +668,12 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion, persistirCotizacion]);
 
+  const pedirVistaPrevia = useCallback((tipo?: 'estimacion' | 'cotizacion') => {
+    const fuente = draftRef.current || cotizacion;
+    if (!fuente) return;
+    gateEnviarCotizacionTaller(fuente, () => abrirVistaPrevia(tipo));
+  }, [cotizacion, abrirVistaPrevia]);
+
   const handleEnviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
@@ -1003,7 +1010,7 @@ export function CotizacionLibreModal({
                   hideSendActions
                   readonly={!cotizacionPermiteEdicionCompleta(cotizacion)}
                   compactHeader
-                  onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
+                  onEnviarEstimacion={() => pedirVistaPrevia('estimacion')}
                 />
 
                 {shareUrl ? (
@@ -1110,7 +1117,7 @@ export function CotizacionLibreModal({
                   sendDisabled={ocupado}
                   loading={enviando}
                   onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
-                  onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+                  onEnviarFirme={() => pedirVistaPrevia('cotizacion')}
                 />
               </View>
             ) : (

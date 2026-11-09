@@ -125,6 +125,7 @@ export interface AgenteIaEvent {
   cotizacion_id?: number | string;
   cita_id?: number | string;
   mensaje_preview?: string;
+  pendientes?: number;
   prioridad?: string;
   lead_categoria?: string;
   timestamp?: string;

@@ -277,6 +277,11 @@ c.save(update_fields=['repuestos', 'metadata'])`);
   await capturas(page, 'COTIZACION-DECISION-EDITOR', avisoSugerencia);
   await expect(page.getByRole('button', { name: 'Enviar cotización' })).toBeVisible();
 
+  await page.getByRole('button', { name: 'Enviar cotización' }).click();
+  await expect(page.getByText('Falta tu opinión')).toBeVisible();
+  await expect(page.getByText(/El cotizador dejó una duda/)).toBeVisible();
+  await page.getByRole('button', { name: 'Entendido' }).click();
+
   const getDecision = await request.get(`${API}/ordenes/cotizaciones-canal/${decisionId}/`, { headers: auth });
   expect(getDecision.ok()).toBeTruthy();
   const cuerpoDecision = await getDecision.json() as {
@@ -290,6 +295,38 @@ c.save(update_fields=['repuestos', 'metadata'])`);
     (rep.id === 'rod' || (rep.nombre || '').includes('Rodamiento')) && rep.origen === 'sugerencia'
   ))).toBeTruthy();
   expect(cuerpoDecision.dudas?.some((duda) => duda.id === 'd-rod' && duda.confirmada === false)).toBeTruthy();
+
+  const confirmarDudasVisibles = async () => {
+    for (let i = 0; i < 6; i += 1) {
+      const boton = page.getByRole('button', { name: 'Confirmar', exact: true });
+      if (await boton.count() === 0) return;
+      const postDuda = page.waitForResponse((res) => (
+        res.url().includes(`/cotizaciones-canal/${decisionId}/dudas/confirmar/`)
+        && res.request().method() === 'POST'
+      ));
+      await boton.first().click({ force: true });
+      expect((await postDuda).ok()).toBeTruthy();
+    }
+  };
+  await confirmarDudasVisibles();
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.setTimeout(() => resolve(), 1100);
+  }));
+  await confirmarDudasVisibles();
+
+  await page.getByRole('button', { name: 'Enviar cotización' }).click();
+  await expect(page.getByTestId('platform-alert-title')).toHaveText('Sugerencias sin decidir');
+  await expect(page.getByText(/Tienes 3 sugerencias sin decidir/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Revisar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar igual' })).toBeVisible();
+  await expect(page.getByTestId('platform-alert-host')).toBeVisible();
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.setTimeout(() => resolve(), 400);
+  }));
+  await capturas(page, 'COTIZACION-ENVIAR-SUGERENCIAS');
+  await sinDesborde(page);
+  await page.getByRole('button', { name: 'Revisar' }).click();
+  await expect(page.getByText('Sugerencias por revisar').first()).toBeVisible();
 
   const postSugerencia = page.waitForResponse((res) => (
     res.url().includes(`/cotizaciones-canal/${decisionId}/sugerencias/`)
@@ -306,12 +343,7 @@ c.save(update_fields=['repuestos', 'metadata'])`);
     await page.getByRole('button', { name: 'Descartar' }).first().click({ force: true });
     expect((await postDescartar).ok()).toBeTruthy();
   }
-  const postDuda = page.waitForResponse((res) => (
-    res.url().includes(`/cotizaciones-canal/${decisionId}/dudas/confirmar/`)
-    && res.request().method() === 'POST'
-  ));
-  await page.getByRole('button', { name: 'Confirmar', exact: true }).click({ force: true });
-  expect((await postDuda).ok()).toBeTruthy();
+  await confirmarDudasVisibles();
   await expect(page.getByText('Ya no quedan dudas pendientes.')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Lista para el agente')).toBeVisible({ timeout: 15_000 });
   const notaIva = page.getByText(/Los precios de línea ya incluyen IVA/);

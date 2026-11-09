@@ -1,4 +1,6 @@
 import {
+  alertaHomeCotizador,
+  avisoEnviarSinSugerencias,
   cobraAlCliente,
   esperaRevisionTaller,
   hidratarDecisionesCotizacion,
@@ -88,6 +90,30 @@ describe('decisión del taller sobre líneas del cotizador', () => {
     expect(esperaRevisionTaller(hidratada)).toBe(true);
   });
 
+  it('avisa al enviar con sugerencias pendientes y no las trata como bloqueo', () => {
+    const cotizacion = { repuestos: [pedido, sugerido, { ...sugerido, id: 'aceite' }] };
+    expect(avisoEnviarSinSugerencias(cotizacion)).toBe(
+      'Tienes 2 sugerencias sin decidir. Se enviará sin ellas.',
+    );
+    expect(envioTotalBloqueado(cotizacion)).toBeNull();
+    expect(avisoEnviarSinSugerencias({ repuestos: [pedido] })).toBeNull();
+    expect(avisoEnviarSinSugerencias({ repuestos: [pedido, sugerido] })).toBe(
+      'Tienes 1 sugerencia sin decidir. Se enviará sin ella.',
+    );
+  });
+
+  it('separa el toast de home: borrador IA vs sugerencias', () => {
+    const borrador = alertaHomeCotizador('agente_ia_cotizacion_borrador');
+    expect(borrador?.idPrefix).toBe('borrador');
+    expect(borrador?.title).toBe('Borrador de la IA');
+    expect(borrador?.message).toMatch(/borrador/);
+    const revision = alertaHomeCotizador('revision_sugerencias_pendiente', { pendientes: 3 });
+    expect(revision?.idPrefix).toBe('sugerencias');
+    expect(revision?.title).toBe('Sugerencias por decidir');
+    expect(revision?.message).toMatch(/3 sugerencias/);
+    expect(alertaHomeCotizador('agente_ia_escalamiento')).toBeNull();
+  });
+
   it('si el listado no trae origen, usa revision_sugerencias.pendientes', () => {
     const lista = {
       repuestos: [{ id: 'kit', nombre: 'Kit de embrague', precio_unitario_clp: 120000 }],
@@ -97,5 +123,8 @@ describe('decisión del taller sobre líneas del cotizador', () => {
     expect(esperaRevisionTaller(lista)).toBe(true);
     expect(resumenRevisionTaller(lista).sugerencias).toBe(3);
     expect(resumenRevisionTaller(lista).dudas).toBe(1);
+    expect(avisoEnviarSinSugerencias(lista)).toBe(
+      'Tienes 3 sugerencias sin decidir. Se enviará sin ellas.',
+    );
   });
 });

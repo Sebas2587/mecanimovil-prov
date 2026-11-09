@@ -197,6 +197,58 @@ export function mensajeBloqueoDudas(cotizacion: CotizacionDecision | null | unde
     : `El cotizador dejó ${n} dudas. Confírmalas antes de enviar.`;
 }
 
+/** Aviso al enviar: no bloquea. Null si no hay sugerencias pendientes. */
+export function avisoEnviarSinSugerencias(
+  cotizacion: CotizacionDecision | null | undefined,
+): string | null {
+  const deLineas = sugerenciasPendientes(cotizacion).length;
+  const deRevision = Number(revisionSugerenciasDe(cotizacion).pendientes);
+  const n = deLineas > 0 ? deLineas : (Number.isFinite(deRevision) ? deRevision : 0);
+  if (n <= 0) return null;
+  return n === 1
+    ? 'Tienes 1 sugerencia sin decidir. Se enviará sin ella.'
+    : `Tienes ${n} sugerencias sin decidir. Se enviará sin ellas.`;
+}
+
+export type AlertaHomeCotizador = {
+  idPrefix: 'borrador' | 'sugerencias';
+  title: string;
+  message: string;
+};
+
+/** Copy del toast de home: borrador IA vs sugerencias por decidir. */
+export function alertaHomeCotizador(
+  tipo: string,
+  opts?: { preview?: string | null; pendientes?: number | null },
+): AlertaHomeCotizador | null {
+  const preview = String(opts?.preview || '').trim();
+  if (tipo === 'agente_ia_cotizacion_borrador') {
+    return {
+      idPrefix: 'borrador',
+      title: 'Borrador de la IA',
+      message: preview || 'Hay un borrador para revisar. El agente no lo envía solo.',
+    };
+  }
+  if (
+    tipo === 'revision_sugerencias_pendiente'
+    || tipo === 'agente_ia_revision_taller'
+    || tipo === 'cotizacion_revision_taller'
+  ) {
+    const n = Number(opts?.pendientes);
+    const nOk = Number.isFinite(n) && n > 0;
+    return {
+      idPrefix: 'sugerencias',
+      title: 'Sugerencias por decidir',
+      message: nOk
+        ? (n === 1
+          ? 'Hay 1 sugerencia pendiente. No se cobra hasta que la aceptes o la descartes.'
+          : `Hay ${n} sugerencias pendientes. No se cobran hasta que las aceptes o las descartes.`)
+        : (preview || 'El cotizador propone extras. Acepta o descarta; si no, se envía sin ellas.'),
+    };
+  }
+  return null;
+}
+
 export function hidratarLineaDecision(rep: LineaDecision): LineaDecision {
   const origen = origenLinea(rep);
   const motivo = motivoSugerencia(rep);

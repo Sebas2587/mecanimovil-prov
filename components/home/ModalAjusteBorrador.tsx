@@ -18,6 +18,7 @@ import { InstitutionalButton } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { envioTotalBloqueado, formatearTotalConocido, totalesDesdeLineas } from '@/utils/totalesCotizacion';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import logger from '@/utils/logger';
@@ -159,41 +160,46 @@ export function ModalAjusteBorrador({
     setRepuestos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleGuardarYAprobar = useCallback(async () => {
+  const handleGuardarYAprobar = useCallback(() => {
     if (!cotizacion) return;
     const bloqueo = envioTotalBloqueado({
+      ...cotizacion,
       repuestos,
       mano_obra_lineas: [{ monto_clp: manoObraNum }],
-      total_clp: cotizacion.total_clp,
-      totales_completos: cotizacion.totales_completos,
-      total_persistido_clp: cotizacion.total_persistido_clp,
     });
-    if (bloqueo || canon.total_clp == null) {
-      showAlert('Total incompleto', bloqueo || 'Falta el precio de una línea. No se envía como $0.');
+    if (bloqueo && !bloqueo.includes('duda')) {
+      showAlert('Total incompleto', bloqueo);
       return;
     }
-    try {
-      setSaving(true);
-
-      const patchData: Partial<CotizacionCanal> = {
-        mano_obra_clp: manoObraNum,
-        costo_repuestos_clp: canon.costo_repuestos_clp ?? 0,
-        total_clp: canon.total_clp,
-        repuestos,
-        notas_internas: notasInternas,
-      };
-
-      await cotizacionCanalService.actualizar(cotizacion.id, patchData);
-      await cotizacionCanalService.enviar(cotizacion.id);
-      showAlert('Cotización Aprobada', 'La cotización fue enviada al cliente con éxito.');
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      logger.error('Error guardando cotización:', error);
-      showAlert('Error', error?.message || 'No se pudo guardar la cotización.');
-    } finally {
-      setSaving(false);
+    const totalClp = canon.total_clp;
+    if (totalClp == null) {
+      showAlert('Total incompleto', 'Falta el precio de una línea. No se envía como $0.');
+      return;
     }
+    gateEnviarCotizacionTaller({ ...cotizacion, repuestos }, async () => {
+      try {
+        setSaving(true);
+
+        const patchData: Partial<CotizacionCanal> = {
+          mano_obra_clp: manoObraNum,
+          costo_repuestos_clp: canon.costo_repuestos_clp ?? 0,
+          total_clp: totalClp,
+          repuestos,
+          notas_internas: notasInternas,
+        };
+
+        await cotizacionCanalService.actualizar(cotizacion.id, patchData);
+        await cotizacionCanalService.enviar(cotizacion.id);
+        showAlert('Cotización Aprobada', 'La cotización fue enviada al cliente con éxito.');
+        onSuccess();
+        onClose();
+      } catch (error: any) {
+        logger.error('Error guardando cotización:', error);
+        showAlert('Error', error?.message || 'No se pudo guardar la cotización.');
+      } finally {
+        setSaving(false);
+      }
+    });
   }, [cotizacion, manoObraNum, canon.total_clp, canon.costo_repuestos_clp, repuestos, notasInternas, onSuccess, onClose]);
 
   if (!cotizacion) return null;

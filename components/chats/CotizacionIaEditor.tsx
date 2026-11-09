@@ -66,6 +66,7 @@ import {
   type EjecucionAdicional,
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { showAlert } from '@/utils/platformAlert';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import { dudasDe } from '@/utils/decisionCotizador';
@@ -709,23 +710,20 @@ export const CotizacionIaEditor = React.forwardRef<
   const pedirEnvio = useCallback((tipo: 'estimacion' | 'cotizacion') => {
     const current = cotizacionRef.current;
     if (!onEnviar) return;
-    const bloqueo = envioTotalBloqueado(current);
-    if (bloqueo) {
-      showAlert(bloqueo.includes('duda') ? 'Falta tu opinión' : 'Total incompleto', bloqueo);
-      return;
-    }
-    if (
-      current.es_cotizacion_adicional
-      && current.ejecucion_adicional === 'nueva_fecha'
-      && (!current.fecha_propuesta || !current.hora_propuesta)
-    ) {
-      showAlert(
-        'Fecha requerida',
-        'Indica día y hora acordados con el cliente antes de enviar.',
-      );
-      return;
-    }
-    onEnviar(tipo);
+    gateEnviarCotizacionTaller(current, () => {
+      if (
+        current.es_cotizacion_adicional
+        && current.ejecucion_adicional === 'nueva_fecha'
+        && (!current.fecha_propuesta || !current.hora_propuesta)
+      ) {
+        showAlert(
+          'Fecha requerida',
+          'Indica día y hora acordados con el cliente antes de enviar.',
+        );
+        return;
+      }
+      onEnviar(tipo);
+    });
   }, [onEnviar]);
 
   React.useImperativeHandle(ref, () => ({

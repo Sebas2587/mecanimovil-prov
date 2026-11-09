@@ -49,6 +49,7 @@ import { HOLD_REVEAL_PRECIOS_MS, shouldHoldRevealForPrecios } from '@/utils/coti
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import { pedirConfirmacionEliminarCotizacion } from '@/utils/eliminarCotizacionTaller';
+import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { envioTotalBloqueado } from '@/utils/totalesCotizacion';
 import {
   CLIPBOARD_MENSAJE_COPIADO,
@@ -295,6 +296,11 @@ export default function CotizacionCanalDetalleScreen() {
       setGuardando(false);
     }
   }, [draft, persistirSiHayCambios]);
+
+  const pedirVistaPrevia = useCallback((tipo?: 'estimacion' | 'cotizacion') => {
+    if (!draft) return;
+    gateEnviarCotizacionTaller(draft, () => abrirVistaPrevia(tipo));
+  }, [draft, abrirVistaPrevia]);
 
   const enviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
@@ -745,7 +751,7 @@ export default function CotizacionCanalDetalleScreen() {
           readonly={!editable || modoVista}
           hideSendActions
           compactHeader
-          onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
+          onEnviarEstimacion={() => pedirVistaPrevia('estimacion')}
         />
 
         {draft.estado !== 'borrador' ? (
@@ -820,7 +826,7 @@ export default function CotizacionCanalDetalleScreen() {
               sendDisabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
               loading={enviando || guardando}
               onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
-              onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+              onEnviarFirme={() => pedirVistaPrevia('cotizacion')}
             />
           </View>
         ) : null}
