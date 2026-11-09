@@ -4,6 +4,7 @@ export type CotizacionBuscable = {
   cliente_telefono?: string | null;
   numero_publico?: string | null;
   servicio_nombre?: string | null;
+  descripcion_problema?: string | null;
   vehiculo_marca?: string | null;
   vehiculo_modelo?: string | null;
   vehiculo_anio?: number | string | null;
@@ -37,6 +38,7 @@ export function coincideBusquedaCotizacion(
     cotizacion.cliente_telefono,
     cotizacion.numero_publico,
     cotizacion.servicio_nombre,
+    cotizacion.descripcion_problema,
     cotizacion.vehiculo_marca,
     cotizacion.vehiculo_modelo,
     cotizacion.vehiculo_anio,

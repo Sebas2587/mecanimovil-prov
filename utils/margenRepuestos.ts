@@ -115,7 +115,7 @@ export function resumenMargenRepuestos(lineas: LineaMargenInput[]): ResumenMarge
     cobradoConCosto += m.cobradoLinea;
     gananciaConocida += m.margenClp;
   }
-  if (conCosto === 0) {
+  if (conCosto === 0 || haySinCosto) {
     return {
       costoTotal: null,
       cobradoTotal,
@@ -133,8 +133,10 @@ export function resumenMargenRepuestos(lineas: LineaMargenInput[]): ResumenMarge
   };
 }
 
+export const TEXTO_SIN_COSTO = 'sin costo registrado';
+
 export function textoMargenClp(valor: number | null): string {
-  if (valor == null) return 'sin costo';
+  if (valor == null) return TEXTO_SIN_COSTO;
   if (valor < 0) return `−${formatearMontoCLP(Math.abs(valor))}`;
   return formatearMontoCLP(valor);
 }

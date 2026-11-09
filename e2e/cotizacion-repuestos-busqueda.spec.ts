@@ -7,10 +7,18 @@ const TOKEN_PUBLICO = 'cotiz-publico-3624';
 
 type CotizacionCreada = {
   id: number;
-  repuestos: { costo_unitario_clp: number | null; margen_clp: number | null }[];
+  repuestos: {
+    costo_unitario_clp: number | null;
+    precio_cobrado_clp: number | null;
+    margen_clp: number | null;
+    margen_pct: number | null;
+    costo_estimado_clp: number | null;
+    costo_origen: string | null;
+  }[];
   ganancia_repuestos_clp: number | null;
   costo_total_repuestos_clp: number | null;
   cobrado_total_repuestos_clp: number | null;
+  margen_repuestos_pct: number | null;
 };
 
 async function sinDesborde(page: Page) {
@@ -43,14 +51,17 @@ function publicarToken(id: number) {
     set -euo pipefail
     cd /agent/repos/mecanimovil-prov
     export DB_NAME=mecanimovil_cotiz_3624
-    export BACKEND_DIR=/tmp/mecanimovil-backend-main
+    export BACKEND_DIR=/tmp/mecanimovil-backend-costo
     export DATABASE_URL="postgis://mecani_test:test123@127.0.0.1:5432/$DB_NAME"
     export DEBUG=True
     export SECURE_SSL_REDIRECT=False
     export SECRET_KEY=test-secret-key-for-ci-only-never-use-in-production
     export GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
     unset REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND
-    /tmp/mecanimovil-backend/venv/bin/python scripts/isolated_backend.py shell -c "from mecanimovilapp.apps.ordenes.models import CotizacionCanal; CotizacionCanal.objects.exclude(pk=${id}).filter(token='${TOKEN_PUBLICO}').update(token=''); c=CotizacionCanal.objects.get(pk=${id}); c.token='${TOKEN_PUBLICO}'; c.save(update_fields=['token'])"
+    /tmp/mecanimovil-backend/venv/bin/python scripts/isolated_backend.py shell -c "from django.utils.crypto import get_random_string; from mecanimovilapp.apps.ordenes.models import CotizacionCanal; qs=CotizacionCanal.objects.exclude(pk=${id}).filter(token='${TOKEN_PUBLICO}');
+for row in qs:
+    row.token='old-'+get_random_string(12); row.save(update_fields=['token'])
+c=CotizacionCanal.objects.get(pk=${id}); c.token='${TOKEN_PUBLICO}'; c.save(update_fields=['token'])"
   `], { stdio: 'pipe' });
 }
 
@@ -110,7 +121,47 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   expect(cotizacion.cobrado_total_repuestos_clp).toBe(20000);
   expect(cotizacion.ganancia_repuestos_clp).toBe(8000);
   expect(cotizacion.repuestos[0].costo_unitario_clp).toBe(6000);
+  expect(cotizacion.repuestos[0].precio_cobrado_clp).toBe(10000);
   expect(cotizacion.repuestos[0].margen_clp).toBe(8000);
+  expect(cotizacion.repuestos[0].margen_pct).toBe(66.7);
+  expect(cotizacion.repuestos[0].costo_estimado_clp).toBe(6000);
+  expect(cotizacion.repuestos[0].costo_origen).toBe('estimado');
+  expect(cotizacion.margen_repuestos_pct).toBe(66.7);
+
+  const sinCosto = await request.post(`${API}/ordenes/cotizaciones-canal/crear-borrador/`, {
+    headers: auth,
+    data: {
+      cliente_nombre: 'Linea Sin Costo',
+      servicio_nombre: 'Revision',
+      modalidad: 'taller',
+      vehiculo: { marca: 'Fiat', modelo: 'Bravo', anio: 2012, patente: 'SC-00-11' },
+    },
+  });
+  expect(sinCosto.ok()).toBeTruthy();
+  const sinId = (await sinCosto.json()).cotizacion.id as number;
+  const mixto = await request.patch(`${API}/ordenes/cotizaciones-canal/${sinId}/`, {
+    headers: auth,
+    data: {
+      repuestos: [
+        { id: 's1', nombre: 'Bujia', cantidad: 1, precio_unitario_clp: 4000 },
+        { id: 's2', nombre: 'Filtro', cantidad: 2, precio_unitario_clp: 10000, costo_unitario_clp: 6000 },
+      ],
+    },
+  });
+  expect(mixto.ok()).toBeTruthy();
+  const mixtoJson = await mixto.json() as CotizacionCreada;
+  expect(mixtoJson.costo_total_repuestos_clp).toBeNull();
+  expect(mixtoJson.ganancia_repuestos_clp).toBeNull();
+  expect(mixtoJson.cobrado_total_repuestos_clp).toBe(24000);
+  expect(mixtoJson.repuestos[0].costo_unitario_clp).toBeNull();
+
+  const porNombre = await request.get(`${API}/ordenes/cotizaciones-canal/?q=${encodeURIComponent('josé costos')}&page_size=100`, { headers: auth });
+  expect(porNombre.ok()).toBeTruthy();
+  const filasNombre = ((await porNombre.json()) as { results: { id: number }[] }).results;
+  expect(filasNombre.some((fila) => fila.id === id)).toBeTruthy();
+  const porPatente = await request.get(`${API}/ordenes/cotizaciones-canal/?q=jq.cd.12&page_size=100`, { headers: auth });
+  const filasPatente = ((await porPatente.json()) as { results: { id: number }[] }).results;
+  expect(filasPatente.some((fila) => fila.id === id)).toBeTruthy();
 
   publicarToken(id);
   const publica = await request.get(`${API}/ordenes/cotizaciones-publicas/${TOKEN_PUBLICO}/`);
@@ -119,6 +170,11 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   expect(publicaJson).not.toContain('ganancia_repuestos_clp');
   expect(publicaJson).not.toContain('costo_unitario_clp');
   expect(publicaJson).not.toContain('costo_estimado_clp');
+  expect(publicaJson).not.toContain('costo_registrado_clp');
+  expect(publicaJson).not.toContain('precio_cobrado_clp');
+  expect(publicaJson).not.toContain('margen_clp');
+  expect(publicaJson).not.toContain('costo_origen');
+  expect(publicaJson).not.toContain('costo_total_repuestos_clp');
 
   const context = await browser.newContext();
   await context.addInitScript(({ token, user, apiUrl }) => {
@@ -151,7 +207,13 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   const buscador = page.getByLabel('Buscar cotizaciones');
   await expect(buscador).toBeVisible();
   await buscador.click();
+  const pedidoNombre = page.waitForResponse((res) => {
+    if (!res.url().includes('/cotizaciones-canal/') || !res.ok()) return false;
+    return new URL(res.url()).searchParams.get('q') === 'jose';
+  });
   await buscador.pressSequentially('jose', { delay: 20 });
+  const cuerpoBusqueda = await (await pedidoNombre).json() as { results?: { id: number }[] };
+  expect((cuerpoBusqueda.results ?? []).some((fila) => fila.id === id)).toBeTruthy();
   await expect(page.getByText('José Costos Busqueda').first()).toBeVisible();
   await buscador.fill('');
   await buscador.pressSequentially('jqcd12', { delay: 20 });
@@ -174,6 +236,14 @@ test('el taller ve costo, cobrado y ganancia, y encuentra la cotización', async
   await sinZoomLock(page);
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${BASE_URL}/cotizacion-canal/${sinId}`);
+  await cerrarAvisoLegal(page);
+  await expect(page.getByText('Costo final sin costo registrado').first()).toBeVisible();
+  await expect(page.getByText('Ganancia sin costo registrado').first()).toBeVisible();
+  await expect(page.getByText('Cobrado repuestos').first()).toBeVisible();
+  await expect(page.getByText('$24.000').first()).toBeVisible();
+  await expect(page.getByText('Costo final $0')).toHaveCount(0);
+
   await page.goto(`${BASE_URL}/cotizacion/${TOKEN_PUBLICO}`);
   await cerrarAvisoLegal(page);
   await expect(page.getByText('José Costos Busqueda')).toBeVisible();

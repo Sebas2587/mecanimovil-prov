@@ -93,16 +93,17 @@ describe('margenLineaRepuesto', () => {
 });
 
 describe('resumenMargenRepuestos', () => {
-  it('suma ganancia en vivo y marca líneas sin costo', () => {
+  it('anula costo y ganancia del total si una línea no tiene costo', () => {
     const r = resumenMargenRepuestos([
       { costo_unitario_clp: 6000, cantidad: 2, precio_unitario_clp: 8000 },
       { costo_unitario_clp: null, cantidad: 1, precio_unitario_clp: 5000 },
     ]);
-    expect(r.ganancia).toBe(4000);
+    expect(r.ganancia).toBeNull();
+    expect(r.costoTotal).toBeNull();
     expect(r.cobradoTotal).toBe(21000);
-    expect(r.costoTotal).toBe(12000);
-    // margenPct ahora es markup on cost: (4000 / 12000) * 100 = 33.33
-    expect(Math.round((r.margenPct || 0) * 100) / 100).toBeCloseTo(33.33, 1);
+    expect(r.margenPct).toBeNull();
     expect(r.haySinCosto).toBe(true);
+    expect(textoMargenClp(r.ganancia)).toBe('sin costo registrado');
+    expect(textoMargenClp(0)).not.toBe('sin costo registrado');
   });
 });

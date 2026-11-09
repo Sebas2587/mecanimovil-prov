@@ -79,13 +79,18 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     setFiltro(filtroInicial(estadoInicial));
   }, [estadoInicial]);
   const [busqueda, setBusqueda] = useState('');
+  const [consulta, setConsulta] = useState('');
   const [ocultarPruebas, setOcultarPruebas] = useState(true);
   const [buscadorEnfocado, setBuscadorEnfocado] = useState(false);
   const [abiertaId, setAbiertaId] = useState<number | null>(null);
   const progresoBuscador = useRef(new Animated.Value(1)).current;
   const offsetAnterior = useRef(0);
   const buscadorVisible = useRef(true);
-  const query = useCotizacionesCanalTallerQuery();
+  useEffect(() => {
+    const handle = setTimeout(() => setConsulta(busqueda.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [busqueda]);
+  const query = useCotizacionesCanalTallerQuery(true, consulta);
   const queryClient = useQueryClient();
   const cotizaciones = query.data ?? [];
   const cargandoLista = query.isPending && query.data == null;
@@ -111,12 +116,14 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     return base;
   }, [baseLista]);
 
+  const servidorYaFiltro = consulta.length > 0 && busqueda.trim().length > 0 && !query.isPlaceholderData;
   const visibles = useMemo(() => {
     return baseLista.filter((cotizacion) => {
       if (filtro !== 'todas' && estadoCotizacionVista(cotizacion) !== filtro) return false;
+      if (servidorYaFiltro) return true;
       return coincideBusquedaCotizacion(cotizacion, busqueda);
     });
-  }, [baseLista, busqueda, filtro]);
+  }, [baseLista, busqueda, filtro, servidorYaFiltro]);
 
   const sumaEstados = (estados: EstadoCotizacionVista[]) => {
     const buscados = new Set(estados);

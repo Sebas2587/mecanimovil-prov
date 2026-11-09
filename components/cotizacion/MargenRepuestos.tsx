@@ -5,6 +5,7 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import {
   margenLineaRepuesto,
   resumenMargenRepuestos,
+  TEXTO_SIN_COSTO,
   textoMargenClp,
   textoMargenPct,
   type LineaMargenInput,
@@ -29,13 +30,13 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
   return (
     <View style={styles.row} testID="economia-repuesto-linea" accessibilityLabel="Costo final, cobrado y ganancia">
       <InstitutionalText role="caption" color="muted">
-        Costo final {m.costoLinea == null ? 'sin costo' : textoMargenClp(m.costoLinea)}
+        Costo final {m.costoLinea == null ? TEXTO_SIN_COSTO : textoMargenClp(m.costoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color="muted">
         Cobrado {textoMargenClp(m.cobradoLinea)}
       </InstitutionalText>
       <InstitutionalText role="caption" color={colorDe(m.margenClp)}>
-        Ganancia {m.margenClp == null ? 'sin costo' : textoMargenClp(m.margenClp)}
+        Ganancia {m.margenClp == null ? TEXTO_SIN_COSTO : textoMargenClp(m.margenClp)}
         {pct ? ` ${pct}` : ''}
       </InstitutionalText>
     </View>
@@ -52,7 +53,7 @@ export function ResumenMargenRepuestos({
 }) {
   if (!repuestos.length) return null;
   const r = resumenMargenRepuestos(repuestos);
-  const usarServidor = r.ganancia == null && servidor?.ganancia_repuestos_clp != null;
+  const usarServidor = !r.haySinCosto && r.ganancia == null && servidor?.ganancia_repuestos_clp != null;
   const costoTotal = usarServidor ? servidor?.costo_total_repuestos_clp ?? null : r.costoTotal;
   const cobradoTotal = usarServidor && servidor?.cobrado_total_repuestos_clp != null
     ? servidor.cobrado_total_repuestos_clp
@@ -61,18 +62,13 @@ export function ResumenMargenRepuestos({
   const pct = textoMargenPct(usarServidor ? servidor?.margen_repuestos_pct ?? null : r.margenPct);
   return (
     <View style={styles.resumen} testID="economia-repuestos-totales" accessibilityLabel="Costo final, cobrado y ganancia de repuestos">
-      <Fila label="Costo final repuestos" valor={costoTotal == null ? 'sin costo' : textoMargenClp(costoTotal)} />
+      <Fila label="Costo final repuestos" valor={costoTotal == null ? TEXTO_SIN_COSTO : textoMargenClp(costoTotal)} />
       <Fila label="Cobrado repuestos" valor={textoMargenClp(cobradoTotal)} />
       <Fila
         label="Ganancia repuestos"
-        valor={ganancia == null ? 'sin costo' : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
+        valor={ganancia == null ? TEXTO_SIN_COSTO : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
         color={colorDe(ganancia)}
       />
-      {r.haySinCosto && ganancia != null ? (
-        <InstitutionalText role="caption" color="muted">
-          Hay repuestos sin costo. La ganancia no los incluye.
-        </InstitutionalText>
-      ) : null}
     </View>
   );
 }

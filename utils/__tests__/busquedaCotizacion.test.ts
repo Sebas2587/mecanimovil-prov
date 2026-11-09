@@ -28,6 +28,19 @@ describe('coincideBusquedaCotizacion', () => {
     expect(coincideBusquedaCotizacion(cotizacion, 'corol')).toBe(true);
   });
 
+  it('encuentra el nombre visible del contacto y la descripción', () => {
+    expect(coincideBusquedaCotizacion({
+      ...cotizacion,
+      cliente_nombre: '',
+      cliente_display: 'María Pérez',
+      descripcion_problema: 'Falla al arrancar',
+    }, 'maria perez')).toBe(true);
+    expect(coincideBusquedaCotizacion({
+      ...cotizacion,
+      descripcion_problema: 'Falla al arrancar',
+    }, 'arrancar')).toBe(true);
+  });
+
   it('no mezcla un cliente con otro auto', () => {
     expect(coincideBusquedaCotizacion(cotizacion, 'toyota hilux')).toBe(false);
     expect(coincideBusquedaCotizacion(cotizacion, 'pedro')).toBe(false);

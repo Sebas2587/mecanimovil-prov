@@ -986,10 +986,12 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
-  async listar(params?: { page?: number; page_size?: number }): Promise<CotizacionCanal[]> {
+  async listar(params?: { page?: number; page_size?: number; q?: string }): Promise<CotizacionCanal[]> {
     const search = new URLSearchParams();
     if (params?.page != null) search.set('page', String(params.page));
     if (params?.page_size != null) search.set('page_size', String(params.page_size));
+    const consulta = params?.q?.trim();
+    if (consulta) search.set('q', consulta);
     const qs = search.toString();
     const url = qs ? `/ordenes/cotizaciones-canal/?${qs}` : '/ordenes/cotizaciones-canal/';
     const response = await api.get(url);
