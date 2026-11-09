@@ -97,6 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.md,
     backgroundColor: I.surfaceSoft,
     padding: SPACING.fixed.sm,
+    overflow: 'hidden',
   },
   cajaPendiente: {
     backgroundColor: withOpacity(I.accentYellow, 0.12),

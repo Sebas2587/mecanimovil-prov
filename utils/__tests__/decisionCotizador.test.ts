@@ -3,6 +3,7 @@ import {
   esperaRevisionTaller,
   hidratarDecisionesCotizacion,
   mensajeBloqueoDudas,
+  resumenRevisionTaller,
   sugerenciaEstado,
   visibleAlCliente,
   type CotizacionDecision,
@@ -18,13 +19,13 @@ const pedido = {
   precio_unitario_clp: 120000,
 };
 const sugerido = {
-  id: 'bomba',
-  nombre: 'Bomba de embrague',
+  id: 'rod',
+  nombre: 'Rodamiento de volante',
   origen: 'sugerencia' as const,
-  motivo_sugerencia: 'Suele ir con el kit en esta patente.',
+  motivo_sugerencia: 'No viene en el kit (disco, prensa y collarín de empuje).',
   estado_sugerencia: 'pendiente' as const,
   cantidad: 1,
-  precio_unitario_clp: 45000,
+  precio_unitario_clp: 12000,
 };
 
 describe('decisión del taller sobre líneas del cotizador', () => {
@@ -50,7 +51,7 @@ describe('decisión del taller sobre líneas del cotizador', () => {
     const canon = totalesDesdeLineas({
       repuestos: [pedido, { ...sugerido, estado_sugerencia: 'aceptada' }],
     });
-    expect(canon.costo_repuestos_clp).toBe(165000);
+    expect(canon.costo_repuestos_clp).toBe(132000);
   });
 
   it('bloquea el envío si hay dudas pendientes', () => {
@@ -70,8 +71,8 @@ describe('decisión del taller sobre líneas del cotizador', () => {
   it('hidrata origen, estado, dudas y revision_sugerencias del contrato', () => {
     const hidratada = hidratarDecisionesCotizacion({
       repuestos: [{
-        id: 'bomba',
-        nombre: 'Bomba de embrague',
+        id: 'rod',
+        nombre: 'Rodamiento de volante',
         origen: 'sugerencia',
         motivo_sugerencia: 'Complemento habitual.',
         estado_sugerencia: 'pendiente',
@@ -85,5 +86,16 @@ describe('decisión del taller sobre líneas del cotizador', () => {
     expect(hidratada.dudas).toHaveLength(1);
     expect(hidratada.revision_sugerencias?.estado).toBe('pendiente');
     expect(esperaRevisionTaller(hidratada)).toBe(true);
+  });
+
+  it('si el listado no trae origen, usa revision_sugerencias.pendientes', () => {
+    const lista = {
+      repuestos: [{ id: 'kit', nombre: 'Kit de embrague', precio_unitario_clp: 120000 }],
+      revision_sugerencias: { estado: 'pendiente', pendientes: 3 },
+      dudas: [{ id: 'd1', texto: '¿DOT3 o DOT4?', confirmada: false }],
+    };
+    expect(esperaRevisionTaller(lista)).toBe(true);
+    expect(resumenRevisionTaller(lista).sugerencias).toBe(3);
+    expect(resumenRevisionTaller(lista).dudas).toBe(1);
   });
 });

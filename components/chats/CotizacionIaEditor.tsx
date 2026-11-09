@@ -136,6 +136,8 @@ interface CotizacionIaEditorProps {
   compactHeader?: boolean;
   /** Oculta la fila de encabezado (p. ej. plantilla en BottomSheet con header propio). */
   sinHeader?: boolean;
+  /** Aire a la derecha para que el FAB no tape avisos ni el total. */
+  gutterEnd?: number;
 }
 
 export type CotizacionIaEditorHandle = {
@@ -161,6 +163,7 @@ export const CotizacionIaEditor = React.forwardRef<
   readonly = false,
   compactHeader = false,
   sinHeader = false,
+  gutterEnd = 0,
 }, ref) {
   const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
@@ -868,7 +871,7 @@ export const CotizacionIaEditor = React.forwardRef<
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, gutterEnd ? { paddingRight: gutterEnd } : null]}>
       <AvisoSinSenal ambito="cotizacion" />
       {!sinHeader ? (
         <CotizacionEditorEncabezado

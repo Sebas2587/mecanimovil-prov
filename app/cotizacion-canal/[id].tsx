@@ -18,6 +18,7 @@ import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/Cotizaci
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import { cotizacionFabLayout } from '@/components/cotizacion/cotizacionEditorFabLayout';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -671,6 +672,7 @@ export default function CotizacionCanalDetalleScreen() {
     || draft.estado === 'enviada'
     || draft.estado === 'aceptada'
   );
+  const fabLayout = cotizacionFabLayout({ showFooter, footerBottom });
 
   return (
     <View style={styles.screen}>
@@ -728,11 +730,13 @@ export default function CotizacionCanalDetalleScreen() {
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
           styles.scrollInner,
-          { paddingBottom: footerBottom + 72 },
+          { paddingBottom: fabLayout.paddingBottom },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.columnaEditor}>
+        <View style={styles.columnaEditorCuerpo}>
         {trabajoEntregado ? (
           <InstitutionalTag label="Trabajo terminado" variant="success" size="sm" />
         ) : null}
@@ -778,6 +782,15 @@ export default function CotizacionCanalDetalleScreen() {
         {draft.estado === 'enviada' && !editando ? (
           <CotizacionEnviadaSiguientePaso cotizacion={draft} />
         ) : null}
+        </View>
+        {fabActions.length > 0 ? (
+          <View
+            style={[styles.columnaEditorRail, { width: fabLayout.gutterFab }]}
+            pointerEvents="none"
+            testID="cotizacion-editor-fab-rail"
+          />
+        ) : null}
+        </View>
       </ScrollView>
 
       {showFooter ? (
@@ -902,11 +915,7 @@ export default function CotizacionCanalDetalleScreen() {
           visible
           variant={fabVariant}
           actions={fabActions}
-          bottomOffset={
-            showFooter
-              ? footerBottom + 112
-              : footerBottom + SPACING.fixed.lg
-          }
+          bottomOffset={fabLayout.bottomOffset}
         />
       ) : null}
 
@@ -950,11 +959,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollInner: {
-    gap: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.md,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
+  },
+  columnaEditor: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    width: '100%',
+    maxWidth: '100%',
+  },
+  columnaEditorCuerpo: {
+    flex: 1,
+    minWidth: 0,
+    gap: SPACING.fixed.lg,
+  },
+  columnaEditorRail: {
+    flexShrink: 0,
   },
   footerFila: {
     flexDirection: 'row',

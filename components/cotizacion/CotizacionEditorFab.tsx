@@ -5,10 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { BORDERS, COLORS, SHADOWS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import { COTIZACION_FAB_SIZE } from '@/components/cotizacion/cotizacionEditorFabLayout';
 
 const I = COLORS.institutional;
-const FAB_SIZE = 56;
+const FAB_SIZE = COTIZACION_FAB_SIZE;
 const ACTION_SIZE = 44;
+
+export { COTIZACION_FAB_SIZE, cotizacionFabLayout } from '@/components/cotizacion/cotizacionEditorFabLayout';
 
 export type CotizacionFabAction = {
   key: string;
@@ -133,6 +136,7 @@ export function CotizacionEditorFab({
           onPress={() => setOpen((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={open ? closeLabel : openLabel}
+          testID="cotizacion-editor-fab"
           style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
         >
           {open ? (

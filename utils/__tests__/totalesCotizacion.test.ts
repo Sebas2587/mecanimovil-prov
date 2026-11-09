@@ -141,28 +141,29 @@ describe('totales de cotización con total nulo', () => {
   it('el total cobrado ignora sugerencias pendientes aunque el servidor las sume', () => {
     const conSugerida = base({
       mano_obra_clp: 40000,
-      total_clp: 213000,
+      total_clp: 225000,
       totales_completos: true,
       repuestos: [
         { id: 'kit', nombre: 'Kit', cantidad: 1, precio_unitario_clp: 120000, origen: 'pedido' },
+        { id: 'bomba', nombre: 'Bomba', cantidad: 1, precio_unitario_clp: 45000, origen: 'pedido' },
+        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen: 'pedido' },
         {
-          id: 'bomba',
-          nombre: 'Bomba',
+          id: 'rod',
+          nombre: 'Rodamiento de volante',
           cantidad: 1,
-          precio_unitario_clp: 45000,
+          precio_unitario_clp: 12000,
           origen: 'sugerencia',
           estado_sugerencia: 'pendiente',
         },
-        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen: 'pedido' },
       ],
     });
-    expect(textoTotalCotizacion(conSugerida)).toBe(formatearMontoCLP(213000));
-    expect(textoTotalCobradoAlCliente(conSugerida)).toBe(formatearMontoCLP(168000));
+    expect(textoTotalCotizacion(conSugerida)).toBe(formatearMontoCLP(225000));
+    expect(textoTotalCobradoAlCliente(conSugerida)).toBe(formatearMontoCLP(213000));
     expect(textoTotalCobradoAlCliente({
       ...conSugerida,
       repuestos: conSugerida.repuestos.map((rep) => (
-        rep.id === 'bomba' ? { ...rep, estado_sugerencia: 'aceptada' as const } : rep
+        rep.id === 'rod' ? { ...rep, estado_sugerencia: 'aceptada' as const } : rep
       )),
-    })).toBe(formatearMontoCLP(213000));
+    })).toBe(formatearMontoCLP(225000));
   });
 });

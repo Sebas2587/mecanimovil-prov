@@ -150,7 +150,13 @@ export function revisionSugerenciasEstado(
 /** El cotizador pidió opinión y todavía no se decide. */
 export function esperaRevisionTaller(cotizacion: CotizacionDecision | null | undefined): boolean {
   if (!cotizacion) return false;
-  return sugerenciasPendientes(cotizacion).length > 0 || dudasPendientes(cotizacion).length > 0;
+  if (sugerenciasPendientes(cotizacion).length > 0 || dudasPendientes(cotizacion).length > 0) {
+    return true;
+  }
+  const lineas = cotizacion.repuestos ?? [];
+  const tieneOrigen = lineas.some((rep) => origenLinea(rep) === 'sugerencia' || String(rep.origen || '').trim() === 'pedido');
+  if (tieneOrigen) return false;
+  return revisionSugerenciasEstado(cotizacion) === 'pendiente';
 }
 
 export function resumenRevisionTaller(cotizacion: CotizacionDecision | null | undefined): {
@@ -160,7 +166,9 @@ export function resumenRevisionTaller(cotizacion: CotizacionDecision | null | un
   dudas: number;
   texto: string;
 } {
-  const sugerencias = sugerenciasPendientes(cotizacion).length;
+  const deLineas = sugerenciasPendientes(cotizacion).length;
+  const deRevision = Number(revisionSugerenciasDe(cotizacion).pendientes);
+  const sugerencias = deLineas > 0 ? deLineas : (Number.isFinite(deRevision) ? deRevision : 0);
   const dudas = dudasPendientes(cotizacion).length;
   const espera = esperaRevisionTaller(cotizacion);
   const tuvoRevision = revisionSugerenciasEstado(cotizacion) === 'resuelta'
