@@ -3,9 +3,6 @@ import {
   esperaRevisionTaller,
   hidratarDecisionesCotizacion,
   mensajeBloqueoDudas,
-  puedeCerrarRevisionTaller,
-  responderDuda,
-  serializarDecisionesMetadata,
   sugerenciaEstado,
   visibleAlCliente,
   type CotizacionDecision,
@@ -15,16 +12,17 @@ import { envioTotalBloqueado, totalesDesdeLineas } from '@/utils/totalesCotizaci
 const pedido = {
   id: 'kit',
   nombre: 'Kit de embrague',
-  origen_linea: 'pedido' as const,
+  origen: 'pedido' as const,
+  estado_sugerencia: 'aceptada' as const,
   cantidad: 1,
   precio_unitario_clp: 120000,
 };
 const sugerido = {
   id: 'bomba',
   nombre: 'Bomba de embrague',
-  origen_linea: 'sugerido' as const,
+  origen: 'sugerencia' as const,
   motivo_sugerencia: 'Suele ir con el kit en esta patente.',
-  sugerencia_estado: 'pendiente' as const,
+  estado_sugerencia: 'pendiente' as const,
   cantidad: 1,
   precio_unitario_clp: 45000,
 };
@@ -33,9 +31,9 @@ describe('decisión del taller sobre líneas del cotizador', () => {
   it('no cobra una sugerencia pendiente ni descartada, y sí cobra la aceptada', () => {
     expect(cobraAlCliente(pedido)).toBe(true);
     expect(cobraAlCliente(sugerido)).toBe(false);
-    expect(cobraAlCliente({ ...sugerido, sugerencia_estado: 'descartada' })).toBe(false);
-    expect(cobraAlCliente({ ...sugerido, sugerencia_estado: 'aceptada' })).toBe(true);
-    expect(visibleAlCliente({ ...sugerido, sugerencia_estado: 'pendiente' })).toBe(false);
+    expect(cobraAlCliente({ ...sugerido, estado_sugerencia: 'descartada' })).toBe(false);
+    expect(cobraAlCliente({ ...sugerido, estado_sugerencia: 'aceptada' })).toBe(true);
+    expect(visibleAlCliente({ ...sugerido, estado_sugerencia: 'pendiente' })).toBe(false);
   });
 
   it('el total ignora sugerencias pendientes y no las trata como incompletas', () => {
@@ -50,7 +48,7 @@ describe('decisión del taller sobre líneas del cotizador', () => {
 
   it('al aceptar la sugerencia entra al total', () => {
     const canon = totalesDesdeLineas({
-      repuestos: [pedido, { ...sugerido, sugerencia_estado: 'aceptada' }],
+      repuestos: [pedido, { ...sugerido, estado_sugerencia: 'aceptada' }],
     });
     expect(canon.costo_repuestos_clp).toBe(165000);
   });
@@ -58,47 +56,34 @@ describe('decisión del taller sobre líneas del cotizador', () => {
   it('bloquea el envío si hay dudas pendientes', () => {
     const cotizacion = {
       repuestos: [pedido],
-      dudas_cotizador: [{
+      dudas: [{
         id: 'd1',
-        pregunta: '¿El kit incluye el rodamiento?',
-        estado: 'pendiente',
+        texto: '¿El kit incluye el rodamiento?',
+        confirmada: false,
       }],
     };
     expect(mensajeBloqueoDudas(cotizacion)).toMatch(/duda/);
     expect(envioTotalBloqueado(cotizacion)).toMatch(/duda/);
     expect(esperaRevisionTaller(cotizacion)).toBe(true);
-    expect(puedeCerrarRevisionTaller(cotizacion)).toBe(false);
   });
 
-  it('hidrata origen y estado desde metadata si el serializer recorta la línea', () => {
+  it('hidrata origen, estado, dudas y revision_sugerencias del contrato', () => {
     const hidratada = hidratarDecisionesCotizacion({
-      repuestos: [{ id: 'bomba', nombre: 'Bomba de embrague' }],
-      metadata: {
-        decisiones_lineas: {
-          bomba: {
-            origen_linea: 'sugerido',
-            motivo_sugerencia: 'Complemento habitual.',
-            sugerencia_estado: 'pendiente',
-          },
-        },
-        dudas_cotizador: [{ id: 'd1', pregunta: '¿Incluye rodamiento?' }],
-        revision_taller_estado: 'pendiente',
-      },
+      repuestos: [{
+        id: 'bomba',
+        nombre: 'Bomba de embrague',
+        origen: 'sugerencia',
+        motivo_sugerencia: 'Complemento habitual.',
+        estado_sugerencia: 'pendiente',
+      }],
+      dudas: [{ id: 'd1', texto: '¿Incluye rodamiento?', confirmada: false }],
+      revision_sugerencias: { estado: 'pendiente', pendientes: 1 },
     } as CotizacionDecision);
     expect(sugerenciaEstado(hidratada.repuestos?.[0])).toBe('pendiente');
+    expect(hidratada.repuestos?.[0]?.origen).toBe('sugerencia');
     expect(hidratada.repuestos?.[0]?.motivo_sugerencia).toBe('Complemento habitual.');
-    expect(hidratada.dudas_cotizador).toHaveLength(1);
-    const meta = serializarDecisionesMetadata(hidratada);
-    expect(meta.decisiones_lineas?.bomba?.origen_linea).toBe('sugerido');
-  });
-
-  it('responder una duda la saca de pendientes', () => {
-    const next = responderDuda(
-      [{ id: 'd1', pregunta: '¿Incluye rodamiento?', estado: 'pendiente' }],
-      'd1',
-      'No incluye',
-    );
-    expect(next[0].estado).toBe('respondida');
-    expect(next[0].respuesta).toBe('No incluye');
+    expect(hidratada.dudas).toHaveLength(1);
+    expect(hidratada.revision_sugerencias?.estado).toBe('pendiente');
+    expect(esperaRevisionTaller(hidratada)).toBe(true);
   });
 });

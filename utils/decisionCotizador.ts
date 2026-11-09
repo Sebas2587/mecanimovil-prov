@@ -1,85 +1,77 @@
 /**
- * Contrato mínimo que la app lee y escribe hasta que el backend
- * publique campos de primera clase. Si un campo no viene, la línea
- * se trata como pedida y se cobra.
+ * Contrato backend PR47 (518c8ca), rama cursor/cotizacion-pedido-sugerencias-fe0b.
  *
  * repuestos[]:
- *   origen_linea: 'pedido' | 'sugerido'
+ *   origen: 'pedido' | 'sugerencia'
  *   motivo_sugerencia: string
- *   sugerencia_estado: 'pendiente' | 'aceptada' | 'descartada'
+ *   estado_sugerencia: 'pendiente' | 'aceptada' | 'descartada'
  *
  * cotizacion:
- *   dudas_cotizador: [{ id, pregunta, contexto?, estado, respuesta? }]
- *   revision_taller_estado: 'pendiente' | 'lista' | 'sin_revision'
+ *   dudas: [{ id, texto, confirmada }]
+ *   revision_sugerencias: { estado: 'pendiente' | 'resuelta' | 'sin_sugerencias', pendientes }
  *
- * Persistencia transitoria: metadata.decisiones_lineas, metadata.dudas_cotizador,
- * metadata.revision_taller_estado. El serializer actual descarta claves
- * desconocidas de cada línea.
+ * Totales, ganancia y vista pública: pedido siempre (si tiene precio);
+ * sugerencia solo si aceptada; pendiente y descartada no se cobran.
  *
- * Totales y vista pública: pedido siempre (si tiene precio);
- * sugerido solo si aceptada; pendiente y descartada no se cobran.
+ * POST /ordenes/cotizaciones-canal/{id}/sugerencias/
+ *   { linea_id, accion: 'aceptar' | 'descartar' } → { cotizacion }
+ *   400 si la línea no existe o no es sugerencia.
+ * POST /ordenes/cotizaciones-canal/{id}/dudas/confirmar/ { id } → { cotizacion }
+ * DELETE /ordenes/cotizaciones-canal/{id}/
+ *   200 { eliminada, id, estado: 'cancelada', modo: 'oculta' }
+ *   409 { detail, codigo: 'cotizacion_con_caja' }
+ *   404 si es de otro taller.
  *
- * Ciclo de aprobación:
- *   POST /ordenes/cotizaciones-canal/{id}/revision-taller/
- *   body: { dudas_cotizador, decisiones_lineas, revision_taller_estado: 'lista' }
- *   Si 404, PATCH metadata.revision_taller_estado = 'lista'.
- *
- * Notificación interna: type agente_ia_revision_taller
- *   data: { cotizacion_id, conversation_id }
+ * Notificación interna websocket: type revision_sugerencias_pendiente
+ *   data: { cotizacion_id, conversation_id, pendientes }
  */
 
-export type OrigenLinea = 'pedido' | 'sugerido';
+export type OrigenLinea = 'pedido' | 'sugerencia';
 export type SugerenciaEstado = 'pendiente' | 'aceptada' | 'descartada';
-export type DudaEstado = 'pendiente' | 'respondida' | 'confirmada';
-export type RevisionTallerEstado = 'pendiente' | 'lista' | 'sin_revision';
+export type RevisionSugerenciasEstado = 'pendiente' | 'resuelta' | 'sin_sugerencias';
 
 export type DudaCotizador = {
   id: string;
-  pregunta: string;
-  contexto?: string;
-  estado?: DudaEstado | string;
-  respuesta?: string;
+  texto?: string;
+  confirmada?: boolean;
 };
 
 export type LineaDecision = {
   id?: string | number | null;
   nombre?: string | null;
-  origen_linea?: OrigenLinea | string | null;
+  origen?: OrigenLinea | string | null;
   motivo_sugerencia?: string | null;
-  sugerencia_estado?: SugerenciaEstado | string | null;
+  estado_sugerencia?: SugerenciaEstado | string | null;
 };
 
-export type DecisionLineaGuardada = {
-  origen_linea?: OrigenLinea | string;
-  motivo_sugerencia?: string;
-  sugerencia_estado?: SugerenciaEstado | string;
-};
-
-export type MetadataDecision = {
-  decisiones_lineas?: Record<string, DecisionLineaGuardada>;
-  dudas_cotizador?: DudaCotizador[];
-  revision_taller_estado?: RevisionTallerEstado | string;
-  [key: string]: unknown;
+export type RevisionSugerencias = {
+  estado?: RevisionSugerenciasEstado | string | null;
+  pendientes?: number | null;
 };
 
 export type CotizacionDecision = {
   repuestos?: LineaDecision[] | null;
-  dudas_cotizador?: DudaCotizador[] | null;
-  revision_taller_estado?: RevisionTallerEstado | string | null;
-  metadata?: MetadataDecision | null;
+  dudas?: DudaCotizador[] | null;
+  revision_sugerencias?: RevisionSugerencias | null;
+  metadata?: {
+    dudas?: DudaCotizador[] | null;
+    revision_sugerencias?: RevisionSugerencias | null;
+    [key: string]: unknown;
+  } | null;
 };
 
 export function origenLinea(rep: LineaDecision | null | undefined): OrigenLinea {
-  return String(rep?.origen_linea || '').trim() === 'sugerido' ? 'sugerido' : 'pedido';
+  const valor = String(rep?.origen || '').trim();
+  return valor === 'sugerencia' ? 'sugerencia' : 'pedido';
 }
 
 export function esLineaSugerida(rep: LineaDecision | null | undefined): boolean {
-  return origenLinea(rep) === 'sugerido';
+  return origenLinea(rep) === 'sugerencia';
 }
 
 export function sugerenciaEstado(rep: LineaDecision | null | undefined): SugerenciaEstado {
   if (!esLineaSugerida(rep)) return 'aceptada';
-  const valor = String(rep?.sugerencia_estado || 'pendiente').trim();
+  const valor = String(rep?.estado_sugerencia || 'pendiente').trim();
   if (valor === 'aceptada' || valor === 'descartada') return valor;
   return 'pendiente';
 }
@@ -88,7 +80,7 @@ export function motivoSugerencia(rep: LineaDecision | null | undefined): string 
   return String(rep?.motivo_sugerencia || '').trim();
 }
 
-/** Pedido siempre. Sugerido solo si el taller lo aceptó. Pendiente y descartada no. */
+/** Pedido siempre. Sugerencia solo si el taller la aceptó. Pendiente y descartada no. */
 export function cobraAlCliente(rep: LineaDecision | null | undefined): boolean {
   if (!rep) return false;
   if (origenLinea(rep) === 'pedido') return true;
@@ -109,20 +101,19 @@ export function etiquetaOrigenLinea(rep: LineaDecision | null | undefined): stri
   return 'Pedido';
 }
 
-function metadataDecision(cotizacion: CotizacionDecision | null | undefined): MetadataDecision {
-  return (cotizacion?.metadata || {}) as MetadataDecision;
-}
-
 export function dudasDe(cotizacion: CotizacionDecision | null | undefined): DudaCotizador[] {
-  const arriba = cotizacion?.dudas_cotizador;
+  const arriba = cotizacion?.dudas;
   if (Array.isArray(arriba) && arriba.length > 0) return arriba;
-  const meta = metadataDecision(cotizacion).dudas_cotizador;
+  const meta = cotizacion?.metadata?.dudas;
   return Array.isArray(meta) ? meta : [];
 }
 
+export function dudaTexto(duda: DudaCotizador | null | undefined): string {
+  return String(duda?.texto || '').trim();
+}
+
 export function dudaEstaPendiente(duda: DudaCotizador | null | undefined): boolean {
-  const estado = String(duda?.estado || 'pendiente').trim();
-  return estado === 'pendiente' || estado === '';
+  return duda?.confirmada !== true;
 }
 
 export function dudasPendientes(cotizacion: CotizacionDecision | null | undefined): DudaCotizador[] {
@@ -137,34 +128,29 @@ export function sugerenciasPendientes(
   );
 }
 
-export function revisionTallerEstado(
+export function revisionSugerenciasDe(
   cotizacion: CotizacionDecision | null | undefined,
-): RevisionTallerEstado {
-  const crudo = cotizacion?.revision_taller_estado
-    || metadataDecision(cotizacion).revision_taller_estado
-    || '';
-  const valor = String(crudo).trim();
-  if (valor === 'pendiente' || valor === 'lista' || valor === 'sin_revision') return valor;
-  if (sugerenciasPendientes(cotizacion).length > 0 || dudasPendientes(cotizacion).length > 0) {
-    return 'pendiente';
-  }
-  return 'sin_revision';
+): RevisionSugerencias {
+  const arriba = cotizacion?.revision_sugerencias;
+  if (arriba && typeof arriba === 'object') return arriba;
+  const meta = cotizacion?.metadata?.revision_sugerencias;
+  return meta && typeof meta === 'object' ? meta : {};
 }
 
-/** El cotizador pidió opinión y todavía no se confirma. */
+export function revisionSugerenciasEstado(
+  cotizacion: CotizacionDecision | null | undefined,
+): RevisionSugerenciasEstado {
+  const crudo = String(revisionSugerenciasDe(cotizacion).estado || '').trim();
+  if (crudo === 'pendiente' || crudo === 'resuelta' || crudo === 'sin_sugerencias') return crudo;
+  if (sugerenciasPendientes(cotizacion).length > 0) return 'pendiente';
+  if ((cotizacion?.repuestos ?? []).some((rep) => esLineaSugerida(rep))) return 'resuelta';
+  return 'sin_sugerencias';
+}
+
+/** El cotizador pidió opinión y todavía no se decide. */
 export function esperaRevisionTaller(cotizacion: CotizacionDecision | null | undefined): boolean {
   if (!cotizacion) return false;
-  if (revisionTallerEstado(cotizacion) === 'lista') return false;
-  if (revisionTallerEstado(cotizacion) === 'pendiente') return true;
   return sugerenciasPendientes(cotizacion).length > 0 || dudasPendientes(cotizacion).length > 0;
-}
-
-export function puedeCerrarRevisionTaller(
-  cotizacion: CotizacionDecision | null | undefined,
-): boolean {
-  return esperaRevisionTaller(cotizacion)
-    && sugerenciasPendientes(cotizacion).length === 0
-    && dudasPendientes(cotizacion).length === 0;
 }
 
 export function resumenRevisionTaller(cotizacion: CotizacionDecision | null | undefined): {
@@ -177,7 +163,10 @@ export function resumenRevisionTaller(cotizacion: CotizacionDecision | null | un
   const sugerencias = sugerenciasPendientes(cotizacion).length;
   const dudas = dudasPendientes(cotizacion).length;
   const espera = esperaRevisionTaller(cotizacion);
-  const lista = revisionTallerEstado(cotizacion) === 'lista';
+  const tuvoRevision = revisionSugerenciasEstado(cotizacion) === 'resuelta'
+    || dudasDe(cotizacion).length > 0
+    || (cotizacion?.repuestos ?? []).some((rep) => esLineaSugerida(rep));
+  const lista = !espera && tuvoRevision;
   const partes: string[] = [];
   if (sugerencias > 0) {
     partes.push(sugerencias === 1 ? '1 sugerencia' : `${sugerencias} sugerencias`);
@@ -196,112 +185,47 @@ export function mensajeBloqueoDudas(cotizacion: CotizacionDecision | null | unde
   const n = dudasPendientes(cotizacion).length;
   if (n <= 0) return null;
   return n === 1
-    ? 'El cotizador dejó una duda. Respóndela o confírmala antes de enviar.'
-    : `El cotizador dejó ${n} dudas. Respóndelas o confírmalas antes de enviar.`;
+    ? 'El cotizador dejó una duda. Confírmala antes de enviar.'
+    : `El cotizador dejó ${n} dudas. Confírmalas antes de enviar.`;
 }
 
-function decisionDesdeMeta(
-  meta: DecisionLineaGuardada | undefined,
-): DecisionLineaGuardada {
-  if (!meta || typeof meta !== 'object') return {};
-  return {
-    origen_linea: meta.origen_linea,
-    motivo_sugerencia: meta.motivo_sugerencia,
-    sugerencia_estado: meta.sugerencia_estado,
-  };
-}
-
-export function hidratarLineaDecision(
-  rep: LineaDecision,
-  meta?: DecisionLineaGuardada,
-): LineaDecision {
-  const guardada = decisionDesdeMeta(meta);
-  const origen = String(rep.origen_linea || guardada.origen_linea || '').trim() === 'sugerido'
-    ? 'sugerido'
-    : (guardada.origen_linea === 'sugerido' ? 'sugerido' : (rep.origen_linea || 'pedido'));
-  const motivo = String(rep.motivo_sugerencia || guardada.motivo_sugerencia || '');
-  const estadoCrudo = rep.sugerencia_estado || guardada.sugerencia_estado;
+export function hidratarLineaDecision(rep: LineaDecision): LineaDecision {
+  const origen = origenLinea(rep);
+  const motivo = motivoSugerencia(rep);
+  const estado = origen === 'sugerencia' ? sugerenciaEstado(rep) : (rep.estado_sugerencia || 'aceptada');
   return {
     ...rep,
-    origen_linea: origen,
+    origen,
     motivo_sugerencia: motivo,
-    sugerencia_estado: origen === 'sugerido'
-      ? (estadoCrudo as SugerenciaEstado) || 'pendiente'
-      : estadoCrudo,
+    estado_sugerencia: estado,
   };
 }
 
 export function hidratarDecisionesCotizacion<T extends CotizacionDecision>(cotizacion: T): T {
-  const decisiones = metadataDecision(cotizacion).decisiones_lineas ?? {};
-  const repuestos = (cotizacion.repuestos ?? []).map((rep) => {
-    const clave = rep.id != null ? String(rep.id) : '';
-    return hidratarLineaDecision(rep, clave ? decisiones[clave] : undefined);
-  });
-  const dudas = dudasDe(cotizacion);
-  const revision = revisionTallerEstado({
+  const repuestos = (cotizacion.repuestos ?? []).map((rep) => hidratarLineaDecision(rep));
+  const dudas = dudasDe({ ...cotizacion, repuestos });
+  const revision = revisionSugerenciasDe({ ...cotizacion, repuestos, dudas });
+  const estado = revisionSugerenciasEstado({
     ...cotizacion,
     repuestos,
-    dudas_cotizador: dudas,
+    dudas,
+    revision_sugerencias: revision,
   });
+  const pendientes = Number(revision.pendientes);
   return {
     ...cotizacion,
     repuestos,
-    dudas_cotizador: dudas,
-    revision_taller_estado: revision,
-    metadata: {
-      ...(cotizacion.metadata || {}),
-      dudas_cotizador: dudas,
-      revision_taller_estado: revision,
-      decisiones_lineas: decisiones,
-    } as T['metadata'],
+    dudas,
+    revision_sugerencias: {
+      estado,
+      pendientes: Number.isFinite(pendientes) ? pendientes : sugerenciasPendientes({ repuestos }).length,
+    },
   };
-}
-
-export function serializarDecisionesMetadata(
-  cotizacion: CotizacionDecision,
-): MetadataDecision {
-  const decisiones: Record<string, DecisionLineaGuardada> = {
-    ...(metadataDecision(cotizacion).decisiones_lineas || {}),
-  };
-  for (const rep of cotizacion.repuestos ?? []) {
-    if (rep.id == null || String(rep.id) === '') continue;
-    if (!esLineaSugerida(rep) && !motivoSugerencia(rep) && !rep.sugerencia_estado) continue;
-    decisiones[String(rep.id)] = {
-      origen_linea: origenLinea(rep),
-      motivo_sugerencia: motivoSugerencia(rep),
-      sugerencia_estado: sugerenciaEstado(rep),
-    };
-  }
-  const dudas = dudasDe(cotizacion);
-  const revision = cotizacion.revision_taller_estado
-    || metadataDecision(cotizacion).revision_taller_estado
-    || revisionTallerEstado(cotizacion);
-  return {
-    ...(cotizacion.metadata || {}),
-    decisiones_lineas: decisiones,
-    dudas_cotizador: dudas,
-    revision_taller_estado: revision,
-  };
-}
-
-export function responderDuda(
-  dudas: DudaCotizador[],
-  id: string,
-  respuesta: string,
-  estado: DudaEstado = 'respondida',
-): DudaCotizador[] {
-  return dudas.map((duda) => (
-    String(duda.id) === String(id)
-      ? { ...duda, respuesta: respuesta.trim(), estado: respuesta.trim() ? estado : 'pendiente' }
-      : duda
-  ));
 }
 
 export function confirmarDuda(dudas: DudaCotizador[], id: string): DudaCotizador[] {
   return dudas.map((duda) => (
-    String(duda.id) === String(id)
-      ? { ...duda, estado: 'confirmada', respuesta: duda.respuesta?.trim() || 'Confirmado' }
-      : duda
+    String(duda.id) === String(id) ? { ...duda, confirmada: true } : duda
   ));
 }
 
@@ -311,3 +235,5 @@ export function hrefRevisionTaller(cotizacionId?: number | string | null): strin
   }
   return '/cotizaciones?estado=revision';
 }
+
+export const TIPO_NOTIFICACION_REVISION = 'revision_sugerencias_pendiente';

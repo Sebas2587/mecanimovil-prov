@@ -2,29 +2,17 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { BORDERS, COLORS, SPACING, withOpacity } from '@/app/design-system/tokens';
-import { TallerPildora } from '@/components/taller/TallerPildora';
-import {
-  puedeCerrarRevisionTaller,
-  resumenRevisionTaller,
-  type CotizacionDecision,
-} from '@/utils/decisionCotizador';
+import { resumenRevisionTaller, type CotizacionDecision } from '@/utils/decisionCotizador';
 
 const I = COLORS.institutional;
 
 type Props = {
   cotizacion: CotizacionDecision;
-  confirming?: boolean;
-  onConfirmar?: () => void;
 };
 
-export function RevisionTallerBanner({
-  cotizacion,
-  confirming = false,
-  onConfirmar,
-}: Props) {
+export function RevisionTallerBanner({ cotizacion }: Props) {
   const resumen = resumenRevisionTaller(cotizacion);
   if (!resumen.espera && !resumen.lista) return null;
-  const listo = puedeCerrarRevisionTaller(cotizacion);
   return (
     <View
       style={[styles.caja, resumen.lista ? styles.lista : styles.espera]}
@@ -37,15 +25,6 @@ export function RevisionTallerBanner({
       <InstitutionalText role="caption" color="body">
         {resumen.texto}
       </InstitutionalText>
-      {resumen.espera && onConfirmar ? (
-        <TallerPildora
-          label={listo ? 'Confirmar y continuar' : 'Faltan decisiones'}
-          tono={listo ? 'coral' : 'suave'}
-          onPress={onConfirmar}
-          disabled={!listo || confirming}
-          loading={confirming}
-        />
-      ) : null}
     </View>
   );
 }

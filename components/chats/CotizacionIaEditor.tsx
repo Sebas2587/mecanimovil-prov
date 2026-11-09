@@ -67,11 +67,8 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
-import {
-  confirmarDuda,
-  dudasDe,
-  responderDuda,
-} from '@/utils/decisionCotizador';
+import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
+import { dudasDe } from '@/utils/decisionCotizador';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -204,36 +201,52 @@ export const CotizacionIaEditor = React.forwardRef<
   const [precioBusy, setPrecioBusy] = useState(false);
   const [consultandoRepuestoId, setConsultandoRepuestoId] = useState<string | null>(null);
   const [descargandoOrdenCompra, setDescargandoOrdenCompra] = useState(false);
-  const [confirmandoRevision, setConfirmandoRevision] = useState(false);
   const puedePdfOrdenCompra = cotizacionTieneOrdenCompraPdf(cotizacion.id);
 
-  const responderDudaCotizador = useCallback((id: string, respuesta: string) => {
-    const current = cotizacionRef.current;
-    onChange({
-      ...current,
-      dudas_cotizador: responderDuda(dudasDe(current), id, respuesta),
-    });
-  }, [onChange]);
-
-  const confirmarDudaCotizador = useCallback((id: string) => {
-    const current = cotizacionRef.current;
-    onChange({
-      ...current,
-      dudas_cotizador: confirmarDuda(dudasDe(current), id),
-    });
-  }, [onChange]);
-
-  const confirmarRevision = useCallback(async () => {
+  const confirmarDudaCotizador = useCallback(async (id: string) => {
     const current = cotizacionRef.current;
     if (!current.id) return;
-    setConfirmandoRevision(true);
     try {
-      const next = await cotizacionCanalService.confirmarRevisionTaller(current.id, current);
+      const next = await cotizacionCanalService.confirmarDuda(current.id, id);
       onChange(next);
-    } catch {
-      showAlert('No se pudo confirmar', 'Revisa las sugerencias y las dudas e inténtalo de nuevo.');
-    } finally {
-      setConfirmandoRevision(false);
+    } catch (error) {
+      showAlert(
+        'No se pudo confirmar',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Revisa la duda e inténtalo de nuevo.'),
+      );
+    }
+  }, [onChange]);
+
+  const decidirSugerenciaLinea = useCallback(async (rep: RepuestoCotizacion, estado: 'pendiente' | 'aceptada' | 'descartada') => {
+    const current = cotizacionRef.current;
+    if (!current.id || rep.id == null) return;
+    if (estado === 'pendiente') {
+      onChange({
+        ...current,
+        repuestos: (current.repuestos ?? []).map((linea) => (
+          linea.id === rep.id ? { ...linea, estado_sugerencia: 'pendiente' } : linea
+        )),
+      });
+      return;
+    }
+    try {
+      const next = await cotizacionCanalService.decidirSugerencia(
+        current.id,
+        String(rep.id),
+        estado === 'aceptada' ? 'aceptar' : 'descartar',
+      );
+      onChange({
+        ...current,
+        ...next,
+        dudas: next.dudas ?? current.dudas,
+        revision_sugerencias: next.revision_sugerencias ?? current.revision_sugerencias,
+        repuestos: mergeRepuestosPreservandoEdicion(current.repuestos ?? [], next.repuestos ?? []),
+      });
+    } catch (error) {
+      showAlert(
+        'No se pudo decidir',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Esa línea no es una sugerencia o ya no está.'),
+      );
     }
   }, [onChange]);
 
@@ -682,7 +695,8 @@ export const CotizacionIaEditor = React.forwardRef<
           nombre: '',
           cantidad: 1,
           precio_unitario_clp: 0,
-          origen_linea: 'pedido',
+          origen: 'pedido',
+          estado_sugerencia: 'aceptada',
         },
         ...reps,
       ],
@@ -864,11 +878,7 @@ export const CotizacionIaEditor = React.forwardRef<
         />
       ) : null}
 
-      <RevisionTallerBanner
-        cotizacion={cotizacion}
-        confirming={confirmandoRevision}
-        onConfirmar={editable ? () => { void confirmarRevision(); } : undefined}
-      />
+      <RevisionTallerBanner cotizacion={cotizacion} />
 
       {editable && cotizacion.estado === 'borrador' && cotizacion.metadata?.reabierta_por_taller ? (
         <InstitutionalText role="caption" color="muted">
@@ -1161,12 +1171,12 @@ export const CotizacionIaEditor = React.forwardRef<
         captionRango={(rep) => captionRangoCliente(rep, esEstimacionEmitida, editable)}
         onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
         consultandoRepuestoId={consultandoRepuestoId}
+        onDecidirSugerencia={editable ? decidirSugerenciaLinea : undefined}
       />
 
       <DudasCotizador
         dudas={dudasDe(cotizacion)}
         editable={editable}
-        onResponder={responderDudaCotizador}
         onConfirmar={confirmarDudaCotizador}
       />
 

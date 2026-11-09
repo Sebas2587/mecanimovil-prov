@@ -10,8 +10,8 @@ export type LineaRepuestoTotal = {
   nombre?: string | null;
   cantidad?: number | string | null;
   precio_unitario_clp?: number | string | null;
-  origen_linea?: string | null;
-  sugerencia_estado?: string | null;
+  origen?: string | null;
+  estado_sugerencia?: string | null;
 };
 
 export type LineaManoObraTotal = {

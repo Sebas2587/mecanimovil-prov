@@ -17,7 +17,7 @@ import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotiz
 import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { TallerPildora } from '@/components/taller/TallerPildora';
-import { esLineaSugerida, sugerenciaEstado } from '@/utils/decisionCotizador';
+import { esLineaSugerida, sugerenciaEstado, type SugerenciaEstado } from '@/utils/decisionCotizador';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -78,6 +78,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rangoCliente = null,
   onConsultarCasas,
   consultandoCasas = false,
+  onDecidirSugerencia,
 }: {
   rep: RepuestoCotizacion;
   index: number;
@@ -93,6 +94,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rangoCliente?: string | null;
   onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
   consultandoCasas?: boolean;
+  onDecidirSugerencia?: (rep: RepuestoCotizacion, estado: SugerenciaEstado) => void;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
@@ -181,7 +183,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
         <SugerenciaLinea
           rep={rep}
           editable={editable}
-          onDecidir={(estadoSugerencia) => onUpdate(index, { sugerencia_estado: estadoSugerencia })}
+          onDecidir={(estadoSugerencia) => (
+            onDecidirSugerencia
+              ? onDecidirSugerencia(rep, estadoSugerencia)
+              : onUpdate(index, { estado_sugerencia: estadoSugerencia })
+          )}
         />
       ) : (
         <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
@@ -437,6 +443,7 @@ export function CotizacionEditorRepuestos({
   captionRango,
   onConsultarCasas,
   consultandoRepuestoId,
+  onDecidirSugerencia,
 }: {
   repuestos: RepuestoCotizacion[];
   editable: boolean;
@@ -457,6 +464,7 @@ export function CotizacionEditorRepuestos({
   captionRango: (rep: RepuestoCotizacion) => string | null;
   onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
   consultandoRepuestoId: string | null;
+  onDecidirSugerencia?: (rep: RepuestoCotizacion, estado: SugerenciaEstado) => void;
 }) {
   const pedidos = repuestos
     .map((rep, index) => ({ rep, index }))
@@ -487,6 +495,7 @@ export function CotizacionEditorRepuestos({
       rangoCliente={captionRango(rep)}
       onConsultarCasas={onConsultarCasas}
       consultandoCasas={consultandoRepuestoId === String(rep.id || '')}
+      onDecidirSugerencia={onDecidirSugerencia}
     />
   );
 

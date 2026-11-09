@@ -38,12 +38,8 @@ import { RevisionTallerBanner } from '@/components/cotizacion/RevisionTallerBann
 import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
-import {
-  cobraAlCliente,
-  confirmarDuda,
-  dudasDe,
-  responderDuda,
-} from '@/utils/decisionCotizador';
+import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
+import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import {
   pedirConfirmacionEliminarCotizacion,
   puedeEliminarCotizacion,
@@ -185,44 +181,39 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
   }, [cotizacionId, refrescar]);
 
   const decidirSugerencia = useCallback((repuesto: RepuestoCotizacion, estado: 'pendiente' | 'aceptada' | 'descartada') => {
-    if (!cotizacion) return;
-    const next = {
-      ...cotizacion,
-      repuestos: (cotizacion.repuestos ?? []).map((linea) => (
-        linea.id === repuesto.id ? { ...linea, sugerencia_estado: estado } : linea
-      )),
-    };
-    void persistirDecision(next);
-  }, [cotizacion, persistirDecision]);
-
-  const responderDudaDetalle = useCallback((id: string, respuesta: string) => {
-    if (!cotizacion) return;
-    void persistirDecision({
-      ...cotizacion,
-      dudas_cotizador: responderDuda(dudasDe(cotizacion), id, respuesta),
-    });
-  }, [cotizacion, persistirDecision]);
+    if (!cotizacion || !cotizacionId || repuesto.id == null) return;
+    if (estado === 'pendiente') {
+      void persistirDecision({
+        ...cotizacion,
+        repuestos: (cotizacion.repuestos ?? []).map((linea) => (
+          linea.id === repuesto.id ? { ...linea, estado_sugerencia: 'pendiente' } : linea
+        )),
+      });
+      return;
+    }
+    setBusy(true);
+    void cotizacionCanalService.decidirSugerencia(
+      cotizacionId,
+      String(repuesto.id),
+      estado === 'aceptada' ? 'aceptar' : 'descartar',
+    ).then(() => refrescar()).catch((error) => {
+      showAlert(
+        'No se pudo decidir',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Esa línea no es una sugerencia o ya no está.'),
+      );
+    }).finally(() => setBusy(false));
+  }, [cotizacion, cotizacionId, persistirDecision, refrescar]);
 
   const confirmarDudaDetalle = useCallback((id: string) => {
-    if (!cotizacion) return;
-    void persistirDecision({
-      ...cotizacion,
-      dudas_cotizador: confirmarDuda(dudasDe(cotizacion), id),
-    });
-  }, [cotizacion, persistirDecision]);
-
-  const confirmarRevision = useCallback(async () => {
-    if (!cotizacion || !cotizacionId) return;
+    if (!cotizacionId) return;
     setBusy(true);
-    try {
-      await cotizacionCanalService.confirmarRevisionTaller(cotizacionId, cotizacion);
-      await refrescar();
-    } catch {
-      showAlert('No se pudo confirmar', 'Responde las dudas y las sugerencias e inténtalo de nuevo.');
-    } finally {
-      setBusy(false);
-    }
-  }, [cotizacion, cotizacionId, refrescar]);
+    void cotizacionCanalService.confirmarDuda(cotizacionId, id).then(() => refrescar()).catch((error) => {
+      showAlert(
+        'No se pudo confirmar',
+        extraerMensajeErrorApi(error as { message?: string; response?: { data?: unknown } }, 'Revisa la duda e inténtalo de nuevo.'),
+      );
+    }).finally(() => setBusy(false));
+  }, [cotizacionId, refrescar]);
 
   const eliminar = useCallback(() => {
     if (!cotizacionId) return;
@@ -336,15 +327,10 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
               </Pressable>
             ) : null}
 
-            <RevisionTallerBanner
-              cotizacion={cotizacion}
-              confirming={busy}
-              onConfirmar={estado === 'borrador' ? () => { void confirmarRevision(); } : undefined}
-            />
+            <RevisionTallerBanner cotizacion={cotizacion} />
             <DudasCotizador
               dudas={dudasDe(cotizacion)}
               editable={estado === 'borrador'}
-              onResponder={responderDudaDetalle}
               onConfirmar={confirmarDudaDetalle}
             />
 

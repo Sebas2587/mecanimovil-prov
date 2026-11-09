@@ -144,16 +144,16 @@ describe('totales de cotización con total nulo', () => {
       total_clp: 213000,
       totales_completos: true,
       repuestos: [
-        { id: 'kit', nombre: 'Kit', cantidad: 1, precio_unitario_clp: 120000, origen_linea: 'pedido' },
+        { id: 'kit', nombre: 'Kit', cantidad: 1, precio_unitario_clp: 120000, origen: 'pedido' },
         {
           id: 'bomba',
           nombre: 'Bomba',
           cantidad: 1,
           precio_unitario_clp: 45000,
-          origen_linea: 'sugerido',
-          sugerencia_estado: 'pendiente',
+          origen: 'sugerencia',
+          estado_sugerencia: 'pendiente',
         },
-        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen_linea: 'pedido' },
+        { id: 'liq', nombre: 'Líquido', cantidad: 1, precio_unitario_clp: 8000, origen: 'pedido' },
       ],
     });
     expect(textoTotalCotizacion(conSugerida)).toBe(formatearMontoCLP(213000));
@@ -161,7 +161,7 @@ describe('totales de cotización con total nulo', () => {
     expect(textoTotalCobradoAlCliente({
       ...conSugerida,
       repuestos: conSugerida.repuestos.map((rep) => (
-        rep.id === 'bomba' ? { ...rep, sugerencia_estado: 'aceptada' as const } : rep
+        rep.id === 'bomba' ? { ...rep, estado_sugerencia: 'aceptada' as const } : rep
       )),
     })).toBe(formatearMontoCLP(213000));
   });

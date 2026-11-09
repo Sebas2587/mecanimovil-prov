@@ -12,9 +12,9 @@ describe('SugerenciaLinea y dudas', () => {
         rep={{
           id: 'bomba',
           nombre: 'Bomba de embrague',
-          origen_linea: 'sugerido',
+          origen: 'sugerencia',
           motivo_sugerencia: 'Suele ir con el kit en LCKS17.',
-          sugerencia_estado: 'pendiente',
+          estado_sugerencia: 'pendiente',
         }}
       />,
     );

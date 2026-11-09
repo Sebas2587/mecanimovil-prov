@@ -91,8 +91,8 @@ function snapshot(c: CotizacionCanal): string {
     ejecucion_adicional: c.ejecucion_adicional,
     fecha_propuesta: c.fecha_propuesta,
     hora_propuesta: c.hora_propuesta,
-    dudas_cotizador: c.dudas_cotizador,
-    revision_taller_estado: c.revision_taller_estado,
+    dudas: c.dudas,
+    revision_sugerencias: c.revision_sugerencias,
   });
 }
 
@@ -233,24 +233,15 @@ export default function CotizacionCanalDetalleScreen() {
     );
     const aplicar = (prev: CotizacionCanal | null): CotizacionCanal => {
       if (!prev || prev.id !== actualizada.id) return actualizada;
-      const revision = prev.revision_taller_estado === 'lista' || actualizada.revision_taller_estado === 'lista'
-        ? 'lista'
-        : (prev.revision_taller_estado || actualizada.revision_taller_estado);
       return {
         ...actualizada,
-        revision_taller_estado: revision,
-        dudas_cotizador: prev.dudas_cotizador ?? actualizada.dudas_cotizador,
+        dudas: actualizada.dudas ?? prev.dudas,
+        revision_sugerencias: actualizada.revision_sugerencias ?? prev.revision_sugerencias,
         repuestos: mergeRepuestosPreservandoEdicion(
           prev.repuestos ?? [],
           actualizada.repuestos ?? [],
         ),
         mano_obra_lineas: prev.mano_obra_lineas ?? actualizada.mano_obra_lineas,
-        metadata: {
-          ...(actualizada.metadata || {}),
-          ...(prev.metadata || {}),
-          revision_taller_estado: revision,
-          dudas_cotizador: prev.dudas_cotizador ?? actualizada.dudas_cotizador,
-        } as CotizacionCanal['metadata'],
       };
     };
     if (seq !== persistSeqRef.current) {

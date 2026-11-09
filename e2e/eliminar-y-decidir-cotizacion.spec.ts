@@ -95,6 +95,8 @@ test('eliminar en un paso y decidir sugerencias del cotizador', async ({ browser
           cantidad: 1,
           precio_unitario_clp: 120000,
           certeza: 'confirmado',
+          origen: 'pedido',
+          estado_sugerencia: 'aceptada',
         },
         {
           id: 'bomba',
@@ -102,6 +104,9 @@ test('eliminar en un paso y decidir sugerencias del cotizador', async ({ browser
           cantidad: 1,
           precio_unitario_clp: 45000,
           certeza: 'confirmado',
+          origen: 'sugerencia',
+          estado_sugerencia: 'pendiente',
+          motivo_sugerencia: 'Suele cambiarse junto al kit en esta patente.',
         },
         {
           id: 'liq',
@@ -109,51 +114,37 @@ test('eliminar en un paso y decidir sugerencias del cotizador', async ({ browser
           cantidad: 1,
           precio_unitario_clp: 8000,
           certeza: 'confirmado',
+          origen: 'pedido',
+          estado_sugerencia: 'aceptada',
         },
       ],
-      metadata: {
-        revision_taller_estado: 'pendiente',
-        decisiones_lineas: {
-          kit: { origen_linea: 'pedido' },
-          bomba: {
-            origen_linea: 'sugerido',
-            motivo_sugerencia: 'Suele cambiarse junto al kit en esta patente.',
-            sugerencia_estado: 'pendiente',
-          },
-          liq: { origen_linea: 'pedido' },
-        },
-        dudas_cotizador: [{
-          id: 'd-rod',
-          pregunta: '¿El kit incluye el rodamiento?',
-          contexto: 'Chevrolet Sail LCKS17',
-          estado: 'pendiente',
-        }],
-      },
     },
   });
   expect(patched.ok()).toBeTruthy();
 
   shellAislado(`from mecanimovilapp.apps.ordenes.models import CotizacionCanal
+from mecanimovilapp.apps.ordenes.services.asistente_cotizacion.revision_sugerencias import anotar_revision_metadata
 c = CotizacionCanal.objects.get(pk=${decisionId})
-meta = dict(c.metadata or {})
-meta['revision_taller_estado'] = 'pendiente'
-meta['decisiones_lineas'] = {
-    'kit': {'origen_linea': 'pedido'},
-    'bomba': {
-        'origen_linea': 'sugerido',
-        'motivo_sugerencia': 'Suele cambiarse junto al kit en esta patente.',
-        'sugerencia_estado': 'pendiente',
-    },
-    'liq': {'origen_linea': 'pedido'},
-}
-meta['dudas_cotizador'] = [{
+reps = []
+for rep in (c.repuestos or []):
+    fila = dict(rep)
+    if fila.get('id') == 'bomba':
+        fila['origen'] = 'sugerencia'
+        fila['estado_sugerencia'] = 'pendiente'
+        fila['motivo_sugerencia'] = 'Suele cambiarse junto al kit en esta patente.'
+    else:
+        fila['origen'] = 'pedido'
+        fila['estado_sugerencia'] = 'aceptada'
+        fila['motivo_sugerencia'] = ''
+    reps.append(fila)
+c.repuestos = reps
+meta = anotar_revision_metadata(dict(c.metadata or {}), reps, [{
     'id': 'd-rod',
-    'pregunta': '¿El kit incluye el rodamiento?',
-    'contexto': 'Chevrolet Sail LCKS17',
-    'estado': 'pendiente',
-}]
+    'texto': '¿El kit incluye el rodamiento?',
+    'confirmada': False,
+}])
 c.metadata = meta
-c.save(update_fields=['metadata'])`);
+c.save(update_fields=['repuestos', 'metadata'])`);
 
   const context = await browser.newContext();
   await context.addInitScript(({ token, user, apiUrl }) => {
@@ -167,14 +158,26 @@ c.save(update_fields=['metadata'])`);
 
   await page.goto(`${BASE_URL}/cotizaciones`);
   await cerrarAvisoLegal(page);
-  await expect(page.getByText(`Cliente Mal Hecha ${stamp}`).first()).toBeVisible();
+  const buscador = page.getByLabel('Buscar cotizaciones');
+  await expect(buscador).toBeVisible();
+  await buscador.fill(`Cliente Mal Hecha ${stamp}`);
+  await expect(page.getByText(`Cliente Mal Hecha ${stamp}`).first()).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: new RegExp(`Eliminar cotización de Cliente Mal Hecha ${stamp}`) }).click();
   await expect(page.getByText('Se borra de la lista')).toBeVisible();
   await page.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-ELIMINAR-CONFIRMAR-390.png' });
+  const delWait = page.waitForResponse((res) => (
+    res.url().includes(`/cotizaciones-canal/${malId}/`)
+    && res.request().method() === 'DELETE'
+  ));
   await page.getByRole('button', { name: 'Eliminar' }).last().click();
+  const delMal = await delWait;
+  expect(delMal.status()).toBe(200);
+  const cuerpoDel = await delMal.json() as { eliminada?: boolean; modo?: string; estado?: string };
+  expect(cuerpoDel.eliminada).toBe(true);
+  expect(cuerpoDel.modo).toBe('oculta');
+  expect(cuerpoDel.estado).toBe('cancelada');
   await expect(page.getByText(`Cliente Mal Hecha ${stamp}`)).toHaveCount(0);
-  const getMal = await request.get(`${API}/ordenes/cotizaciones-canal/${malId}/`, { headers: auth });
-  expect(getMal.status()).toBe(404);
+  await buscador.fill('');
   await page.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-ELIMINAR-LISTA-390.png' });
   await sinDesborde(page);
   await sinZoomLock(page);
@@ -194,12 +197,29 @@ c.save(update_fields=['metadata'])`);
   await expect(page.getByText('Repuestos cobrados').first()).toBeVisible();
   await page.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-DECISION-EDITOR-390.png' });
 
-  await page.getByRole('button', { name: 'Aceptar' }).click();
-  await expect(page.getByText('Sugerido · aceptado')).toBeVisible();
-  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
-  await expect(page.getByText('Ya no quedan dudas pendientes.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirmar y continuar' })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirmar y continuar' }).click();
+  const getDecision = await request.get(`${API}/ordenes/cotizaciones-canal/${decisionId}/`, { headers: auth });
+  expect(getDecision.ok()).toBeTruthy();
+  const cuerpoDecision = await getDecision.json() as {
+    repuestos?: { id?: string; origen?: string; estado_sugerencia?: string }[];
+    dudas?: { id?: string; texto?: string; confirmada?: boolean }[];
+  };
+  expect(cuerpoDecision.repuestos?.some((rep) => rep.id === 'bomba' && rep.origen === 'sugerencia')).toBeTruthy();
+  expect(cuerpoDecision.dudas?.some((duda) => duda.id === 'd-rod' && duda.confirmada === false)).toBeTruthy();
+
+  const postSugerencia = page.waitForResponse((res) => (
+    res.url().includes(`/cotizaciones-canal/${decisionId}/sugerencias/`)
+    && res.request().method() === 'POST'
+  ));
+  await page.getByRole('button', { name: 'Aceptar' }).click({ force: true });
+  expect((await postSugerencia).ok()).toBeTruthy();
+  await expect(page.getByText('Sugerido · aceptado')).toBeVisible({ timeout: 15_000 });
+  const postDuda = page.waitForResponse((res) => (
+    res.url().includes(`/cotizaciones-canal/${decisionId}/dudas/confirmar/`)
+    && res.request().method() === 'POST'
+  ));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click({ force: true });
+  expect((await postDuda).ok()).toBeTruthy();
+  await expect(page.getByText('Ya no quedan dudas pendientes.')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Lista para el agente')).toBeVisible({ timeout: 15_000 });
   await page.screenshot({ path: '/opt/cursor/artifacts/COTIZACION-DECISION-LISTA-390.png' });
   await sinDesborde(page);

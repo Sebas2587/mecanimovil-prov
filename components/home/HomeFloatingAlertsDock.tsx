@@ -264,6 +264,7 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
 
   switch (event.type) {
     case 'agente_ia_cotizacion_borrador':
+    case 'revision_sugerencias_pendiente':
     case 'agente_ia_revision_taller':
     case 'cotizacion_revision_taller':
       return {

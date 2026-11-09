@@ -129,6 +129,7 @@ export function navigateByPushNotification(
       return true;
 
     case 'agente_ia_cotizacion_borrador':
+    case 'revision_sugerencias_pendiente':
     case 'agente_ia_revision_taller':
     case 'cotizacion_revision_taller': {
       if (queryClient) invalidateProveedorComercialQueries(queryClient);
