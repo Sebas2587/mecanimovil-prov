@@ -9,6 +9,12 @@ export type LineaMargenInput = {
   precio_cobrado_clp?: number | null;
   /** Porcentaje que ya aplicó el descubrimiento. La UI no lo vuelve a multiplicar. */
   margen_pct?: number | null;
+  precio_estimado?: boolean | null;
+  ganancia_estimada?: boolean | null;
+  costo_origen?: string | null;
+  certeza?: string | null;
+  url_producto?: string | null;
+  url_referencia?: string | null;
 };
 
 export type TotalesMargenServidor = {

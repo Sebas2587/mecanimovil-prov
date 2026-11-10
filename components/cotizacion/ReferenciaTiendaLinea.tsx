@@ -13,9 +13,13 @@ type Props = {
   rep: Pick<
     RepuestoCotizacion,
     | 'url_referencia'
+    | 'url_producto'
     | 'tienda_referencia'
+    | 'proveedor_nombre'
+    | 'tienda_ml'
     | 'precio_verificado_clp'
     | 'casa_sugerida'
+    | 'casa_repuesto_nombre'
     | 'precio_verificado_en_casa'
     | 'nota_referencia'
   >;
@@ -37,25 +41,27 @@ export const ReferenciaTiendaLinea = React.memo(function ReferenciaTiendaLinea({
 
   return (
     <View style={styles.bloque} accessibilityLabel="Referencia de la tienda">
-      {ref.url ? (
+      {ref.tienda || ref.url ? (
         <View style={styles.row}>
           {ref.tienda || ref.precio ? (
             <InstitutionalText role="caption" color="muted" numberOfLines={1} style={styles.texto}>
               {[ref.tienda, ref.precio].filter(Boolean).join(' ')}
             </InstitutionalText>
           ) : null}
-          <TouchableOpacity
-            onPress={() => abrirUrlReferenciaTienda(ref.url as string)}
-            accessibilityRole="link"
-            accessibilityLabel={etiquetaLink}
-            hitSlop={8}
-            style={styles.link}
-          >
-            <ExternalLink size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            <InstitutionalText role="captionBold" color="primary">
-              Ver en tienda
-            </InstitutionalText>
-          </TouchableOpacity>
+          {ref.url ? (
+            <TouchableOpacity
+              onPress={() => abrirUrlReferenciaTienda(ref.url as string)}
+              accessibilityRole="link"
+              accessibilityLabel={etiquetaLink}
+              hitSlop={8}
+              style={styles.link}
+            >
+              <ExternalLink size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalText role="captionBold" color="primary">
+                Ver en tienda
+              </InstitutionalText>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
       {ref.casaSugerida ? (

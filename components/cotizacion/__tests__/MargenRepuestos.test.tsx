@@ -14,6 +14,22 @@ describe('MargenRepuestos no pinta $0 desde null', () => {
     expect(view.queryByText('$0')).toBeNull();
   });
 
+  it('marca Estimado la ganancia cuando el costo es estimado', async () => {
+    const view = await render(
+      <MargenRepuestoLinea
+        rep={{
+          cantidad: 1,
+          precio_unitario_clp: 10000,
+          costo_estimado_clp: 10000,
+          precio_estimado: true,
+          ganancia_estimada: true,
+        }}
+      />,
+    );
+    expect(view.getByText(/Ganancia/)).toBeTruthy();
+    expect(view.getByText(/Estimado/)).toBeTruthy();
+  });
+
   it('el cero explícito sí se ve en la línea', async () => {
     const view = await render(
       <MargenRepuestoLinea

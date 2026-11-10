@@ -12,14 +12,24 @@ import {
 } from '../repuestoCerteza';
 
 describe('casaRepuestosLabel', () => {
-  it('debe priorizar casa_repuesto_nombre del motor de consolidación', () => {
+  it('muestra Imaparts si el precio salió de ahí, no Adriazola', () => {
+    const rep: Partial<RepuestoCotizacion> = {
+      proveedor_nombre: 'Imaparts',
+      casa_sugerida: 'Adriazola',
+      casa_repuesto_nombre: 'Adriazola',
+      url_producto: 'https://www.imaparts.cl/kit',
+    };
+    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Imaparts');
+  });
+
+  it('si hay proveedor_nombre, no usa casa_repuesto_nombre como tienda del precio', () => {
     const rep: Partial<RepuestoCotizacion> = {
       casa_repuesto_nombre: 'Autoplanet',
       proveedor_nombre: 'Casa Antigua',
       tienda_ml: 'Tienda ML',
     };
-    
-    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Autoplanet');
+
+    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Casa Antigua');
   });
 
   it('debe caer a proveedor_nombre si no hay casa_repuesto_nombre', () => {

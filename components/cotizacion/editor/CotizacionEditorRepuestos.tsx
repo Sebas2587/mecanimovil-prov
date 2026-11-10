@@ -18,6 +18,7 @@ import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { esLineaSugerida, sugerenciaEstado, type SugerenciaEstado } from '@/utils/decisionCotizador';
+import { lineaPrecioEstimado, textoEspecificacionLinea } from '@/utils/referenciaTienda';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -190,8 +191,21 @@ const RepuestoRow = React.memo(function RepuestoRow({
           )}
         />
       ) : (
-        <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
+        <View style={styles.estadoRow}>
+          <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
+          {lineaPrecioEstimado(rep) ? (
+            <InstitutionalTag label="Estimado" variant="neutral" size="sm" uppercase={false} />
+          ) : null}
+        </View>
       )}
+      {esLineaSugerida(rep) && lineaPrecioEstimado(rep) ? (
+        <InstitutionalTag label="Estimado" variant="neutral" size="sm" uppercase={false} />
+      ) : null}
+      {textoEspecificacionLinea(rep) ? (
+        <InstitutionalText role="caption" color="muted">
+          {textoEspecificacionLinea(rep)}
+        </InstitutionalText>
+      ) : null}
 
       <ValidacionRepuestoLinea rep={rep} />
 
@@ -307,7 +321,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
       ) : null}
       <SeccionOpcional
         title="Costo, tienda y margen"
-        hint={[casaLabel, origenLabel, consolidacionBadge].filter(Boolean).join(' · ') || 'Detalle de la línea'}
+        hint={[...new Set([casaLabel, origenLabel, consolidacionBadge].filter(Boolean))].join(' · ') || 'Detalle de la línea'}
       >
         <View style={styles.estadoRow}>
           <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />

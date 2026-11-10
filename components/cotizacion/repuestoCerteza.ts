@@ -5,6 +5,7 @@ import type {
   OpcionRepuesto,
   RepuestoCotizacion,
 } from '@/services/cotizacionCanalService';
+import { tiendaPrecioLinea } from '@/utils/referenciaTienda';
 
 export const FAMILIAS_SENSIBLES_UI: Record<string, { label: string; opciones: string[] }> = {
   bujia: { label: 'Tipo de bujía', opciones: ['Cobre', 'Platino', 'Iridio'] },
@@ -158,22 +159,21 @@ export function nombreFuente(f: FuenteRepuesto): string {
   return dominio || ETIQUETA_FUENTE[f.fuente || ''] || 'Referencia';
 }
 
-/** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */
+/** Nombre de la tienda del precio para chip; nunca casa_sugerida. */
 export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
-  // Priorizar la casa seleccionada por el nuevo motor de consolidación
-  if (rep.casa_repuesto_nombre) {
-    return rep.casa_repuesto_nombre;
-  }
-  
+  const tienda = tiendaPrecioLinea(rep);
+  if (tienda) return tienda;
   const certeza = certezaDe(rep);
-  const tienda = (rep.proveedor_nombre || rep.tienda_ml || '').trim();
   // Precio escrito a mano (asumido) sin casa elegida: no inventar un chip.
-  if (certeza === 'asumido' && !rep.proveedor_id && !tienda) return null;
+  if (certeza === 'asumido' && !rep.proveedor_id) return null;
   const fuentes = fuentesDe(rep);
   if (!fuentes.length) return null;
-  return fuentes.length > 1
-    ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
-    : nombreFuente(fuentes[0]);
+  const nombre = nombreFuente(fuentes[0]);
+  const casaSugerida = String(rep.casa_sugerida || '').trim();
+  if (!nombre || (casaSugerida && nombre.toLocaleLowerCase('es-CL') === casaSugerida.toLocaleLowerCase('es-CL'))) {
+    return null;
+  }
+  return fuentes.length > 1 ? `${nombre} +${fuentes.length - 1}` : nombre;
 }
 
 /**
