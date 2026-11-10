@@ -15,7 +15,11 @@ import {
 } from 'react-native';
 import { X, Check, DollarSign, Plus, Trash2, Building2, Wrench, Package, FileText, Lock } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 import { InstitutionalButton } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
@@ -211,16 +215,18 @@ export function ModalAjusteBorrador({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
+        style={[styles.overlay, cotizacionDialogoCapa]}
         pointerEvents="box-none"
       >
         <Pressable
+          testID="cotizacion-dialogo-fondo"
           style={styles.backdrop}
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         />
-        <View testID="cotizacion-dialogo" style={[styles.sheetContainer, estiloCotizacionDialogo(width)]} pointerEvents="auto">
+        <View testID="cotizacion-dialogo" collapsable={false} style={[styles.sheetContainer, cotizacionDialogoSuperficie, estiloCotizacionDialogo(width)]} pointerEvents="auto">
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]} />
           {/* Header estilo Airbnb */}
           <View style={styles.header}>
             <View>
@@ -435,6 +441,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexShrink: 0,
+    zIndex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -465,6 +472,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     minHeight: 0,
+    zIndex: 1,
   },
   section: {
     marginBottom: SPACING.fixed.lg,
@@ -730,6 +738,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexShrink: 0,
+    zIndex: 1,
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.xs,
   },

@@ -18,7 +18,11 @@ import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
-import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 
 const C = COLORS;
 const IS_WEB = Platform.OS === 'web';
@@ -65,10 +69,11 @@ export function InstitutionalModal({
       statusBarTranslucent
       presentationStyle="overFullScreen"
     >
-      <View style={[styles.overlay, size === 'wide' && IS_WEB && styles.overlayWide]}>
+      <View style={[styles.overlay, size === 'wide' && cotizacionDialogoCapa, size === 'wide' && IS_WEB && styles.overlayWide]}>
         {/* Fondo hermano del sheet: en web un role="button" no puede envolver los botones del contenido. */}
         <Pressable
           onPress={handleClose}
+          testID={size === 'wide' ? 'cotizacion-dialogo-fondo' : undefined}
           style={StyleSheet.absoluteFill}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
@@ -87,11 +92,18 @@ export function InstitutionalModal({
                 paddingBottom: bottomPad,
                 transform: [{ translateY }],
               },
+              size === 'wide' && cotizacionDialogoSuperficie,
               size === 'wide' && estiloCotizacionDialogo(windowWidth),
               size === 'wide' && styles.sheetWide,
             ]}
             {...panHandlers}
           >
+            {size === 'wide' ? (
+              <View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]}
+              />
+            ) : null}
             <View style={size === 'wide' ? styles.wideInner : undefined}>
               {!IS_WEB ? (
                 <View
@@ -207,6 +219,7 @@ const styles = StyleSheet.create({
   wideInner: {
     flex: 1,
     minHeight: 0,
+    zIndex: 1,
   },
   bodyWide: {
     flex: 1,

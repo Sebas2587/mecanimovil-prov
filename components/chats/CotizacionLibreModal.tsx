@@ -39,8 +39,12 @@ import {
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
-import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
@@ -803,8 +807,9 @@ export function CotizacionLibreModal({
       statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay} pointerEvents="box-none">
+      <View style={[styles.overlay, cotizacionDialogoCapa]} pointerEvents="auto">
         <Pressable
+          testID="cotizacion-dialogo-fondo"
           style={[StyleSheet.absoluteFill, styles.scrimHit]}
           onPress={() => {
             if (!ocupado) handleClose();
@@ -812,16 +817,16 @@ export function CotizacionLibreModal({
           accessibilityRole="button"
           accessibilityLabel="Cerrar cotización"
         >
-          {Platform.OS === 'web' ? (
-            <View style={[StyleSheet.absoluteFill, styles.scrim]} />
-          ) : (
+          {Platform.OS === 'web' ? null : (
             <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
           )}
         </Pressable>
         <View
           testID="cotizacion-dialogo"
+          collapsable={false}
           style={[
             styles.panel,
+            cotizacionDialogoSuperficie,
             Platform.OS === 'web' ? estiloCotizacionDialogo(viewportWidth) : { flex: 1 },
             {
               marginTop: Platform.OS === 'web' ? 0 : Math.max(insets.top, 12) + 8,
@@ -831,9 +836,13 @@ export function CotizacionLibreModal({
           pointerEvents="auto"
           onStartShouldSetResponder={() => true}
         >
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]}
+        />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.flex}
+          style={[styles.flex, { zIndex: 1 }]}
           keyboardVerticalOffset={0}
         >
           <View style={styles.header}>
@@ -1168,12 +1177,6 @@ const styles = StyleSheet.create({
   scrimHit: {
     zIndex: 0,
   },
-  scrim: {
-    backgroundColor: withOpacity(I.ink, 0.18),
-    ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as object)
-      : null),
-  },
   panel: {
     zIndex: 2,
     alignSelf: 'stretch',
@@ -1186,7 +1189,7 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     ...SHADOWS.editorial,
   },
-  flex: { flex: 1, minHeight: 0 },
+  flex: { flex: 1, minHeight: 0, backgroundColor: I.paper },
   header: {
     flexShrink: 0,
     flexDirection: 'row',
@@ -1245,7 +1248,7 @@ const styles = StyleSheet.create({
     backgroundColor: I.ink,
     borderColor: I.ink,
   },
-  scroll: { flex: 1, minHeight: 0 },
+  scroll: { flex: 1, minHeight: 0, backgroundColor: I.paper },
   scrollContent: {
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.fixed.sm,

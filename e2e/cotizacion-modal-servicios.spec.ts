@@ -48,6 +48,79 @@ function shellAislado(codigo: string) {
   );
 }
 
+function alphaDeColor(color: string): number {
+  const c = color.trim().toLowerCase();
+  if (!c || c === 'transparent') return 0;
+  if (c.startsWith('#')) {
+    if (c.length === 9) return Number.parseInt(c.slice(7, 9), 16) / 255;
+    return 1;
+  }
+  const m = c.match(/^rgba?\((.+)\)$/);
+  if (!m) return 1;
+  const parts = m[1].split(',').map((p) => p.trim());
+  if (parts.length < 4) return 1;
+  const a = parts[3];
+  return a.endsWith('%') ? Number.parseFloat(a) / 100 : Number.parseFloat(a);
+}
+
+async function capaOpacaYEncima(page: Page) {
+  const dialogo = page.getByTestId('cotizacion-dialogo');
+  const fondo = page.getByTestId('cotizacion-dialogo-fondo');
+  const acciones = page.getByTestId('cotizacion-dialogo-acciones');
+  await expect(fondo).toBeVisible();
+  await expect(dialogo).toBeVisible();
+  await expect(acciones).toBeVisible();
+
+  const bg = await dialogo.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+  expect(alphaDeColor(bg), `fondo del modal: ${bg}`).toBeGreaterThanOrEqual(0.99);
+
+  const hits = await page.evaluate(() => {
+    const dialog = document.querySelector('[data-testid="cotizacion-dialogo"]');
+    const overlay = document.querySelector('[data-testid="cotizacion-dialogo-fondo"]');
+    const accionesEl = document.querySelector('[data-testid="cotizacion-dialogo-acciones"]');
+    const modal = document.querySelector('[aria-modal="true"]');
+    if (!dialog || !overlay || !accionesEl) {
+      return { ok: false, motivo: 'faltan nodos', puntos: [] as object[] };
+    }
+    const cubre = (nodo: Element | null) => Boolean(
+      nodo && (
+        (modal && (modal.contains(nodo) || nodo === modal))
+        || dialog.contains(nodo)
+        || overlay.contains(nodo)
+        || nodo === dialog
+        || nodo === overlay
+      ),
+    );
+    const dbox = dialog.getBoundingClientRect();
+    const abox = accionesEl.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const puntos = [
+      { nombre: 'centro', x: dbox.x + dbox.width / 2, y: dbox.y + dbox.height / 2 },
+      { nombre: 'accion-tl', x: abox.x + 8, y: abox.y + 8 },
+      { nombre: 'accion-tr', x: abox.right - 8, y: abox.y + 8 },
+      { nombre: 'accion-bl', x: abox.x + 8, y: abox.bottom - 8 },
+      { nombre: 'accion-br', x: abox.right - 8, y: abox.bottom - 8 },
+      { nombre: 'chrome-abajo', x: vw / 2, y: vh - 10 },
+      { nombre: 'chrome-izq', x: 18, y: vh - 22 },
+      { nombre: 'banner', x: vw / 2, y: Math.max(24, vh - 88) },
+    ];
+    return {
+      ok: true,
+      puntos: puntos.map((p) => {
+        const el = document.elementFromPoint(p.x, p.y);
+        const testid = el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? null;
+        const texto = (el?.textContent || '').slice(0, 40);
+        return { ...p, cubre: cubre(el), testid, texto };
+      }),
+    };
+  });
+  expect(hits.ok).toBeTruthy();
+  for (const punto of hits.puntos) {
+    expect(punto.cubre, JSON.stringify(punto)).toBeTruthy();
+  }
+}
+
 async function medirDialogo(page: Page, width: number) {
   const dialogo = page.getByTestId('cotizacion-dialogo');
   await expect(dialogo).toBeVisible();
@@ -116,7 +189,7 @@ test('el modal de cotización cabe en 1280, 390 y 320 sin scroll doble', async (
   for (const [width, height, stem] of [
     [1280, 800, 'DESPUES-MODAL-COTIZACION-1280'],
     [390, 844, 'DESPUES-MODAL-COTIZACION-390'],
-    [320, 700, null],
+    [320, 700, 'DESPUES-MODAL-COTIZACION-320'],
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto(`${BASE_URL}/`);
@@ -128,6 +201,7 @@ test('el modal de cotización cabe en 1280, 390 y 320 sin scroll doble', async (
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     }));
     await medirDialogo(page, width);
+    await capaOpacaYEncima(page);
     await sinDesborde(page);
     await sinZoomLock(page);
     await expect(page.getByRole('button', { name: 'Crear en blanco' })).toBeVisible();

@@ -15,7 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BORDERS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
-import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 
 const C = COLORS;
 const I = COLORS.institutional;
@@ -74,10 +78,11 @@ export function BottomSheet({
       */}
       <View
         pointerEvents="box-none"
-        style={[styles.overlay, IS_WEB && styles.overlayWeb]}
+        style={[styles.overlay, IS_WEB && styles.overlayWeb, size === 'wide' && cotizacionDialogoCapa]}
       >
         <Pressable
           onPress={onClose}
+          testID={size === 'wide' ? 'cotizacion-dialogo-fondo' : undefined}
           style={styles.scrim}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
@@ -92,11 +97,18 @@ export function BottomSheet({
             style,
             IS_WEB && styles.sheetWeb,
             stickyFooter && IS_WEB && styles.sheetWebSticky,
+            size === 'wide' && cotizacionDialogoSuperficie,
             size === 'wide' && estiloCotizacionDialogo(width),
             size === 'wide' && styles.sheetWide,
           ]}
           {...panHandlers}
         >
+          {size === 'wide' ? (
+            <View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]}
+            />
+          ) : null}
           {IS_WEB ? (
             <View style={styles.dialogBar}>
               <Pressable
@@ -182,6 +194,7 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: '100%',
     flexDirection: 'column',
+    zIndex: 1,
   },
   handleHit: {
     alignItems: 'center',
