@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
   Pressable,
+  ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +18,7 @@ import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
+import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
 
 const C = COLORS;
 const IS_WEB = Platform.OS === 'web';
@@ -27,6 +29,8 @@ export type InstitutionalModalProps = Pick<ModalProps, 'visible' | 'onRequestClo
   footer?: React.ReactNode;
   onClose?: () => void;
   animationType?: 'none' | 'slide' | 'fade';
+  /** `wide`: cotización — diálogo amplio en web, hoja alta en mobile. */
+  size?: 'default' | 'wide';
 };
 
 export function InstitutionalModal({
@@ -37,10 +41,11 @@ export function InstitutionalModal({
   children,
   footer,
   animationType = 'slide',
+  size = 'default',
 }: InstitutionalModalProps) {
   const handleClose = onClose ?? onRequestClose ?? (() => undefined);
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const bottomPad = Math.max(insets.bottom, SPACING.fixed.md);
   const sheetMaxHeight = Math.round(windowHeight * 0.92);
   const { translateY, panHandlers, reset } = useSheetDismissGesture(handleClose);
@@ -60,7 +65,7 @@ export function InstitutionalModal({
       statusBarTranslucent
       presentationStyle="overFullScreen"
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, size === 'wide' && IS_WEB && styles.overlayWide]}>
         {/* Fondo hermano del sheet: en web un role="button" no puede envolver los botones del contenido. */}
         <Pressable
           onPress={handleClose}
@@ -70,10 +75,11 @@ export function InstitutionalModal({
         />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardWrap}
+          style={[styles.keyboardWrap, size === 'wide' && IS_WEB && styles.keyboardWrapWide]}
         >
           <Animated.View
             collapsable={false}
+            testID={size === 'wide' ? 'cotizacion-dialogo' : undefined}
             style={[
               styles.sheet,
               {
@@ -81,10 +87,12 @@ export function InstitutionalModal({
                 paddingBottom: bottomPad,
                 transform: [{ translateY }],
               },
+              size === 'wide' && estiloCotizacionDialogo(windowWidth),
+              size === 'wide' && styles.sheetWide,
             ]}
             {...panHandlers}
           >
-            <View>
+            <View style={size === 'wide' ? styles.wideInner : undefined}>
               {!IS_WEB ? (
                 <View
                   style={styles.handleHit}
@@ -106,8 +114,19 @@ export function InstitutionalModal({
                   <X size={22} color={C.text.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
-              <View style={[styles.body, !footer && styles.bodySolo]}>{children}</View>
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
+              {size === 'wide' ? (
+                <ScrollView
+                  style={styles.bodyWide}
+                  contentContainerStyle={[styles.body, !footer && styles.bodySolo]}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {children}
+                </ScrollView>
+              ) : (
+                <View style={[styles.body, !footer && styles.bodySolo]}>{children}</View>
+              )}
+              {footer ? <View style={styles.footer} testID={size === 'wide' ? 'cotizacion-dialogo-acciones' : undefined}>{footer}</View> : null}
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -126,6 +145,11 @@ const styles = StyleSheet.create({
   },
   keyboardWrap: {
     width: '100%',
+  },
+  keyboardWrapWide: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sheet: {
     backgroundColor: C.background.paper,
@@ -146,6 +170,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.border.main,
   },
   header: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -169,6 +194,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.xs,
     gap: SPACING.fixed.sm,
+    flexShrink: 0,
+  },
+  overlayWide: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetWide: {
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  wideInner: {
+    flex: 1,
+    minHeight: 0,
+  },
+  bodyWide: {
+    flex: 1,
+    minHeight: 0,
   },
 });
 

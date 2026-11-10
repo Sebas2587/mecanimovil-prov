@@ -38,7 +38,10 @@ import { RevisionTallerBanner } from '@/components/cotizacion/RevisionTallerBann
 import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
-import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
+import { cobraAlCliente, dudasDe, esLineaSugerida } from '@/utils/decisionCotizador';
+import { serviciosDeCotizacion } from '@/utils/serviciosCotizacion';
+import { textoPrecioVisible } from '@/utils/textoPrecioVisible';
+import { lineaPrecioEstimado } from '@/utils/referenciaTienda';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import {
   pedirConfirmacionEliminarCotizacion,
@@ -234,6 +237,10 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
     () => (cotizacion ? lineasDesgloseCotizacion(cotizacion) : []),
     [cotizacion],
   );
+  const gruposServicio = useMemo(
+    () => (cotizacion ? serviciosDeCotizacion(cotizacion) : null),
+    [cotizacion],
+  );
   const repuestoPorLinea = useMemo(() => {
     const mapa = new Map<string, NonNullable<CotizacionCanal['repuestos']>[number]>();
     (cotizacion?.repuestos ?? []).forEach((repuesto, index) => {
@@ -253,7 +260,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
       visible={cotizacionId != null}
       onClose={onClose}
       stickyFooter
-      style={styles.sheet}
+      size="wide"
     >
       <ScrollView
         style={styles.scroll}
@@ -354,7 +361,55 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
 
             <View style={styles.bloque}>
               <InstitutionalText role="bodyBold">Desglose</InstitutionalText>
-              {lineas.length === 0 ? (
+              {gruposServicio ? gruposServicio.map((grupo) => (
+                grupo.esOtros && grupo.pedidos.length === 0 ? null : (
+                <View key={grupo.id} testID={grupo.esOtros ? 'servicio-grupo-otros' : 'servicio-grupo'} style={styles.lineaBloque}>
+                  <InstitutionalText role="bodyBold">{grupo.nombre}</InstitutionalText>
+                  {grupo.esOtros ? null : (
+                    <>
+                      <View style={styles.linea}>
+                        <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
+                          Mano de obra
+                          {grupo.manoObra.horas != null && grupo.manoObra.horas > 0 ? ` · ${grupo.manoObra.horas} h` : ''}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption">
+                          {textoPrecioVisible({
+                            monto_clp: grupo.manoObra.monto_clp,
+                            estimada: grupo.manoObra.estimada,
+                          })}
+                        </InstitutionalText>
+                      </View>
+                      {grupo.manoObra.estimada ? (
+                        <InstitutionalText role="caption" color="body">Estimada</InstitutionalText>
+                      ) : null}
+                      {grupo.manoObra.motivo ? (
+                        <InstitutionalText role="caption" color="body">
+                          {grupo.manoObra.motivo}
+                        </InstitutionalText>
+                      ) : null}
+                    </>
+                  )}
+                  {grupo.soloMano ? null : grupo.pedidos.map((repuesto, index) => (
+                    <View key={repuesto.id || `${repuesto.nombre}-${index}`} style={styles.lineaBloque}>
+                      <View style={styles.linea}>
+                        <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
+                          {repuesto.nombre}{Number(repuesto.cantidad) > 1 ? ` × ${repuesto.cantidad}` : ''}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption">
+                          {textoPrecioVisible({
+                            ...repuesto,
+                            precio_estimado: lineaPrecioEstimado(repuesto),
+                          })}
+                        </InstitutionalText>
+                      </View>
+                      <ValidacionRepuestoLinea rep={repuesto} />
+                      <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
+                        <MargenRepuestoLinea rep={repuesto} />
+                      </SeccionOpcional>
+                    </View>
+                  ))}
+                </View>
+              ))) : lineas.length === 0 ? (
                 <InstitutionalText role="caption" color="body">
                   El detalle de piezas y mano de obra está en el documento.
                 </InstitutionalText>
@@ -370,7 +425,10 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                         <InstitutionalText role="caption">
                           {linea.sugerida && !linea.cobra
                             ? 'No se cobra'
-                            : (linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto))}
+                            : textoPrecioVisible({
+                              monto_clp: linea.monto,
+                              precio_estimado: repuesto ? lineaPrecioEstimado(repuesto) : false,
+                            })}
                         </InstitutionalText>
                       </View>
                       {repuesto ? (
@@ -391,6 +449,38 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                   );
                 })
               )}
+              {gruposServicio && gruposServicio.some((grupo) => grupo.sugeridos.length > 0) ? (
+                <View style={styles.lineaBloque}>
+                  <InstitutionalText role="bodyBold">Sugerencias por revisar</InstitutionalText>
+                  {gruposServicio.flatMap((grupo) => grupo.sugeridos).map((repuesto, index) => (
+                    <View key={repuesto.id || `sug-${index}`} style={styles.lineaBloque}>
+                      <View style={styles.linea}>
+                        <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
+                          {repuesto.nombre}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption">
+                          {esLineaSugerida(repuesto) && !cobraAlCliente(repuesto)
+                            ? 'No se cobra'
+                            : textoPrecioVisible({
+                              ...repuesto,
+                              precio_estimado: lineaPrecioEstimado(repuesto),
+                            })}
+                        </InstitutionalText>
+                      </View>
+                      <SugerenciaLinea
+                        rep={repuesto}
+                        compact
+                        editable={estado === 'borrador'}
+                        onDecidir={(estadoSugerencia) => decidirSugerencia(repuesto, estadoSugerencia)}
+                      />
+                      <ValidacionRepuestoLinea rep={repuesto} />
+                      <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
+                        <MargenRepuestoLinea rep={repuesto} />
+                      </SeccionOpcional>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
               {(cotizacion.repuestos ?? []).length > 0 ? (
                 <SeccionOpcional title="Costo y ganancia" hint="Solo el taller">
                   <ResumenMargenRepuestos
@@ -435,16 +525,18 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
         )}
       </ScrollView>
       {cotizacion && estado ? (
-        <Acciones
-          estado={estado}
-          busy={busy}
-          puedeEliminar={puedeEliminarCotizacion(cotizacion)}
-          onAceptar={() => void aceptar()}
-          onRechazar={rechazar}
-          onAgendar={agendar}
-          onAbrir={abrirDocumento}
-          onEliminar={eliminar}
-        />
+        <View testID="cotizacion-dialogo-acciones" style={{ flexShrink: 0 }}>
+          <Acciones
+            estado={estado}
+            busy={busy}
+            puedeEliminar={puedeEliminarCotizacion(cotizacion)}
+            onAceptar={() => void aceptar()}
+            onRechazar={rechazar}
+            onAgendar={agendar}
+            onAbrir={abrirDocumento}
+            onEliminar={eliminar}
+          />
+        </View>
       ) : null}
     </BottomSheet>
   );
@@ -648,12 +740,10 @@ function IconoCircular({
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    maxWidth: 560,
-  },
   scroll: {
     flexGrow: 1,
     flexShrink: 1,
+    minHeight: 0,
   },
   scrollContent: {
     paddingBottom: SPACING.fixed.md,
@@ -792,6 +882,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   acciones: {
+    flexShrink: 0,
     paddingTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
   },

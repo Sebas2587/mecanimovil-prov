@@ -805,6 +805,7 @@ export default function ChatOmnicanalScreen() {
           visible={!!editingCotizacion}
           onClose={() => setEditingCotizacion(null)}
           title="Editar Cotización"
+          size="wide"
         >
           {editingCotizacion && (
             <View style={styles.editorWrap}>
@@ -1015,6 +1016,5 @@ const styles = StyleSheet.create({
   },
   editorWrap: {
     position: 'relative',
-    minHeight: 420,
   },
 });

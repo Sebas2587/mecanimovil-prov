@@ -25,7 +25,7 @@ export function ClpMoneyInput({
   value,
   onChangeValue,
   editable,
-  placeholder = '0',
+  placeholder = 'Por confirmar',
   compact = false,
   live = false,
 }: ClpMoneyInputProps) {

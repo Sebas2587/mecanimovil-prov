@@ -6,6 +6,7 @@ import {
   Pressable,
   View,
   StyleSheet,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BORDERS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
+import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
 
 const C = COLORS;
 const I = COLORS.institutional;
@@ -26,6 +28,8 @@ export type BottomSheetProps = {
   style?: StyleProp<ViewStyle>;
   /** Menos padding inferior cuando el sheet incluye footer sticky (botonera). */
   stickyFooter?: boolean;
+  /** `wide`: cotización — ~800 px y 90vh en web, hoja casi completa en mobile. */
+  size?: 'default' | 'wide';
 };
 
 /**
@@ -38,8 +42,10 @@ export function BottomSheet({
   children,
   style,
   stickyFooter = false,
+  size = 'default',
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { translateY, panHandlers, reset } = useSheetDismissGesture(onClose);
   const bottomPad = IS_WEB
     ? SPACING.fixed.lg
@@ -78,6 +84,7 @@ export function BottomSheet({
         />
         <Animated.View
           collapsable={false}
+          testID={size === 'wide' ? 'cotizacion-dialogo' : undefined}
           style={[
             styles.sheet,
             stickyFooter && !IS_WEB && styles.sheetSticky,
@@ -85,6 +92,8 @@ export function BottomSheet({
             style,
             IS_WEB && styles.sheetWeb,
             stickyFooter && IS_WEB && styles.sheetWebSticky,
+            size === 'wide' && estiloCotizacionDialogo(width),
+            size === 'wide' && styles.sheetWide,
           ]}
           {...panHandlers}
         >
@@ -186,6 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.border.main,
   },
   dialogBar: {
+    flexShrink: 0,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -199,6 +209,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: I.surfaceSoft,
+  },
+  sheetWide: {
+    overflow: 'hidden',
+    flexDirection: 'column',
   },
 });
 

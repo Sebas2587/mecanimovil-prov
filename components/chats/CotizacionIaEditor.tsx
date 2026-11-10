@@ -24,6 +24,7 @@ import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
 import { CotizacionEditorEncabezado } from '@/components/cotizacion/editor/CotizacionEditorEncabezado';
 import { CotizacionEditorManoObra } from '@/components/cotizacion/editor/CotizacionEditorManoObra';
 import { CotizacionEditorRepuestos, subtotalRepuesto } from '@/components/cotizacion/editor/CotizacionEditorRepuestos';
+import { CotizacionEditorServicios } from '@/components/cotizacion/editor/CotizacionEditorServicios';
 import { CotizacionEditorResumen } from '@/components/cotizacion/editor/CotizacionEditorResumen';
 import { AvisoSinSenal } from '@/components/ui/AvisoSinSenal';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
@@ -70,6 +71,7 @@ import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { showAlert } from '@/utils/platformAlert';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
+import { serviciosDeCotizacion } from '@/utils/serviciosCotizacion';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -172,6 +174,7 @@ export const CotizacionIaEditor = React.forwardRef<
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly;
   const lineasMo = useMemo(() => resolverManoObraLineas(cotizacion), [cotizacion]);
+  const gruposServicio = useMemo(() => serviciosDeCotizacion(cotizacion), [cotizacion]);
   const manoObra = sumaManoObraLineas(lineasMo);
   const busquedaPendiente = !esBorradorGeneradoPorAgente(cotizacion)
     && cotizacion.metadata?.busqueda_web_estado === 'pendiente';
@@ -1144,38 +1147,70 @@ export const CotizacionIaEditor = React.forwardRef<
         </SeccionOpcional>
       ) : null}
 
-      <CotizacionEditorManoObra
-        lineasMo={lineasMo}
-        editable={editable}
-        valoresEstimados={Boolean(cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo)}
-        onUpdate={actualizarManoObraLinea}
-        onDelete={eliminarManoObraLinea}
-        onAgregar={editable ? agregarManoObraLinea : undefined}
-      />
+      {gruposServicio ? (
+        <CotizacionEditorServicios
+          grupos={gruposServicio}
+          lineasMo={lineasMo}
+          repuestos={repuestos}
+          editable={editable}
+          vehiculoAnio={cotizacion.vehiculo_anio}
+          busquedaPendiente={busquedaPendiente}
+          resumenPrecios={resumenPrecios}
+          cotizandoItems={cotizandoItems}
+          onBuscar={editable ? () => { void cotizarItemsConIa(); } : undefined}
+          respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
+          avisoMargen={COPY_PRECIO_TALLER.clienteVeMargen}
+          onUpdateManoObra={actualizarManoObraLinea}
+          onUpdate={actualizarRepuesto}
+          onDelete={eliminarRepuesto}
+          onConfirmar={abrirConfirmarRepuesto}
+          onEspecificacion={definirEspecificacionLinea}
+          onBuscarIa={cotizarItemsConIa}
+          lineaEnBusquedaWeb={lineaEnBusquedaWeb}
+          lineaNecesitaBusquedaPrecio={lineaNecesitaBusquedaPrecio}
+          captionRango={(rep) => captionRangoCliente(rep, esEstimacionEmitida, editable)}
+          onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
+          consultandoRepuestoId={consultandoRepuestoId}
+          onDecidirSugerencia={editable ? decidirSugerenciaLinea : undefined}
+          onAgregar={editable ? agregarRepuesto : undefined}
+          onAgregarManoObra={editable ? agregarManoObraLinea : undefined}
+        />
+      ) : (
+        <>
+          <CotizacionEditorManoObra
+            lineasMo={lineasMo}
+            editable={editable}
+            valoresEstimados={Boolean(cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo)}
+            onUpdate={actualizarManoObraLinea}
+            onDelete={eliminarManoObraLinea}
+            onAgregar={editable ? agregarManoObraLinea : undefined}
+          />
 
-      <CotizacionEditorRepuestos
-        repuestos={repuestos}
-        editable={editable}
-        vehiculoAnio={cotizacion.vehiculo_anio}
-        busquedaPendiente={busquedaPendiente}
-        resumenPrecios={resumenPrecios}
-        cotizandoItems={cotizandoItems}
-        onBuscar={editable ? () => { void cotizarItemsConIa(); } : undefined}
-        respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
-        avisoMargen={COPY_PRECIO_TALLER.clienteVeMargen}
-        onUpdate={actualizarRepuesto}
-        onDelete={eliminarRepuesto}
-        onConfirmar={abrirConfirmarRepuesto}
-        onEspecificacion={definirEspecificacionLinea}
-        onBuscarIa={cotizarItemsConIa}
-        lineaEnBusquedaWeb={lineaEnBusquedaWeb}
-        lineaNecesitaBusquedaPrecio={lineaNecesitaBusquedaPrecio}
-        captionRango={(rep) => captionRangoCliente(rep, esEstimacionEmitida, editable)}
-        onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
-        consultandoRepuestoId={consultandoRepuestoId}
-        onDecidirSugerencia={editable ? decidirSugerenciaLinea : undefined}
-        onAgregar={editable ? agregarRepuesto : undefined}
-      />
+          <CotizacionEditorRepuestos
+            repuestos={repuestos}
+            editable={editable}
+            vehiculoAnio={cotizacion.vehiculo_anio}
+            busquedaPendiente={busquedaPendiente}
+            resumenPrecios={resumenPrecios}
+            cotizandoItems={cotizandoItems}
+            onBuscar={editable ? () => { void cotizarItemsConIa(); } : undefined}
+            respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
+            avisoMargen={COPY_PRECIO_TALLER.clienteVeMargen}
+            onUpdate={actualizarRepuesto}
+            onDelete={eliminarRepuesto}
+            onConfirmar={abrirConfirmarRepuesto}
+            onEspecificacion={definirEspecificacionLinea}
+            onBuscarIa={cotizarItemsConIa}
+            lineaEnBusquedaWeb={lineaEnBusquedaWeb}
+            lineaNecesitaBusquedaPrecio={lineaNecesitaBusquedaPrecio}
+            captionRango={(rep) => captionRangoCliente(rep, esEstimacionEmitida, editable)}
+            onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
+            consultandoRepuestoId={consultandoRepuestoId}
+            onDecidirSugerencia={editable ? decidirSugerenciaLinea : undefined}
+            onAgregar={editable ? agregarRepuesto : undefined}
+          />
+        </>
+      )}
 
       <DudasCotizador
         dudas={dudasDe(cotizacion)}

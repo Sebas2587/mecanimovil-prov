@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -16,9 +15,10 @@ import cotizacionCanalService, {
 } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { visibleAlCliente } from '@/utils/decisionCotizador';
+import { serviciosDeCotizacion } from '@/utils/serviciosCotizacion';
+import { textoPrecioVisible } from '@/utils/textoPrecioVisible';
 
 const I = COLORS.institutional;
-const IS_WEB = Platform.OS === 'web';
 
 export type { VistaPreviaPublica };
 
@@ -34,13 +34,16 @@ function formatFecha(iso?: string | null): string {
   return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function formatRangoOMonto(min?: number, max?: number, fallback?: number): string {
+function formatRangoOMonto(min?: number, max?: number, fallback?: number, estimado?: boolean): string {
   const a = Math.round(Number(min) || 0);
   const b = Math.round(Number(max) || 0);
   if (a > 0 && b > 0 && a !== b) {
     return `${formatearMontoCLP(a)} – ${formatearMontoCLP(b)}`;
   }
-  return formatearMontoCLP(b || a || fallback || 0);
+  return textoPrecioVisible({
+    monto_clp: b || a || fallback || 0,
+    precio_estimado: estimado,
+  });
 }
 
 type Props = {
@@ -92,6 +95,7 @@ export function VistaPreviaCotizacionClienteModal({
   const vehiculo = [doc?.vehiculo_marca, doc?.vehiculo_modelo, doc?.vehiculo_anio]
     .filter(Boolean)
     .join(' ');
+  const grupos = doc ? serviciosDeCotizacion(doc) : null;
   const moLineas = resolverManoObraLineas({
     mano_obra_lineas: doc?.mano_obra_lineas,
     mano_obra_clp: doc?.mano_obra_clp ?? 0,
@@ -108,7 +112,7 @@ export function VistaPreviaCotizacionClienteModal({
       visible={visible}
       onClose={onClose}
       stickyFooter
-      style={IS_WEB ? styles.sheetWide : undefined}
+      size="wide"
     >
       <InstitutionalText role="caption" color="muted">
         Así la ve el cliente
@@ -182,39 +186,100 @@ export function VistaPreviaCotizacionClienteModal({
 
             <View style={styles.block}>
               <InstitutionalText role="caption" color="muted">Detalle</InstitutionalText>
-              <InstitutionalText role="body">{tituloDetalle(doc.servicio_nombre)}</InstitutionalText>
-              {moLineas.map((lin) => (
-                <View key={lin.id || lin.nombre} style={styles.lineRow}>
-                  <InstitutionalText role="body" style={styles.lineName}>
-                    {lin.nombre}
-                  </InstitutionalText>
-                  <InstitutionalText role="caption" color="muted">Mano de obra</InstitutionalText>
-                  <InstitutionalText role="bodyBold">{formatearMontoCLP(lin.monto_clp)}</InstitutionalText>
-                </View>
-              ))}
-              {reps.map((rep, idx) => {
-                const qty = Number(rep.cantidad) || 1;
-                const unit = Number(rep.precio_unitario_clp) || 0;
-                const min = Number(rep.precio_min_clp) || 0;
-                const max = Number(rep.precio_max_clp) || 0;
-                const unitLabel = esEstimacion
-                  ? formatRangoOMonto(min, max, unit)
-                  : formatearMontoCLP(unit);
-                const subLabel = esEstimacion
-                  ? formatRangoOMonto(min * qty, max * qty, qty * unit)
-                  : formatearMontoCLP(qty * unit);
+              {grupos ? grupos.map((grupo) => {
+                const pedidosCliente = [
+                  ...grupo.pedidos,
+                  ...grupo.sugeridos,
+                ].filter((rep) => visibleAlCliente(rep));
+                if (grupo.esOtros && pedidosCliente.length === 0) return null;
                 return (
-                  <View key={`${rep.nombre}-${idx}`} style={styles.lineRow}>
-                    <InstitutionalText role="body" style={styles.lineName}>
-                      {rep.nombre || 'Repuesto'}
-                    </InstitutionalText>
-                    <InstitutionalText role="caption" color="muted">
-                      Repuesto · {qty} × {unitLabel}
-                    </InstitutionalText>
-                    <InstitutionalText role="bodyBold">{subLabel}</InstitutionalText>
+                  <View key={grupo.id} testID={grupo.esOtros ? 'servicio-grupo-otros' : 'servicio-grupo'}>
+                    <InstitutionalText role="bodyBold">{grupo.nombre}</InstitutionalText>
+                    {grupo.esOtros ? null : (
+                      <View style={styles.lineRow}>
+                        <InstitutionalText role="body" style={styles.lineName}>
+                          {grupo.manoObra.nombre || 'Mano de obra'}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption" color="muted">
+                          Mano de obra
+                          {grupo.manoObra.horas != null && grupo.manoObra.horas > 0 ? ` · ${grupo.manoObra.horas} h` : ''}
+                        </InstitutionalText>
+                        <InstitutionalText role="bodyBold">
+                          {textoPrecioVisible({
+                            monto_clp: grupo.manoObra.monto_clp,
+                            estimada: grupo.manoObra.estimada,
+                          })}
+                        </InstitutionalText>
+                      </View>
+                    )}
+                    {pedidosCliente.map((rep, idx) => {
+                      const qty = Number(rep.cantidad) || 1;
+                      const unit = Number(rep.precio_unitario_clp) || 0;
+                      const min = Number(rep.precio_min_clp) || 0;
+                      const max = Number(rep.precio_max_clp) || 0;
+                      const unitLabel = esEstimacion
+                        ? formatRangoOMonto(min, max, unit, Boolean(rep.precio_estimado))
+                        : textoPrecioVisible(rep);
+                      const subLabel = esEstimacion
+                        ? formatRangoOMonto(min * qty, max * qty, qty * unit, Boolean(rep.precio_estimado))
+                        : textoPrecioVisible({
+                          precio_unitario_clp: qty * unit,
+                          precio_estimado: Boolean(rep.precio_estimado),
+                          certeza: rep.certeza,
+                        });
+                      return (
+                        <View key={`${rep.nombre}-${idx}`} style={styles.lineRow}>
+                          <InstitutionalText role="body" style={styles.lineName}>
+                            {rep.nombre || 'Repuesto'}
+                          </InstitutionalText>
+                          <InstitutionalText role="caption" color="muted">
+                            Repuesto · {qty} × {unitLabel}
+                          </InstitutionalText>
+                          <InstitutionalText role="bodyBold">{subLabel}</InstitutionalText>
+                        </View>
+                      );
+                    })}
                   </View>
                 );
-              })}
+              }) : (
+                <>
+                  <InstitutionalText role="body">{tituloDetalle(doc.servicio_nombre)}</InstitutionalText>
+                  {moLineas.map((lin) => (
+                    <View key={lin.id || lin.nombre} style={styles.lineRow}>
+                      <InstitutionalText role="body" style={styles.lineName}>
+                        {lin.nombre}
+                      </InstitutionalText>
+                      <InstitutionalText role="caption" color="muted">Mano de obra</InstitutionalText>
+                      <InstitutionalText role="bodyBold">
+                        {textoPrecioVisible({ monto_clp: lin.monto_clp })}
+                      </InstitutionalText>
+                    </View>
+                  ))}
+                  {reps.map((rep, idx) => {
+                    const qty = Number(rep.cantidad) || 1;
+                    const unit = Number(rep.precio_unitario_clp) || 0;
+                    const min = Number(rep.precio_min_clp) || 0;
+                    const max = Number(rep.precio_max_clp) || 0;
+                    const unitLabel = esEstimacion
+                      ? formatRangoOMonto(min, max, unit)
+                      : textoPrecioVisible(rep);
+                    const subLabel = esEstimacion
+                      ? formatRangoOMonto(min * qty, max * qty, qty * unit)
+                      : textoPrecioVisible({ precio_unitario_clp: qty * unit });
+                    return (
+                      <View key={`${rep.nombre}-${idx}`} style={styles.lineRow}>
+                        <InstitutionalText role="body" style={styles.lineName}>
+                          {rep.nombre || 'Repuesto'}
+                        </InstitutionalText>
+                        <InstitutionalText role="caption" color="muted">
+                          Repuesto · {qty} × {unitLabel}
+                        </InstitutionalText>
+                        <InstitutionalText role="bodyBold">{subLabel}</InstitutionalText>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
             </View>
 
             {doc.notas_cotizacion ? (
@@ -263,7 +328,7 @@ export function VistaPreviaCotizacionClienteModal({
             <InstitutionalText role="h5">
               {esEstimacion
                 ? formatRangoOMonto(doc.total_min_clp, doc.total_max_clp, doc.total_clp)
-                : formatearMontoCLP(doc.total_clp)}
+                : textoPrecioVisible({ monto_clp: doc.total_clp })}
             </InstitutionalText>
           </View>
           {esEstimacion ? (
@@ -274,7 +339,7 @@ export function VistaPreviaCotizacionClienteModal({
         </View>
       ) : null}
 
-      <View style={styles.footer}>
+      <View style={styles.footer} testID="cotizacion-dialogo-acciones">
         <InstitutionalButton
           label="Seguir editando"
           variant="outline"
@@ -309,9 +374,6 @@ export function VistaPreviaCotizacionClienteModal({
 }
 
 const styles = StyleSheet.create({
-  sheetWide: {
-    maxWidth: 560,
-  },
   heading: {
     marginTop: 2,
   },
@@ -319,7 +381,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   scroll: {
-    maxHeight: IS_WEB ? 200 : 280,
     flexGrow: 1,
     flexShrink: 1,
     minHeight: 0,

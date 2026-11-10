@@ -40,6 +40,7 @@ import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { estiloCotizacionDialogo } from '@/app/design-system/layout/cotizacionDialogo';
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
@@ -818,11 +819,13 @@ export function CotizacionLibreModal({
           )}
         </Pressable>
         <View
+          testID="cotizacion-dialogo"
           style={[
             styles.panel,
+            Platform.OS === 'web' ? estiloCotizacionDialogo(viewportWidth) : { flex: 1 },
             {
-              marginTop: Math.max(insets.top, 12) + 8,
-              marginBottom: Math.max(insets.bottom, 12),
+              marginTop: Platform.OS === 'web' ? 0 : Math.max(insets.top, 12) + 8,
+              marginBottom: Platform.OS === 'web' ? 0 : Math.max(insets.bottom, 12),
             },
           ]}
           pointerEvents="auto"
@@ -1054,6 +1057,7 @@ export function CotizacionLibreModal({
               const next = Math.ceil(event.nativeEvent.layout.height);
               setFooterHeight((prev) => (prev === next ? prev : next));
             }}
+            testID="cotizacion-dialogo-acciones"
             style={[
               styles.footer,
               footerApilado && styles.footerStack,
@@ -1159,6 +1163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    paddingHorizontal: 0,
   },
   scrimHit: {
     zIndex: 0,
@@ -1170,11 +1175,10 @@ const styles = StyleSheet.create({
       : null),
   },
   panel: {
-    flex: 1,
     zIndex: 2,
     alignSelf: 'stretch',
-    maxWidth: 560,
-    marginHorizontal: SPACING.fixed.md,
+    maxWidth: 800,
+    marginHorizontal: Platform.OS === 'web' ? 0 : SPACING.fixed.md,
     borderRadius: BORDERS.radius.xl,
     overflow: 'hidden',
     backgroundColor: I.paper,
@@ -1184,6 +1188,7 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1, minHeight: 0 },
   header: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.fixed.md,
