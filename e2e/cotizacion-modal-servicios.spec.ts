@@ -200,6 +200,82 @@ async function capaOpacaYEncima(page: Page) {
   }
 }
 
+async function toastNoTapaAcciones(page: Page) {
+  await page.evaluate(() => {
+    document.getElementById('mm-toast-prueba')?.remove();
+    document.getElementById('mm-dock-prueba')?.remove();
+    const toast = document.createElement('div');
+    toast.id = 'mm-toast-prueba';
+    toast.setAttribute('data-testid', 'host-snackbar');
+    toast.textContent = 'Aviso de prueba del taller';
+    toast.style.cssText = [
+      'position:fixed',
+      'left:16px',
+      'right:16px',
+      'bottom:16px',
+      'z-index:200000',
+      'background:#fff',
+      'padding:16px',
+      'border-radius:12px',
+      'box-shadow:0 8px 24px rgba(0,0,0,.18)',
+    ].join(';');
+    document.body.appendChild(toast);
+    const dock = document.createElement('div');
+    dock.id = 'mm-dock-prueba';
+    dock.setAttribute('data-testid', 'alerta-flotante-taller');
+    dock.textContent = 'Alerta flotante';
+    dock.style.cssText = [
+      'position:fixed',
+      'left:0',
+      'right:0',
+      'bottom:72px',
+      'z-index:200000',
+      'background:#fff',
+      'padding:16px',
+    ].join(';');
+    document.body.appendChild(dock);
+  });
+
+  const toast = page.locator('#mm-toast-prueba');
+  await expect(toast).toBeVisible();
+  await expect(page.locator('#mm-dock-prueba')).toBeHidden();
+
+  const tbox = await toast.boundingBox();
+  const footer = page.getByTestId('cotizacion-dialogo-acciones');
+  await expect(footer).toBeVisible();
+  const fbox = await footer.boundingBox();
+  expect(tbox).toBeTruthy();
+  expect(fbox).toBeTruthy();
+  expect(tbox!.y + tbox!.height, JSON.stringify({ toast: tbox, footer: fbox })).toBeLessThan(fbox!.y - 2);
+
+  const botones = footer.getByRole('button');
+  const n = await botones.count();
+  expect(n).toBeGreaterThan(0);
+  for (let i = 0; i < n; i += 1) {
+    const box = await botones.nth(i).boundingBox();
+    if (!box || box.width < 8 || box.height < 8) continue;
+    const hit = await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      const acciones = document.querySelector('[data-testid="cotizacion-dialogo-acciones"]');
+      return {
+        enAcciones: Boolean(acciones && el && acciones.contains(el)),
+        testid: el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? null,
+        texto: (el?.textContent || '').slice(0, 48),
+      };
+    }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    expect(hit.testid, JSON.stringify({ i, box, hit })).not.toBe('host-snackbar');
+    expect(hit.testid, JSON.stringify({ i, box, hit })).not.toBe('alerta-flotante-taller');
+    expect(hit.enAcciones, JSON.stringify({ i, box, hit })).toBeTruthy();
+  }
+}
+
+async function quitarToastPrueba(page: Page) {
+  await page.evaluate(() => {
+    document.getElementById('mm-toast-prueba')?.remove();
+    document.getElementById('mm-dock-prueba')?.remove();
+  });
+}
+
 async function medirDialogo(page: Page, width: number) {
   const dialogo = page.getByTestId('cotizacion-dialogo');
   await expect(dialogo).toBeVisible();
@@ -281,6 +357,7 @@ test('el modal de cotización cabe en 1280, 390 y 320 sin scroll doble', async (
     }));
     await medirDialogo(page, width);
     await capaOpacaYEncima(page);
+    await toastNoTapaAcciones(page);
     await sinDesborde(page);
     await sinZoomLock(page);
     await expect(page.getByRole('button', { name: 'Crear en blanco' })).toBeVisible();
@@ -288,6 +365,7 @@ test('el modal de cotización cabe en 1280, 390 y 320 sin scroll doble', async (
     if (stem) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
     }
+    await quitarToastPrueba(page);
     await page.keyboard.press('Escape');
   }
 
@@ -340,7 +418,7 @@ test('con servicios[] agrupa mano de obra y deja las sugerencias aparte', async 
   await expect(page.getByRole('button', { name: 'Aceptar' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Descartar' }).first()).toBeVisible();
   await expect(page.getByText('Otros repuestos')).toBeVisible();
-  await page.getByText('Sensor sin precio').scrollIntoViewIfNeeded();
+  await verValorCampo(page, 'Sensor sin precio');
   await expect(page.getByPlaceholder('Por confirmar').first()).toBeVisible();
   await expect(page.getByText('Estimado', { exact: true }).first()).toBeVisible();
   await sinDesborde(page);
@@ -361,16 +439,26 @@ async function verValorCampo(page: Page, valor: string) {
   expect(encontrado, `no hay input con valor «${valor}»`).toBeTruthy();
 }
 
-async function lineaEncimaDelFooter(page: Page, texto: string | RegExp, ultimo = false) {
-  const dialogo = page.getByTestId('cotizacion-dialogo');
-  const linea = ultimo ? dialogo.getByText(texto).last() : dialogo.getByText(texto).first();
-  await linea.scrollIntoViewIfNeeded();
+async function lineaEncimaDelFooter(page: Page, locator: ReturnType<Page['getByText']>) {
+  await locator.evaluate((nodo) => {
+    const scroller = (nodo as HTMLElement).closest('[data-testid="cotizacion-dialogo"]');
+    if (scroller) {
+      [...scroller.querySelectorAll('*')].forEach((n) => {
+        const h = n as HTMLElement;
+        const oy = window.getComputedStyle(h).overflowY;
+        if (h.scrollHeight > h.clientHeight + 4 && (oy === 'auto' || oy === 'scroll' || oy === 'overlay')) {
+          h.scrollTop = h.scrollHeight;
+        }
+      });
+    }
+    (nodo as HTMLElement).scrollIntoView({ block: 'end', inline: 'nearest' });
+  });
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));
-  const box = await linea.boundingBox();
+  const box = await locator.boundingBox();
   const footer = await page.getByTestId('cotizacion-dialogo-acciones').boundingBox();
-  expect(box, `no se ve «${texto}»`).toBeTruthy();
+  expect(box, 'el bloque no está en pantalla').toBeTruthy();
   expect(footer).toBeTruthy();
   expect(
     box!.y + box!.height,
@@ -441,21 +529,22 @@ c.enviada_en = timezone.now()`);
 
     await medirDialogo(page, width);
     await capaOpacaYEncima(page);
+    await toastNoTapaAcciones(page);
     if (width >= 1024) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
     }
 
-    await dialogo.getByText('Sensor sin precio').first().scrollIntoViewIfNeeded();
     await expect(dialogo.getByText('Sensor sin precio').first()).toBeVisible();
     await expect(dialogo.getByText(/Verificado|Precio asumido/).last()).toBeVisible();
     await expect(dialogo.getByText(/Por confirmar|Estimado/).first()).toBeVisible();
-    await lineaEncimaDelFooter(page, 'Sensor sin precio');
-    await lineaEncimaDelFooter(page, /Verificado|Precio asumido/, true);
+    await lineaEncimaDelFooter(page, dialogo.getByText('Sensor sin precio').first());
+    await lineaEncimaDelFooter(page, dialogo.getByTestId('sugerencia-linea').last());
     await sinDesborde(page);
     await sinZoomLock(page);
     if (width < 1024) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
     }
+    await quitarToastPrueba(page);
     await page.keyboard.press('Escape');
     await expect(dialogo).toBeHidden({ timeout: 10000 });
   }

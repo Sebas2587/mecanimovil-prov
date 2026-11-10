@@ -19,7 +19,7 @@ import {
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import { alertaHomeCotizador } from '@/utils/decisionCotizador';
-import { CapaSobreApp } from '@/components/web/CapaSobreApp';
+import { CapaSobreApp, useModalAriaAbierto } from '@/components/web/CapaSobreApp';
 
 const I = COLORS.institutional;
 const PAPER = I.paper || COLORS.background.paper;
@@ -390,7 +390,8 @@ function HomeFloatingAlertsDockInner({
     if (alert.href) router.push(alert.href);
   }, [dismissLead]);
 
-  if (!enabled || items.length === 0) return null;
+  const modalAbierto = useModalAriaAbierto();
+  if (!enabled || items.length === 0 || modalAbierto) return null;
 
   return (
     <CapaSobreApp>

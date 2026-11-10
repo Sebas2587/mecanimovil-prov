@@ -20,8 +20,7 @@ function inyectarApiladoModalWeb() {
   style.id = id;
   style.textContent = `
     /* El paper de RN-web deja ver el dashboard por el compositor.
-       #root se oculta solo visualmente: toasts y alertas salen a document.body
-       (CapaSobreApp, z-index 200000), así se siguen viendo con el modal abierto. */
+       #root se oculta solo visualmente: toasts salen a document.body. */
     body:has([aria-modal="true"]) #root {
       isolation: isolate;
       z-index: 0;
@@ -45,6 +44,15 @@ function inyectarApiladoModalWeb() {
     }
     [data-testid="cotizacion-dialogo-fondo"] {
       background-color: ${FONDO} !important;
+    }
+    /* Avisos visibles con el modal, nunca encima del footer de acciones. */
+    body:has([aria-modal="true"]) [data-testid="host-snackbar"] {
+      top: 12px !important;
+      bottom: auto !important;
+      transform: none !important;
+    }
+    body:has([aria-modal="true"]) [data-testid="alerta-flotante-taller"] {
+      display: none !important;
     }
   `;
   document.head.appendChild(style);

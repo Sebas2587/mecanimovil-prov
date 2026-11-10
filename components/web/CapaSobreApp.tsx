@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-/** Por encima del diálogo de cotización (100000) y del chrome. */
+/** Por encima del diálogo (100000). Con modal abierto van arriba, nunca sobre el footer. */
 export const TOASTS_Z = 200000;
 
 type PortalFn = (children: React.ReactNode, container: Element) => React.ReactPortal;
@@ -15,9 +15,29 @@ if (Platform.OS === 'web') {
   }
 }
 
+/** RN-web Modal pone `aria-modal="true"` en el portal del body. */
+export function useModalAriaAbierto(): boolean {
+  const [abierto, setAbierto] = useState(false);
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const sync = () => setAbierto(Boolean(document.querySelector('[aria-modal="true"]')));
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['aria-modal'],
+    });
+    return () => obs.disconnect();
+  }, []);
+  return abierto;
+}
+
 /**
- * Pinta toasts y alertas en el body, encima del modal.
- * El chrome de la app (tabs, banner, FAB) sigue en #root, debajo del backdrop.
+ * Pinta toasts en el body para que se vean con el modal abierto.
+ * El chrome (tabs, banner, FAB) sigue en #root, debajo del backdrop.
+ * pointerEvents box-none: la capa no intercepta taps; los hijos sí.
  */
 export function CapaSobreApp({ children }: { children: React.ReactNode }) {
   const capa = (

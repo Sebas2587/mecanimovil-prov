@@ -296,7 +296,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: altoFooter + Math.max(insets.bottom, SPACING.fixed.sm) },
+          { paddingBottom: altoFooter + Math.max(insets.bottom, SPACING.fixed.md) + SPACING.fixed.lg },
         ]}
         showsVerticalScrollIndicator={false}
       >

@@ -57,7 +57,7 @@ export function SugerenciaLinea({
           El cotizador lo propone como complemento. No se cobra hasta que lo aceptes.
         </InstitutionalText>
       )}
-      {pendiente ? (
+      {pendiente && !compact ? (
         <InstitutionalText role="caption" color="muted">
           Mientras esté pendiente, no se suma al total ni lo ve el cliente.
         </InstitutionalText>
