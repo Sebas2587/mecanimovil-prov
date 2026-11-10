@@ -189,11 +189,13 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   stickyInner: {
+    flex: 1,
     flexGrow: 1,
     flexShrink: 1,
     minHeight: 0,
     width: '100%',
     flexDirection: 'column',
+    overflow: 'hidden',
     zIndex: 1,
   },
   handleHit: {

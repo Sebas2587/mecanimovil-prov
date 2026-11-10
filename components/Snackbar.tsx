@@ -11,6 +11,7 @@ import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-sys
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { CapaSobreApp } from '@/components/web/CapaSobreApp';
 
 const I = COLORS.institutional;
 const NATIVE_DRIVER = Platform.OS !== 'web';
@@ -105,6 +106,7 @@ export default function Snackbar({
   }
 
   return (
+    <CapaSobreApp>
     <Animated.View
       testID="host-snackbar"
       accessibilityLabel={message}
@@ -159,6 +161,7 @@ export default function Snackbar({
         </TouchableOpacity>
       </View>
     </Animated.View>
+    </CapaSobreApp>
   );
 }
 

@@ -14,16 +14,24 @@ const FONDO = COLORS.background.glassDark;
 function inyectarApiladoModalWeb() {
   if (!WEB || typeof document === 'undefined') return;
   const id = 'mm-cotizacion-dialogo-stack';
-  if (document.getElementById(id)) return;
+  const prev = document.getElementById(id);
+  if (prev) prev.remove();
   const style = document.createElement('style');
   style.id = id;
   style.textContent = `
+    /* El paper de RN-web deja ver el dashboard por el compositor.
+       #root se oculta solo visualmente: toasts y alertas salen a document.body
+       (CapaSobreApp, z-index 200000), así se siguen viendo con el modal abierto. */
     body:has([aria-modal="true"]) #root {
-      visibility: hidden !important;
-      pointer-events: none !important;
+      isolation: isolate;
+      z-index: 0;
+      visibility: hidden;
     }
     body > div:has([aria-modal="true"]) {
+      position: fixed !important;
+      inset: 0 !important;
       z-index: ${COTIZACION_DIALOGO_Z} !important;
+      background-color: ${FONDO} !important;
     }
     [aria-modal="true"] {
       z-index: ${COTIZACION_DIALOGO_Z} !important;
@@ -31,6 +39,7 @@ function inyectarApiladoModalWeb() {
     }
     [data-testid="cotizacion-dialogo"] {
       background-color: ${PAPEL} !important;
+      background-image: linear-gradient(${PAPEL}, ${PAPEL}) !important;
       isolation: isolate;
       opacity: 1 !important;
     }
