@@ -18,9 +18,9 @@ describe('ReferenciaTiendaLinea', () => {
         }}
       />,
     );
-    expect(view.getAllByText(/Imaparts/).length).toBeGreaterThan(0);
     expect(view.getByLabelText('Ver en Imaparts')).toBeTruthy();
-    expect(view.getByText('Casa sugerida: Adriazola')).toBeTruthy();
-    expect(view.getByText(/no verificado en Adriazola/)).toBeTruthy();
+    expect(view.getAllByLabelText(/Ver en/).length).toBe(1);
+    expect(view.getByText(/Casa sugerida: Adriazola/)).toBeTruthy();
+    expect(view.getByText(/Casa sugerida: Adriazola\. Precio referencial de Imaparts/)).toBeTruthy();
   });
 });

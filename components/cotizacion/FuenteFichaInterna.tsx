@@ -9,17 +9,19 @@ import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import {
   avisosFichaInterna,
   fichasInternasDe,
-  type FichaInterna,
+  fichasOrigenSinRepetir,
+  type FichaOrigenVista,
 } from '@/components/cotizacion/repuestoCerteza';
 
 const I = COLORS.institutional;
 
-const FichaFuenteRow = React.memo(function FichaFuenteRow({ ficha }: { ficha: FichaInterna }) {
-  const url = ficha.url.trim();
+const FichaFuenteRow = React.memo(function FichaFuenteRow({ ficha }: { ficha: FichaOrigenVista }) {
+  const url = (ficha.url || '').trim();
   const abrir = useCallback(() => {
     if (!url) return;
     Linking.openURL(url).catch(() => undefined);
   }, [url]);
+  if (!ficha.tienda && !ficha.titulo && ficha.precio == null && !url) return null;
 
   return (
     <View style={styles.fichaRow}>
@@ -34,7 +36,7 @@ const FichaFuenteRow = React.memo(function FichaFuenteRow({ ficha }: { ficha: Fi
             {ficha.titulo}
           </InstitutionalText>
         ) : null}
-        {ficha.precio > 0 ? (
+        {ficha.precio != null && ficha.precio > 0 ? (
           <InstitutionalText role="caption" color="ink">
             Precio en ficha {formatearMontoCLP(ficha.precio)}
           </InstitutionalText>
@@ -63,14 +65,14 @@ type Props = {
   vehiculoAnio?: number | string | null;
 };
 
-/** Trazabilidad interna: de qué ficha salió el precio. No viaja al cliente. */
+/** Trazabilidad interna: datos de la ficha que no están junto al precio. */
 export const FuenteFichaInterna = React.memo(function FuenteFichaInterna({
   rep,
   vehiculoAnio,
 }: Props) {
-  const fichas = fichasInternasDe(rep);
-  if (!fichas.length) return null;
-  const avisos = avisosFichaInterna(rep, fichas, vehiculoAnio);
+  const fichas = fichasOrigenSinRepetir(rep);
+  const avisos = avisosFichaInterna(rep, fichasInternasDe(rep), vehiculoAnio);
+  if (!fichas.length && !avisos.length) return null;
 
   return (
     <View style={styles.box} accessibilityLabel="Fuente del precio, solo taller">

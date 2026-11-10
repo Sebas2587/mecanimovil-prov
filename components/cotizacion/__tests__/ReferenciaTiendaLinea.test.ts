@@ -1,5 +1,6 @@
 import {
   lineaPrecioEstimado,
+  textoCasaSugeridaLinea,
   textoEspecificacionLinea,
   tiendaPrecioLinea,
   vistaReferenciaTienda,
@@ -73,6 +74,16 @@ describe('vistaReferenciaTienda', () => {
 
   it('no inventa referencia si no hay tienda, casa ni URL', () => {
     expect(vistaReferenciaTienda({})).toBeNull();
+  });
+
+  it('casa sugerida y nota van en una sola línea discreta', () => {
+    expect(textoCasaSugeridaLinea({
+      proveedor_nombre: 'Imaparts',
+      url_producto: 'https://www.imaparts.cl/kit',
+      casa_sugerida: 'Adriazola',
+      precio_verificado_en_casa: false,
+      nota_referencia: 'Precio referencial de Imaparts, no verificado en Adriazola.',
+    })).toBe('Casa sugerida: Adriazola. Precio referencial de Imaparts, no verificado en Adriazola.');
   });
 
   it('un false por omisión no inventa aviso si no hay casa ni nota', () => {

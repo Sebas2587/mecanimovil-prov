@@ -39,6 +39,24 @@ describe('decisión del taller sobre líneas del cotizador', () => {
     expect(visibleAlCliente({ ...sugerido, estado_sugerencia: 'pendiente' })).toBe(false);
   });
 
+  it('no cobra una línea sin clasificar ni una con rol duda', () => {
+    expect(cobraAlCliente({
+      ...pedido,
+      identidad: 'sin_clasificar',
+      rol: 'duda',
+    })).toBe(false);
+    expect(cobraAlCliente({
+      ...pedido,
+      identidad: 'otra',
+      rol: 'repuesto',
+    })).toBe(false);
+    expect(cobraAlCliente({
+      ...pedido,
+      rol: 'sistema',
+    })).toBe(false);
+    expect(cobraAlCliente(pedido)).toBe(true);
+  });
+
   it('el total ignora sugerencias pendientes y no las trata como incompletas', () => {
     const canon = totalesDesdeLineas({
       repuestos: [pedido, sugerido],

@@ -42,6 +42,8 @@ export type LineaDecision = {
   origen?: OrigenLinea | string | null;
   motivo_sugerencia?: string | null;
   estado_sugerencia?: SugerenciaEstado | string | null;
+  identidad?: string | null;
+  rol?: string | null;
 };
 
 export type RevisionSugerencias = {
@@ -80,9 +82,26 @@ export function motivoSugerencia(rep: LineaDecision | null | undefined): string 
   return String(rep?.motivo_sugerencia || '').trim();
 }
 
-/** Pedido siempre. Sugerencia solo si el taller la aceptó. Pendiente y descartada no. */
+function rolNormalizado(rep: LineaDecision | null | undefined): string {
+  return String(rep?.rol || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function identidadNormalizada(rep: LineaDecision | null | undefined): string {
+  return String(rep?.identidad || '').trim().toLowerCase();
+}
+
+/** Pieza sin clasificar o rol duda/sistema: no entra al total (contrato PR48). */
+export function lineaSinClasificar(rep: LineaDecision | null | undefined): boolean {
+  const identidad = identidadNormalizada(rep);
+  if (identidad === 'sin_clasificar' || identidad === 'otra') return true;
+  const rol = rolNormalizado(rep);
+  return rol === 'duda' || rol === 'sistema' || rol === 'mano_obra';
+}
+
+/** Pedido siempre, salvo duda/sin clasificar. Sugerencia solo si el taller la aceptó. */
 export function cobraAlCliente(rep: LineaDecision | null | undefined): boolean {
   if (!rep) return false;
+  if (lineaSinClasificar(rep)) return false;
   if (origenLinea(rep) === 'pedido') return true;
   return sugerenciaEstado(rep) === 'aceptada';
 }

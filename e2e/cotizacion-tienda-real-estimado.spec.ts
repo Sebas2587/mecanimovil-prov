@@ -125,6 +125,7 @@ c.repuestos = [
         'nombre_producto': 'Aceite de caja 75W-80 1 litro',
         'url_producto': 'https://www.todoauto.cl/aceite-caja-75w80-1l',
         'proveedor_nombre': 'Todoauto',
+        'motivo_tienda': 'no disponible en Imaparts',
         'precio_estimado': False,
         'certeza': 'confirmado',
         'validacion_estado': 'ok',
@@ -135,7 +136,7 @@ c.repuestos = [
         'id': 'sensor',
         'nombre': 'Sensor de detonación',
         'identidad': 'sin_clasificar',
-        'rol': 'repuesto',
+        'rol': 'duda',
         'origen': 'pedido',
         'cantidad': 1,
         'precio_unitario_clp': 10000,
@@ -169,11 +170,13 @@ c.save(update_fields=['repuestos', 'mano_obra_clp', 'metadata'])`);
 
   await expect(page.getByText('Kit de embrague').first()).toBeVisible({ timeout: 25_000 });
   await page.getByRole('button', { name: 'Costo, tienda y margen' }).first().click();
-  await expect(page.getByRole('link', { name: 'Ver en Imaparts' })).toBeVisible();
+  const verEnImaparts = page.getByRole('link', { name: 'Ver en Imaparts' });
+  await expect(verEnImaparts).toHaveCount(1);
   await expect(page.getByRole('link', { name: 'Ver en Adriazola' })).toHaveCount(0);
-  const casaSugerida = page.getByText('Casa sugerida: Adriazola', { exact: true });
+  await expect(page.getByRole('link', { name: 'Abrir ficha de la tienda' })).toHaveCount(0);
+  await expect(page.getByText('Imaparts', { exact: true })).toHaveCount(0);
+  const casaSugerida = page.getByText(/Casa sugerida: Adriazola\. Precio referencial de Imaparts/);
   await expect(casaSugerida).toBeVisible();
-  await expect(page.getByText(/Precio referencial de Imaparts, no verificado en Adriazola/)).toBeVisible();
   await capturas(page, 'COTIZACION-TIENDA-REAL', casaSugerida);
 
   await expect(page.getByText('75W-80 · 2.5 L · 3 un.')).toBeVisible();

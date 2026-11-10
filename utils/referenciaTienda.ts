@@ -17,6 +17,7 @@ export type ReferenciaTiendaInput = {
   certeza?: string | null;
   especificacion?: string | null;
   cantidad?: number | string | null;
+  precio_unitario_clp?: number | null;
 };
 
 export type ReferenciaTiendaVista = {
@@ -105,8 +106,10 @@ function notaSiNoEsLaCasa(rep: ReferenciaTiendaInput, casa: string): string {
 export function vistaReferenciaTienda(rep: ReferenciaTiendaInput): ReferenciaTiendaVista | null {
   const url = urlPrecioLinea(rep);
   const tienda = tiendaPrecioLinea(rep);
-  const raw = rep.precio_verificado_clp;
-  const precio = raw == null || !Number.isFinite(Number(raw)) ? '' : formatearMontoCLP(raw);
+  const raw = rep.precio_verificado_clp ?? rep.precio_unitario_clp;
+  const precio = raw == null || !Number.isFinite(Number(raw)) || Number(raw) <= 0
+    ? ''
+    : formatearMontoCLP(raw);
   const casaSugerida = texto(rep.casa_sugerida);
   const nota = notaSiNoEsLaCasa(rep, casaSugerida);
   if (!url && !tienda && !casaSugerida && !nota) return null;
@@ -117,4 +120,13 @@ export function vistaReferenciaTienda(rep: ReferenciaTiendaInput): ReferenciaTie
     casaSugerida,
     nota,
   };
+}
+
+/** Casa sugerida y nota en una sola línea. Vacío si no hay nada. */
+export function textoCasaSugeridaLinea(rep: ReferenciaTiendaInput): string {
+  const ref = vistaReferenciaTienda(rep);
+  if (!ref) return '';
+  return [ref.casaSugerida ? `Casa sugerida: ${ref.casaSugerida}` : '', ref.nota]
+    .filter(Boolean)
+    .join('. ');
 }

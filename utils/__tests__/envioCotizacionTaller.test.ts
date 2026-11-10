@@ -68,10 +68,11 @@ describe('gateEnviarCotizacionTaller', () => {
         dudas: [
           { id: 'precio-estimado-sensor-de-detonacion', texto: 'El precio es estimado.', confirmada: false },
           { id: 'pieza-sensor-de-detonacion', texto: 'No clasifiqué la pieza.', confirmada: false },
+          { id: 'precio-bomba-de-embrague', texto: 'Sin ficha propia de la bomba.', confirmada: false },
         ],
       },
     }, continuar);
-    expect(showAlert).toHaveBeenCalledWith('Falta tu opinión', expect.stringMatching(/2 dudas/));
+    expect(showAlert).toHaveBeenCalledWith('Falta tu opinión', expect.stringMatching(/3 dudas/));
     expect(continuar).not.toHaveBeenCalled();
   });
 
