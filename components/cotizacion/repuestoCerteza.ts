@@ -5,6 +5,7 @@ import type {
   OpcionRepuesto,
   RepuestoCotizacion,
 } from '@/services/cotizacionCanalService';
+import { tiendaPrecioLinea, urlPrecioLinea } from '@/utils/referenciaTienda';
 
 export const FAMILIAS_SENSIBLES_UI: Record<string, { label: string; opciones: string[] }> = {
   bujia: { label: 'Tipo de bujía', opciones: ['Cobre', 'Platino', 'Iridio'] },
@@ -158,22 +159,21 @@ export function nombreFuente(f: FuenteRepuesto): string {
   return dominio || ETIQUETA_FUENTE[f.fuente || ''] || 'Referencia';
 }
 
-/** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */
+/** Nombre de la tienda del precio para chip; nunca casa_sugerida. */
 export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
-  // Priorizar la casa seleccionada por el nuevo motor de consolidación
-  if (rep.casa_repuesto_nombre) {
-    return rep.casa_repuesto_nombre;
-  }
-  
+  const tienda = tiendaPrecioLinea(rep);
+  if (tienda) return tienda;
   const certeza = certezaDe(rep);
-  const tienda = (rep.proveedor_nombre || rep.tienda_ml || '').trim();
   // Precio escrito a mano (asumido) sin casa elegida: no inventar un chip.
-  if (certeza === 'asumido' && !rep.proveedor_id && !tienda) return null;
+  if (certeza === 'asumido' && !rep.proveedor_id) return null;
   const fuentes = fuentesDe(rep);
   if (!fuentes.length) return null;
-  return fuentes.length > 1
-    ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
-    : nombreFuente(fuentes[0]);
+  const nombre = nombreFuente(fuentes[0]);
+  const casaSugerida = String(rep.casa_sugerida || '').trim();
+  if (!nombre || (casaSugerida && nombre.toLocaleLowerCase('es-CL') === casaSugerida.toLocaleLowerCase('es-CL'))) {
+    return null;
+  }
+  return fuentes.length > 1 ? `${nombre} +${fuentes.length - 1}` : nombre;
 }
 
 /**
@@ -181,10 +181,8 @@ export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
  * Explica por qué se eligió esta casa: precio, disponibilidad, consolidación, etc.
  */
 export function motivoSeleccionCasa(rep: RepuestoCotizacion): string | null {
-  const motivo = (rep.motivo_seleccion || '').trim();
+  const motivo = (rep.motivo_tienda || rep.motivo_seleccion || '').trim();
   if (!motivo) return null;
-  
-  // Capitalizar primera letra
   return motivo.charAt(0).toUpperCase() + motivo.slice(1);
 }
 
@@ -425,6 +423,49 @@ export function fichasInternasDe(rep: RepuestoCotizacion): FichaInterna[] {
     });
   }
   return [...byKey.values()].filter((f) => Boolean(f.url));
+}
+
+function urlClave(url: string): string {
+  return url.trim().toLowerCase().replace(/\/+$/, '');
+}
+
+export type FichaOrigenVista = {
+  url: string | null;
+  tienda: string;
+  titulo: string;
+  precio: number | null;
+};
+
+/**
+ * Fichas de origen sin repetir la tienda/enlace/precio que ya están junto al cobrado.
+ * Vacío si no queda ningún dato propio del taller.
+ */
+export function fichasOrigenSinRepetir(rep: RepuestoCotizacion): FichaOrigenVista[] {
+  const urlRef = urlPrecioLinea(rep);
+  const claveRef = urlRef ? urlClave(urlRef) : '';
+  const nombreLinea = (rep.nombre || '').trim().toLowerCase();
+  const precioLinea = Math.round(Number(
+    rep.precio_verificado_clp
+    ?? rep.precio_marketplace_clp
+    ?? rep.precio_unitario_clp
+    ?? 0,
+  ) || 0);
+
+  const vistas: FichaOrigenVista[] = [];
+  for (const ficha of fichasInternasDe(rep)) {
+    const repetida = Boolean(claveRef && urlClave(ficha.url) === claveRef);
+    const titulo = (ficha.titulo || '').trim();
+    const tituloUnico = Boolean(titulo) && titulo.toLowerCase() !== nombreLinea;
+    const precioUnico = ficha.precio > 0 && ficha.precio !== precioLinea;
+    if (repetida && !tituloUnico && !precioUnico) continue;
+    vistas.push({
+      url: repetida ? null : (ficha.url || null),
+      tienda: repetida ? '' : (ficha.tienda || ''),
+      titulo: tituloUnico || !repetida ? titulo : '',
+      precio: precioUnico ? ficha.precio : null,
+    });
+  }
+  return vistas;
 }
 
 const ANIO_RANGO_RE = /\b((?:19|20)\d{2})\s*[-–/a]\s*((?:19|20)\d{2})\b/i;

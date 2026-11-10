@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { Sparkles, Trash2 } from 'lucide-react-native';
 import { COLORS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -18,6 +18,7 @@ import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { TallerPildora } from '@/components/taller/TallerPildora';
 import { esLineaSugerida, sugerenciaEstado, type SugerenciaEstado } from '@/utils/decisionCotizador';
+import { lineaPrecioEstimado, textoEspecificacionLinea } from '@/utils/referenciaTienda';
 import {
   badgeConsolidacion,
   casaRepuestosLabel,
@@ -100,7 +101,6 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const subtotal = subtotalRepuesto(rep);
   const precioPendiente = buscandoPrecio && precioUnit <= 0;
   const origenLabel = origenTagLabel(rep);
-  const urlProducto = (rep.url_producto || '').trim();
   const certeza = certezaDe(rep);
   const specOps = opcionesFamilia(rep);
   const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
@@ -190,8 +190,21 @@ const RepuestoRow = React.memo(function RepuestoRow({
           )}
         />
       ) : (
-        <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
+        <View style={styles.estadoRow}>
+          <InstitutionalTag label="Pedido" variant="neutral" size="sm" uppercase={false} />
+          {lineaPrecioEstimado(rep) ? (
+            <InstitutionalTag label="Estimado" variant="neutral" size="sm" uppercase={false} />
+          ) : null}
+        </View>
       )}
+      {esLineaSugerida(rep) && lineaPrecioEstimado(rep) ? (
+        <InstitutionalTag label="Estimado" variant="neutral" size="sm" uppercase={false} />
+      ) : null}
+      {textoEspecificacionLinea(rep) ? (
+        <InstitutionalText role="caption" color="muted">
+          {textoEspecificacionLinea(rep)}
+        </InstitutionalText>
+      ) : null}
 
       <ValidacionRepuestoLinea rep={rep} />
 
@@ -307,7 +320,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
       ) : null}
       <SeccionOpcional
         title="Costo, tienda y margen"
-        hint={[casaLabel, origenLabel, consolidacionBadge].filter(Boolean).join(' · ') || 'Detalle de la línea'}
+        hint={[...new Set([casaLabel, origenLabel, consolidacionBadge].filter(Boolean))].join(' · ') || 'Detalle de la línea'}
       >
         <View style={styles.estadoRow}>
           <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
@@ -337,32 +350,6 @@ const RepuestoRow = React.memo(function RepuestoRow({
               uppercase={false}
             />
           ) : null}
-          {casaLabel ? (
-            urlProducto ? (
-              <TouchableOpacity
-                onPress={() => {
-                  Linking.openURL(urlProducto).catch(() => undefined);
-                }}
-                accessibilityRole="link"
-                accessibilityLabel={`Abrir fuente en ${origenLabel || casaLabel}`}
-                hitSlop={6}
-              >
-                <InstitutionalTag
-                  label={casaLabel}
-                  variant="neutral"
-                  size="sm"
-                  uppercase={false}
-                />
-              </TouchableOpacity>
-            ) : (
-              <InstitutionalTag
-                label={casaLabel}
-                variant="neutral"
-                size="sm"
-                uppercase={false}
-              />
-            )
-          ) : null}
         </View>
         {motivoSeleccion ? (
           <View style={styles.motivoSeleccionRow}>
@@ -387,7 +374,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
             onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
           />
         ) : null}
-        {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre ? (
+        {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre
+          && casaLabel !== rep.proveedor_nombre.trim() ? (
           <InstitutionalText role="caption" color="muted">
             Precio de {rep.proveedor_nombre}
           </InstitutionalText>

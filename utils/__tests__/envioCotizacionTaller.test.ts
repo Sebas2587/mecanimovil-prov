@@ -61,6 +61,21 @@ describe('gateEnviarCotizacionTaller', () => {
     expect(continuar).toHaveBeenCalledTimes(1);
   });
 
+  it('bloquea las dudas nuevas de PR48 sin cambiar el flujo', () => {
+    gateEnviarCotizacionTaller({
+      repuestos: [pedido],
+      metadata: {
+        dudas: [
+          { id: 'precio-estimado-sensor-de-detonacion', texto: 'El precio es estimado.', confirmada: false },
+          { id: 'pieza-sensor-de-detonacion', texto: 'No clasifiqué la pieza.', confirmada: false },
+          { id: 'precio-bomba-de-embrague', texto: 'Sin ficha propia de la bomba.', confirmada: false },
+        ],
+      },
+    }, continuar);
+    expect(showAlert).toHaveBeenCalledWith('Falta tu opinión', expect.stringMatching(/3 dudas/));
+    expect(continuar).not.toHaveBeenCalled();
+  });
+
   it('sigue de inmediato si no hay dudas ni sugerencias pendientes', () => {
     gateEnviarCotizacionTaller({ repuestos: [pedido] }, continuar);
     expect(showAlert).not.toHaveBeenCalled();

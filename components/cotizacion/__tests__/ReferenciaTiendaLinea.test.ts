@@ -1,4 +1,10 @@
-import { vistaReferenciaTienda } from '@/utils/referenciaTienda';
+import {
+  lineaPrecioEstimado,
+  textoCasaSugeridaLinea,
+  textoEspecificacionLinea,
+  tiendaPrecioLinea,
+  vistaReferenciaTienda,
+} from '@/utils/referenciaTienda';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import {
   cobradoUnitarioLinea,
@@ -9,6 +15,22 @@ import {
 } from '@/utils/margenRepuestos';
 
 describe('vistaReferenciaTienda', () => {
+  it('usa proveedor_nombre y url_producto; nunca casa_sugerida como tienda del precio', () => {
+    const ref = vistaReferenciaTienda({
+      url_producto: 'https://www.imaparts.cl/kit-embrague-oroch',
+      proveedor_nombre: 'Imaparts',
+      casa_sugerida: 'Adriazola',
+      casa_repuesto_nombre: 'Adriazola',
+      precio_verificado_en_casa: false,
+      nota_referencia: 'Precio referencial de Imaparts, no verificado en Adriazola.',
+    });
+    expect(ref?.tienda).toBe('Imaparts');
+    expect(ref?.url).toContain('imaparts.cl');
+    expect(ref?.casaSugerida).toBe('Adriazola');
+    expect(ref?.nota).toContain('no verificado en Adriazola');
+    expect(ref?.tienda).not.toBe('Adriazola');
+  });
+
   it('nombra la tienda del link y deja la casa sugerida aparte', () => {
     const ref = vistaReferenciaTienda({
       url_referencia: 'https://todoauto.cl/pieza',
@@ -36,14 +58,72 @@ describe('vistaReferenciaTienda', () => {
     expect(ref?.nota).toBe('');
   });
 
-  it('oculta la referencia si no hay URL', () => {
-    expect(vistaReferenciaTienda({
+  it('sin URL aún muestra la tienda del precio y la casa sugerida', () => {
+    const ref = vistaReferenciaTienda({
       url_referencia: '',
       tienda_referencia: 'TodoAuto Chile',
       casa_sugerida: 'Adriazola',
       precio_verificado_en_casa: false,
       nota_referencia: 'Precio referencial de TodoAuto, no verificado en Adriazola.',
-    })).toBeNull();
+    });
+    expect(ref?.url).toBeNull();
+    expect(ref?.tienda).toBe('TodoAuto Chile');
+    expect(ref?.casaSugerida).toBe('Adriazola');
+    expect(ref?.nota).toContain('no verificado en Adriazola');
+  });
+
+  it('no inventa referencia si no hay tienda, casa ni URL', () => {
+    expect(vistaReferenciaTienda({})).toBeNull();
+  });
+
+  it('casa sugerida y nota van en una sola línea discreta', () => {
+    expect(textoCasaSugeridaLinea({
+      proveedor_nombre: 'Imaparts',
+      url_producto: 'https://www.imaparts.cl/kit',
+      casa_sugerida: 'Adriazola',
+      precio_verificado_en_casa: false,
+      nota_referencia: 'Precio referencial de Imaparts, no verificado en Adriazola.',
+    })).toBe('Casa sugerida: Adriazola. Precio referencial de Imaparts, no verificado en Adriazola.');
+  });
+
+  it('un false por omisión no inventa aviso si no hay casa ni nota', () => {
+    expect(vistaReferenciaTienda({
+      precio_verificado_en_casa: false,
+      proveedor_nombre: 'Imaparts',
+      url_producto: 'https://www.imaparts.cl/kit',
+    })?.nota).toBe('');
+  });
+});
+
+describe('lineaPrecioEstimado y especificación', () => {
+  it('marca Estimado si precio_estimado es true o si está asumido sin URL', () => {
+    expect(lineaPrecioEstimado({ precio_estimado: true })).toBe(true);
+    expect(lineaPrecioEstimado({
+      precio_estimado: false,
+      certeza: 'asumido',
+      url_producto: 'https://www.imaparts.cl/kit',
+    })).toBe(false);
+    expect(lineaPrecioEstimado({ certeza: 'asumido' })).toBe(true);
+    expect(lineaPrecioEstimado({})).toBe(false);
+  });
+
+  it('muestra especificación y cantidad cuando vienen', () => {
+    expect(textoEspecificacionLinea({
+      especificacion: '75W-80 · 2.5 L',
+      cantidad: 3,
+    })).toBe('75W-80 · 2.5 L · 3 un.');
+    expect(textoEspecificacionLinea({ cantidad: 1 })).toBe('');
+  });
+
+  it('tiendaPrecioLinea no cae a casa_sugerida', () => {
+    expect(tiendaPrecioLinea({
+      casa_sugerida: 'Adriazola',
+      casa_repuesto_nombre: 'Adriazola',
+    })).toBe('');
+    expect(tiendaPrecioLinea({
+      tienda_referencia: 'Imaparts',
+      casa_sugerida: 'Adriazola',
+    })).toBe('Imaparts');
   });
 });
 

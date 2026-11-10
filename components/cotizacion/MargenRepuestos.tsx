@@ -12,6 +12,7 @@ import {
   type LineaMargenInput,
   type TotalesMargenServidor,
 } from '@/utils/margenRepuestos';
+import { lineaGananciaEstimada } from '@/utils/referenciaTienda';
 
 type ColorMargen = 'semanticUp' | 'semanticDown' | 'muted';
 
@@ -28,6 +29,8 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
 }) {
   const m = margenLineaRepuesto(rep);
   const pct = textoMargenPct(m.margenPct);
+  const estimado = lineaGananciaEstimada(rep);
+  const marca = estimado ? ' Estimado' : '';
   return (
     <View style={styles.row} testID="economia-repuesto-linea" accessibilityLabel="Costo final, cobrado y ganancia">
       <InstitutionalText role="caption" color="muted">
@@ -39,6 +42,7 @@ export const MargenRepuestoLinea = React.memo(function MargenRepuestoLinea({
       <InstitutionalText role="caption" color={colorDe(m.margenClp)}>
         Ganancia {m.margenClp == null ? (m.cobradoLinea == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO) : textoMargenClp(m.margenClp)}
         {pct ? ` ${pct}` : ''}
+        {marca}
       </InstitutionalText>
     </View>
   );
@@ -61,6 +65,8 @@ export function ResumenMargenRepuestos({
     : r.cobradoTotal;
   const ganancia = usarServidor ? servidor?.ganancia_repuestos_clp ?? null : r.ganancia;
   const pct = textoMargenPct(usarServidor ? servidor?.margen_repuestos_pct ?? null : r.margenPct);
+  const estimado = repuestos.some((linea) => lineaGananciaEstimada(linea));
+  const marca = estimado ? ' Estimado' : '';
   return (
     <View style={styles.resumen} testID="economia-repuestos-totales" accessibilityLabel="Costo final, cobrado y ganancia de repuestos">
       <Fila label="Costo final repuestos" valor={costoTotal == null ? TEXTO_SIN_COSTO : textoMargenClp(costoTotal)} />
@@ -69,7 +75,7 @@ export function ResumenMargenRepuestos({
         label="Ganancia repuestos"
         valor={ganancia == null
           ? (cobradoTotal == null ? textoCobradoClp(null) : TEXTO_SIN_COSTO)
-          : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}`}
+          : `${textoMargenClp(ganancia)}${pct ? ` ${pct}` : ''}${marca}`}
         color={colorDe(ganancia)}
       />
     </View>

@@ -69,7 +69,7 @@ import { formatDateApi } from '@/utils/fechaLocal';
 import { gateEnviarCotizacionTaller } from '@/utils/envioCotizacionTaller';
 import { showAlert } from '@/utils/platformAlert';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
-import { dudasDe } from '@/utils/decisionCotizador';
+import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
 import {
   envioTotalBloqueado,
   formatearTotalConocido,
@@ -391,7 +391,7 @@ export const CotizacionIaEditor = React.forwardRef<
 
 
   const totalRepuestos = useMemo(
-    () => repuestos.reduce((acc, r) => acc + subtotalRepuesto(r), 0),
+    () => repuestos.reduce((acc, r) => acc + (cobraAlCliente(r) ? subtotalRepuesto(r) : 0), 0),
     [repuestos],
   );
 

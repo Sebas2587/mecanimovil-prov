@@ -238,6 +238,13 @@ export interface RepuestoCotizacion {
   motivo_seleccion?: string;
   /** Cuántas alternativas había disponibles. */
   alternativas_descartadas?: number;
+  /** Identidad y rol del cotizador PR48. Ausente en cotizaciones viejas. */
+  identidad?: string;
+  rol?: 'repuesto' | 'insumo' | 'mano de obra' | 'duda' | 'sistema' | string;
+  ganancia_estimada?: boolean;
+  costo_origen?: string;
+  /** Por qué esta pieza no se cotizó en la tienda del resto. Vacío si sí. */
+  motivo_tienda?: string;
   /** Pedido por el taller, o complemento sugerido por el cotizador. Ausente = pedido. */
   origen?: OrigenLinea | string;
   /** Por qué el cotizador sugiere esta línea. Vacío en las pedidas. */

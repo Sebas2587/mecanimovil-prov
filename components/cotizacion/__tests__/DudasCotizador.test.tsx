@@ -21,4 +21,38 @@ describe('DudasCotizador', () => {
     fireEvent.press(view.getByLabelText('Confirmar'));
     expect(onConfirmar).toHaveBeenCalledWith('d1');
   });
+
+  it('muestra las dudas nuevas de precio estimado y pieza', async () => {
+    const view = await render(
+      <DudasCotizador
+        editable
+        dudas={[
+          {
+            id: 'precio-estimado-sensor-de-detonacion',
+            texto: 'El precio de Sensor de detonación es estimado, sin ficha de tienda.',
+            confirmada: false,
+          },
+          {
+            id: 'kit-composicion',
+            texto: 'Confirma si el kit incluye el rodamiento piloto.',
+            confirmada: false,
+          },
+          {
+            id: 'precio-bomba-de-embrague',
+            texto: 'Sin ficha propia de la bomba.',
+            confirmada: false,
+          },
+          {
+            id: 'liquido-especificacion',
+            texto: 'Confirma DOT4 y los litros.',
+            confirmada: false,
+          },
+        ]}
+      />,
+    );
+    expect(view.getByText(/precio de Sensor de detonación es estimado/)).toBeTruthy();
+    expect(view.getByText(/kit incluye el rodamiento piloto/)).toBeTruthy();
+    expect(view.getByText(/Sin ficha propia de la bomba/)).toBeTruthy();
+    expect(view.getByText(/Confirma DOT4/)).toBeTruthy();
+  });
 });

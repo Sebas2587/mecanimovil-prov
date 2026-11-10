@@ -12,6 +12,8 @@ export type LineaRepuestoTotal = {
   precio_unitario_clp?: number | string | null;
   origen?: string | null;
   estado_sugerencia?: string | null;
+  identidad?: string | null;
+  rol?: string | null;
 };
 
 export type LineaManoObraTotal = {

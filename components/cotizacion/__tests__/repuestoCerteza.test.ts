@@ -6,20 +6,31 @@ import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import {
   casaRepuestosLabel,
   fichasInternasDe,
+  fichasOrigenSinRepetir,
   motivoSeleccionCasa,
   badgeConsolidacion,
   nombreFuente,
 } from '../repuestoCerteza';
 
 describe('casaRepuestosLabel', () => {
-  it('debe priorizar casa_repuesto_nombre del motor de consolidación', () => {
+  it('muestra Imaparts si el precio salió de ahí, no Adriazola', () => {
+    const rep: Partial<RepuestoCotizacion> = {
+      proveedor_nombre: 'Imaparts',
+      casa_sugerida: 'Adriazola',
+      casa_repuesto_nombre: 'Adriazola',
+      url_producto: 'https://www.imaparts.cl/kit',
+    };
+    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Imaparts');
+  });
+
+  it('si hay proveedor_nombre, no usa casa_repuesto_nombre como tienda del precio', () => {
     const rep: Partial<RepuestoCotizacion> = {
       casa_repuesto_nombre: 'Autoplanet',
       proveedor_nombre: 'Casa Antigua',
       tienda_ml: 'Tienda ML',
     };
-    
-    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Autoplanet');
+
+    expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBe('Casa Antigua');
   });
 
   it('debe caer a proveedor_nombre si no hay casa_repuesto_nombre', () => {
@@ -37,6 +48,35 @@ describe('casaRepuestosLabel', () => {
     };
     
     expect(casaRepuestosLabel(rep as RepuestoCotizacion)).toBeNull();
+  });
+});
+
+describe('fichasOrigenSinRepetir', () => {
+  it('no repite la tienda ni el enlace que ya están junto al precio', () => {
+    const fichas = fichasOrigenSinRepetir({
+      nombre: 'Kit de embrague',
+      cantidad: 1,
+      precio_unitario_clp: 89000,
+      proveedor_nombre: 'Imaparts',
+      url_producto: 'https://www.imaparts.cl/kit-embrague-oroch',
+      nombre_producto: 'Kit de embrague Renault Oroch 2019',
+      precio_marketplace_clp: 89000,
+    } as RepuestoCotizacion);
+    expect(fichas).toHaveLength(1);
+    expect(fichas[0].tienda).toBe('');
+    expect(fichas[0].url).toBeNull();
+    expect(fichas[0].titulo).toBe('Kit de embrague Renault Oroch 2019');
+    expect(fichas[0].precio).toBeNull();
+  });
+
+  it('omite el bloque si no queda ningún dato propio', () => {
+    expect(fichasOrigenSinRepetir({
+      nombre: 'Kit de embrague',
+      cantidad: 1,
+      precio_unitario_clp: 89000,
+      proveedor_nombre: 'Imaparts',
+      url_producto: 'https://www.imaparts.cl/kit',
+    } as RepuestoCotizacion)).toEqual([]);
   });
 });
 
@@ -76,6 +116,22 @@ describe('nombreFuente', () => {
 });
 
 describe('motivoSeleccionCasa', () => {
+  it('muestra motivo_tienda de la consolidación', () => {
+    expect(motivoSeleccionCasa({
+      nombre: 'Bomba de embrague',
+      cantidad: 1,
+      precio_unitario_clp: 28990,
+      motivo_tienda: 'no disponible en Imaparts',
+    } as RepuestoCotizacion)).toBe('No disponible en Imaparts');
+    expect(motivoSeleccionCasa({
+      nombre: 'Cilindro',
+      cantidad: 1,
+      precio_unitario_clp: 18990,
+      motivo_tienda: '25% más barato en Todoauto',
+      motivo_seleccion: '25% más barato en Todoauto',
+    } as RepuestoCotizacion)).toBe('25% más barato en Todoauto');
+  });
+
   it('debe retornar el motivo capitalizado', () => {
     const rep: Partial<RepuestoCotizacion> = {
       motivo_seleccion: 'mejor precio (ahorra $5.000), stock confirmado',
