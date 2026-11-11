@@ -45,11 +45,19 @@ function inyectarApiladoModalWeb() {
     [data-testid="cotizacion-dialogo-fondo"] {
       background-color: ${FONDO} !important;
     }
-    /* Avisos visibles con el modal, nunca encima del footer de acciones. */
+    /* Avisos visibles con el modal: debajo de la cabecera/título y lejos de la X y del footer. */
     body:has([aria-modal="true"]) [data-testid="host-snackbar"] {
-      top: 12px !important;
+      top: 136px !important;
       bottom: auto !important;
       transform: none !important;
+      max-width: 768px !important;
+      margin-inline: auto !important;
+      box-sizing: border-box !important;
+    }
+    @media (min-width: 720px) {
+      body:has([aria-modal="true"]) [data-testid="host-snackbar"] {
+        top: calc(5vh + 136px) !important;
+      }
     }
     body:has([aria-modal="true"]) [data-testid="alerta-flotante-taller"] {
       display: none !important;

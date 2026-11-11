@@ -115,7 +115,7 @@ export default function Snackbar({
       style={[
         styles.container,
         modalAbierto
-          ? { top: Math.max(insets.top, SPACING.md) }
+          ? { top: Math.max(insets.top, 136) }
           : { bottom: insets.bottom + SPACING.md },
         {
           transform: [{ translateY: slideAnim }],

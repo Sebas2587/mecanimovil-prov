@@ -216,6 +216,9 @@ async function toastNoTapaAcciones(page: Page) {
       'z-index:200000',
       'background:#fff',
       'padding:16px',
+      'min-height:56px',
+      'line-height:24px',
+      'box-sizing:border-box',
       'border-radius:12px',
       'box-shadow:0 8px 24px rgba(0,0,0,.18)',
     ].join(';');
@@ -241,12 +244,53 @@ async function toastNoTapaAcciones(page: Page) {
   await expect(page.locator('#mm-dock-prueba')).toBeHidden();
 
   const tbox = await toast.boundingBox();
+  const dialogo = page.getByTestId('cotizacion-dialogo');
+  const cerrar = dialogo.getByRole('button', { name: 'Cerrar', exact: true });
+  await expect(cerrar).toBeVisible();
+  const cbox = await cerrar.boundingBox();
   const footer = page.getByTestId('cotizacion-dialogo-acciones');
   await expect(footer).toBeVisible();
   const fbox = await footer.boundingBox();
   expect(tbox).toBeTruthy();
+  expect(cbox).toBeTruthy();
   expect(fbox).toBeTruthy();
+
+  const hitCerrar = await page.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y);
+    const dialog = document.querySelector('[data-testid="cotizacion-dialogo"]');
+    const btn = dialog?.querySelector('[aria-label="Cerrar"]');
+    return {
+      enCerrar: Boolean(btn && el && (btn === el || btn.contains(el))),
+      enDialogo: Boolean(dialog && el && dialog.contains(el)),
+      testid: el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? null,
+      ariaLabel: el?.closest?.('[aria-label]')?.getAttribute('aria-label') ?? null,
+    };
+  }, { x: cbox!.x + cbox!.width / 2, y: cbox!.y + cbox!.height / 2 });
+  expect(hitCerrar.testid, JSON.stringify({ cbox, hitCerrar })).not.toBe('host-snackbar');
+  expect(hitCerrar.testid, JSON.stringify({ cbox, hitCerrar })).not.toBe('alerta-flotante-taller');
+  expect(hitCerrar.enCerrar, JSON.stringify({ cbox, hitCerrar })).toBeTruthy();
+
+  expect(tbox!.y, JSON.stringify({ toast: tbox, cerrar: cbox })).toBeGreaterThan(cbox!.y + cbox!.height + 2);
   expect(tbox!.y + tbox!.height, JSON.stringify({ toast: tbox, footer: fbox })).toBeLessThan(fbox!.y - 2);
+
+  const titulo = dialogo.getByText(/^(Nueva cotización|Cambio de embrague)$/).first();
+  if (await titulo.isVisible().catch(() => false)) {
+    const titBox = await titulo.boundingBox();
+    if (titBox && titBox.width >= 8 && titBox.height >= 8) {
+      expect(tbox!.y, JSON.stringify({ toast: tbox, titulo: titBox })).toBeGreaterThan(titBox.y + titBox.height + 2);
+      const hitTitulo = await page.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        const dialog = document.querySelector('[data-testid="cotizacion-dialogo"]');
+        return {
+          enDialogo: Boolean(dialog && el && dialog.contains(el)),
+          testid: el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? null,
+          texto: (el?.textContent || '').slice(0, 48),
+        };
+      }, { x: titBox.x + titBox.width / 2, y: titBox.y + titBox.height / 2 });
+      expect(hitTitulo.testid, JSON.stringify({ titBox, hitTitulo })).not.toBe('host-snackbar');
+      expect(hitTitulo.enDialogo, JSON.stringify({ titBox, hitTitulo })).toBeTruthy();
+    }
+  }
 
   const botones = footer.getByRole('button');
   const n = await botones.count();
@@ -364,6 +408,7 @@ test('el modal de cotización cabe en 1280, 390 y 320 sin scroll doble', async (
     await expect(page.getByRole('button', { name: 'Generar con IA' })).toBeVisible();
     if (stem) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
+      await page.screenshot({ path: `/workspace/mm/shots/${stem}.png` });
     }
     await quitarToastPrueba(page);
     await page.keyboard.press('Escape');
@@ -532,6 +577,7 @@ c.enviada_en = timezone.now()`);
     await toastNoTapaAcciones(page);
     if (width >= 1024) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
+      await page.screenshot({ path: `/workspace/mm/shots/${stem}.png` });
     }
 
     await expect(dialogo.getByText('Sensor sin precio').first()).toBeVisible();
@@ -543,10 +589,120 @@ c.enviada_en = timezone.now()`);
     await sinZoomLock(page);
     if (width < 1024) {
       await page.screenshot({ path: `/opt/cursor/artifacts/${stem}.png` });
+      await page.screenshot({ path: `/workspace/mm/shots/${stem}.png` });
     }
     await quitarToastPrueba(page);
     await page.keyboard.press('Escape');
     await expect(dialogo).toBeHidden({ timeout: 10000 });
+  }
+
+  await context.close();
+});
+
+test('con un toast visible la X y los CTA son clickeables y la X cierra el modal en 1280, 390 y 320', async ({ browser, request }) => {
+  test.setTimeout(180000);
+  const login = await request.post(`${API}/usuarios/login-proveedor/`, {
+    data: { username: 'taller@test.com', password: 'test123' },
+  });
+  const owner = await login.json();
+  expect(login.ok()).toBeTruthy();
+  const auth = { Authorization: `Token ${owner.token}` };
+  const stamp = Date.now().toString().slice(-6);
+  const cliente = `Cliente Toast X ${stamp}`;
+
+  const creada = await request.post(`${API}/ordenes/cotizaciones-canal/crear-borrador/`, {
+    headers: auth,
+    data: {
+      cliente_nombre: cliente,
+      cliente_telefono: '+56911110029',
+      servicio_nombre: 'Cambio de embrague',
+      modalidad: 'taller',
+      vehiculo: { marca: 'Renault', modelo: 'Oroch', anio: 2019, patente: `TX${stamp}` },
+    },
+  });
+  expect(creada.ok()).toBeTruthy();
+  const cotizacionId = (await creada.json()).cotizacion.id as number;
+  sembrarServicios(cotizacionId, `c.estado = 'enviada'
+c.enviada_en = timezone.now()`);
+
+  const context = await browser.newContext();
+  await context.addInitScript(({ token, user, apiUrl }) => {
+    localStorage.setItem('FORCE_LOCAL_API', 'true');
+    localStorage.setItem('LOCAL_API_URL', apiUrl);
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userData', JSON.stringify(user));
+  }, { token: owner.token, user: owner.user, apiUrl: API });
+  const page = await context.newPage();
+
+  for (const [width, height] of [
+    [1280, 800],
+    [390, 844],
+    [320, 700],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+
+    // 1. Ficha SHOW (Cliente aceptó, Eliminar, título y X)
+    await page.goto(`${BASE_URL}/cotizaciones`);
+    await cerrarAvisoLegal(page);
+    const buscador = page.getByLabel('Buscar cotizaciones');
+    await expect(buscador).toBeVisible({ timeout: 20000 });
+    await buscador.fill(cliente);
+    await expect(page.getByText(cliente).first()).toBeVisible({ timeout: 20000 });
+    await page.getByRole('button', { name: new RegExp(`Abrir cotización de ${cliente}`) }).first().click();
+
+    const dialogo = page.getByTestId('cotizacion-dialogo');
+    await expect(dialogo).toBeVisible({ timeout: 25000 });
+    await expect(dialogo.getByRole('button', { name: 'Cliente aceptó' })).toBeVisible();
+    await expect(dialogo.getByRole('button', { name: 'Eliminar' })).toBeVisible();
+    await toastNoTapaAcciones(page);
+
+    const cerrarShow = dialogo.getByRole('button', { name: 'Cerrar', exact: true });
+    await cerrarShow.click({ timeout: 5000 });
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+
+    const restauradoShow = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      const toast = document.getElementById('mm-toast-prueba');
+      const dock = document.getElementById('mm-dock-prueba');
+      return {
+        rootVis: root ? window.getComputedStyle(root).visibility : 'missing',
+        dockDisplay: dock ? window.getComputedStyle(dock).display : 'missing',
+        toastBottom: toast ? toast.getBoundingClientRect().bottom : 0,
+        vh: window.innerHeight,
+      };
+    });
+    expect(restauradoShow.rootVis).toBe('visible');
+    expect(restauradoShow.dockDisplay).not.toBe('none');
+    expect(restauradoShow.toastBottom).toBeGreaterThan(restauradoShow.vh - 32);
+    await quitarToastPrueba(page);
+
+    // 2. Modal de nueva cotización (Generar con IA, Crear en blanco, título y X)
+    await page.goto(`${BASE_URL}/`);
+    await cerrarAvisoLegal(page);
+    await page.getByRole('button', { name: 'Nueva cotización' }).first().click();
+    await expect(dialogo).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('button', { name: 'Generar con IA' })).toBeVisible();
+    await toastNoTapaAcciones(page);
+
+    const cerrarLibre = dialogo.getByRole('button', { name: 'Cerrar', exact: true });
+    await cerrarLibre.click({ timeout: 5000 });
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+
+    const restauradoLibre = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      const toast = document.getElementById('mm-toast-prueba');
+      const dock = document.getElementById('mm-dock-prueba');
+      return {
+        rootVis: root ? window.getComputedStyle(root).visibility : 'missing',
+        dockDisplay: dock ? window.getComputedStyle(dock).display : 'missing',
+        toastBottom: toast ? toast.getBoundingClientRect().bottom : 0,
+        vh: window.innerHeight,
+      };
+    });
+    expect(restauradoLibre.rootVis).toBe('visible');
+    expect(restauradoLibre.dockDisplay).not.toBe('none');
+    expect(restauradoLibre.toastBottom).toBeGreaterThan(restauradoLibre.vh - 32);
+    await quitarToastPrueba(page);
   }
 
   await context.close();
