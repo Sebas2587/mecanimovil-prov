@@ -65,7 +65,7 @@ export function PlantillaCotizacionDetalleModal({
   const actualizado = formatFechaCortaEs(plantilla.actualizado_en);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} stickyFooter style={styles.sheet}>
+    <BottomSheet visible={visible} onClose={onClose} stickyFooter size="wide">
       <View style={styles.root}>
         <View style={styles.header}>
           <View style={styles.headerText}>
@@ -120,7 +120,7 @@ export function PlantillaCotizacionDetalleModal({
           />
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={styles.footer} testID="cotizacion-dialogo-acciones">
           {onEliminar ? (
             <TouchableOpacity
               style={styles.footerGhost}
@@ -157,16 +157,13 @@ export function PlantillaCotizacionDetalleModal({
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    maxHeight: '94%',
-    paddingHorizontal: SPACING.fixed.md,
-  },
   root: {
     flex: 1,
     minHeight: 0,
     maxHeight: '100%',
   },
   header: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.fixed.sm,

@@ -19,6 +19,7 @@ import {
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import { alertaHomeCotizador } from '@/utils/decisionCotizador';
+import { CapaSobreApp, useModalAriaAbierto } from '@/components/web/CapaSobreApp';
 
 const I = COLORS.institutional;
 const PAPER = I.paper || COLORS.background.paper;
@@ -389,10 +390,12 @@ function HomeFloatingAlertsDockInner({
     if (alert.href) router.push(alert.href);
   }, [dismissLead]);
 
-  if (!enabled || items.length === 0) return null;
+  const modalAbierto = useModalAriaAbierto();
+  if (!enabled || items.length === 0 || modalAbierto) return null;
 
   return (
-    <View pointerEvents="box-none" style={styles.dock}>
+    <CapaSobreApp>
+    <View pointerEvents="box-none" testID="alerta-flotante-taller" style={styles.dock}>
       {/* column-reverse: la más reciente queda pegada al menú; el resto sube */}
       <View style={styles.stack}>
         {[...items].reverse().map((alert) => {
@@ -492,6 +495,7 @@ function HomeFloatingAlertsDockInner({
         })}
       </View>
     </View>
+    </CapaSobreApp>
   );
 }
 
@@ -499,6 +503,10 @@ export const HomeFloatingAlertsDock = memo(HomeFloatingAlertsDockInner);
 
 const styles = StyleSheet.create({
   dock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 72,
     width: '100%',
     flexShrink: 0,
     flexGrow: 0,

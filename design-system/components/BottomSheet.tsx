@@ -6,6 +6,7 @@ import {
   Pressable,
   View,
   StyleSheet,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -14,6 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BORDERS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 
 const C = COLORS;
 const I = COLORS.institutional;
@@ -26,6 +32,8 @@ export type BottomSheetProps = {
   style?: StyleProp<ViewStyle>;
   /** Menos padding inferior cuando el sheet incluye footer sticky (botonera). */
   stickyFooter?: boolean;
+  /** `wide`: cotización — ~800 px y 90vh en web, hoja casi completa en mobile. */
+  size?: 'default' | 'wide';
 };
 
 /**
@@ -38,8 +46,10 @@ export function BottomSheet({
   children,
   style,
   stickyFooter = false,
+  size = 'default',
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { translateY, panHandlers, reset } = useSheetDismissGesture(onClose);
   const bottomPad = IS_WEB
     ? SPACING.fixed.lg
@@ -68,16 +78,18 @@ export function BottomSheet({
       */}
       <View
         pointerEvents="box-none"
-        style={[styles.overlay, IS_WEB && styles.overlayWeb]}
+        style={[styles.overlay, IS_WEB && styles.overlayWeb, size === 'wide' && cotizacionDialogoCapa]}
       >
         <Pressable
           onPress={onClose}
+          testID={size === 'wide' ? 'cotizacion-dialogo-fondo' : undefined}
           style={styles.scrim}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         />
         <Animated.View
           collapsable={false}
+          testID={size === 'wide' ? 'cotizacion-dialogo' : undefined}
           style={[
             styles.sheet,
             stickyFooter && !IS_WEB && styles.sheetSticky,
@@ -85,9 +97,18 @@ export function BottomSheet({
             style,
             IS_WEB && styles.sheetWeb,
             stickyFooter && IS_WEB && styles.sheetWebSticky,
+            size === 'wide' && cotizacionDialogoSuperficie,
+            size === 'wide' && estiloCotizacionDialogo(width),
+            size === 'wide' && styles.sheetWide,
           ]}
           {...panHandlers}
         >
+          {size === 'wide' ? (
+            <View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]}
+            />
+          ) : null}
           {IS_WEB ? (
             <View style={styles.dialogBar}>
               <Pressable
@@ -168,11 +189,14 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   stickyInner: {
+    flex: 1,
     flexGrow: 1,
     flexShrink: 1,
     minHeight: 0,
     width: '100%',
     flexDirection: 'column',
+    overflow: 'hidden',
+    zIndex: 1,
   },
   handleHit: {
     alignItems: 'center',
@@ -186,6 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.border.main,
   },
   dialogBar: {
+    flexShrink: 0,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -199,6 +224,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: I.surfaceSoft,
+  },
+  sheetWide: {
+    overflow: 'hidden',
+    flexDirection: 'column',
   },
 });
 

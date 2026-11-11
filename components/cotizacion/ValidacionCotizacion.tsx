@@ -76,15 +76,24 @@ function DetalleValidacion({
 /** Badge, motivo y alertas de una línea. Nada si el estado no viene. */
 export const ValidacionRepuestoLinea = React.memo(function ValidacionRepuestoLinea({
   rep,
+  compact = false,
 }: {
   rep: {
     validacion_estado?: string | null;
     validacion_motivo?: string | null;
     alertas?: unknown;
   };
+  compact?: boolean;
 }) {
   const vista = vistaValidacionLinea(rep);
   if (!vista) return null;
+  if (compact) {
+    return (
+      <View accessibilityLabel={`Validación ${vista.etiqueta}`}>
+        <BadgeEstado etiqueta={vista.etiqueta} tono={vista.tono} />
+      </View>
+    );
+  }
   return (
     <View style={styles.linea} accessibilityLabel={`Validación ${vista.etiqueta}`}>
       <BadgeEstado etiqueta={vista.etiqueta} tono={vista.tono} />

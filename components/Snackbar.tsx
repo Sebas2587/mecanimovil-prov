@@ -11,6 +11,7 @@ import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-sys
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { CapaSobreApp, useModalAriaAbierto } from '@/components/web/CapaSobreApp';
 
 const I = COLORS.institutional;
 const NATIVE_DRIVER = Platform.OS !== 'web';
@@ -42,6 +43,7 @@ export default function Snackbar({
   onAction,
 }: SnackbarProps) {
   const insets = useSafeAreaInsets();
+  const modalAbierto = useModalAriaAbierto();
   const slideAnim = useRef(new Animated.Value(100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -105,13 +107,17 @@ export default function Snackbar({
   }
 
   return (
+    <CapaSobreApp>
     <Animated.View
       testID="host-snackbar"
+      pointerEvents="auto"
       accessibilityLabel={message}
       style={[
         styles.container,
+        modalAbierto
+          ? { top: Math.max(insets.top, 136) }
+          : { bottom: insets.bottom + SPACING.md },
         {
-          bottom: insets.bottom + SPACING.md,
           transform: [{ translateY: slideAnim }],
           opacity: opacityAnim,
         },
@@ -159,6 +165,7 @@ export default function Snackbar({
         </TouchableOpacity>
       </View>
     </Animated.View>
+    </CapaSobreApp>
   );
 }
 

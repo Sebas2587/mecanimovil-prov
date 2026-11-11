@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react-native';
 import { COLORS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { Card } from '@/app/design-system/components';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
@@ -77,6 +78,19 @@ const ManoObraLineaRow = React.memo(function ManoObraLineaRow({
           </TouchableOpacity>
         ) : null}
       </View>
+      {line.estimada ? (
+        <InstitutionalTag label="Estimada" variant="neutral" size="sm" uppercase={false} />
+      ) : null}
+      {line.horas != null && line.horas > 0 ? (
+        <InstitutionalText role="caption" color="muted">
+          {line.horas} h
+        </InstitutionalText>
+      ) : null}
+      {line.motivo ? (
+        <InstitutionalText role="caption" color="muted">
+          {line.motivo}
+        </InstitutionalText>
+      ) : null}
       <View>
         <InstitutionalText role="label" color="muted" style={styles.colLabel}>
           Precio

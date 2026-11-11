@@ -33,6 +33,7 @@ import {
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
 import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
+import { textoPrecioVisible } from '@/utils/textoPrecioVisible';
 import type { RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { patchPrecioEscritoPorTaller } from '@/services/cotizacionCanalService';
 import { showConfirm } from '@/utils/platformAlert';
@@ -64,7 +65,7 @@ function origenTagLabel(rep: RepuestoCotizacion): string | null {
   return null;
 }
 
-const RepuestoRow = React.memo(function RepuestoRow({
+export const RepuestoRow = React.memo(function RepuestoRow({
   rep,
   index,
   editable,
@@ -248,7 +249,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
                 ? 'Buscando'
                 : (certeza === 'sin_precio'
                   ? (rango || 'Buscar')
-                  : '0')
+                  : 'Por confirmar')
             }
             onChangeValue={(next) => onUpdate(index, patchPrecioEscritoPorTaller(next))}
           />
@@ -269,9 +270,17 @@ const RepuestoRow = React.memo(function RepuestoRow({
                 role="numberDisplay"
                 color="ink"
                 style={styles.subtotalValue}
-                accessibilityLabel={subtotal > 0 ? `Subtotal ${formatearMontoCLP(subtotal)}` : 'Subtotal sin precio'}
+                accessibilityLabel={`Subtotal ${textoPrecioVisible({
+                  precio_unitario_clp: subtotal,
+                  precio_estimado: lineaPrecioEstimado(rep),
+                  certeza: rep.certeza,
+                })}`}
               >
-                {subtotal > 0 ? formatearMontoCLP(subtotal) : '—'}
+                {textoPrecioVisible({
+                  precio_unitario_clp: subtotal,
+                  precio_estimado: lineaPrecioEstimado(rep),
+                  certeza: rep.certeza,
+                })}
               </InstitutionalText>
             )}
           </View>

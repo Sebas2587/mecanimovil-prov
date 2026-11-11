@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react-native';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
+import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
 import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
 import cotizacionCanalService, {
@@ -38,7 +40,10 @@ import { RevisionTallerBanner } from '@/components/cotizacion/RevisionTallerBann
 import { SugerenciaLinea } from '@/components/cotizacion/SugerenciaLinea';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { ValidacionRepuestoLinea } from '@/components/cotizacion/ValidacionCotizacion';
-import { cobraAlCliente, dudasDe } from '@/utils/decisionCotizador';
+import { cobraAlCliente, dudasDe, esLineaSugerida } from '@/utils/decisionCotizador';
+import { serviciosDeCotizacion } from '@/utils/serviciosCotizacion';
+import { textoPrecioVisible } from '@/utils/textoPrecioVisible';
+import { lineaPrecioEstimado } from '@/utils/referenciaTienda';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import {
   pedirConfirmacionEliminarCotizacion,
@@ -61,9 +66,37 @@ type Props = {
   onClose: () => void;
 };
 
+function PrecioDesglose({
+  precio,
+  estimado,
+  pendienteSinCobrar,
+}: {
+  precio: string;
+  estimado?: boolean;
+  pendienteSinCobrar?: boolean;
+}) {
+  return (
+    <View style={styles.precioCol}>
+      <View style={styles.precioFila}>
+        <InstitutionalText role="caption">{precio}</InstitutionalText>
+        {estimado && precio !== 'Estimado' ? (
+          <InstitutionalTag label="Estimado" variant="neutral" size="sm" uppercase={false} />
+        ) : null}
+      </View>
+      {pendienteSinCobrar ? (
+        <InstitutionalText role="caption" color="muted">
+          No se cobra hasta aceptar
+        </InstitutionalText>
+      ) : null}
+    </View>
+  );
+}
+
 function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
+  const [altoFooter, setAltoFooter] = useState(72);
   const detalleQuery = useCotizacionCanalDetalleQuery(cotizacionId, cotizacionId != null);
   const cotizacion = detalleQuery.data;
 
@@ -234,6 +267,10 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
     () => (cotizacion ? lineasDesgloseCotizacion(cotizacion) : []),
     [cotizacion],
   );
+  const gruposServicio = useMemo(
+    () => (cotizacion ? serviciosDeCotizacion(cotizacion) : null),
+    [cotizacion],
+  );
   const repuestoPorLinea = useMemo(() => {
     const mapa = new Map<string, NonNullable<CotizacionCanal['repuestos']>[number]>();
     (cotizacion?.repuestos ?? []).forEach((repuesto, index) => {
@@ -253,11 +290,14 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
       visible={cotizacionId != null}
       onClose={onClose}
       stickyFooter
-      style={styles.sheet}
+      size="wide"
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: altoFooter + Math.max(insets.bottom, SPACING.fixed.md) + SPACING.fixed.lg },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {!cotizacion ? (
@@ -354,7 +394,57 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
 
             <View style={styles.bloque}>
               <InstitutionalText role="bodyBold">Desglose</InstitutionalText>
-              {lineas.length === 0 ? (
+              {gruposServicio ? gruposServicio.map((grupo) => (
+                grupo.esOtros && grupo.pedidos.length === 0 ? null : (
+                <View key={grupo.id} testID={grupo.esOtros ? 'servicio-grupo-otros' : 'servicio-grupo'} style={styles.lineaBloque}>
+                  <InstitutionalText role="bodyBold">{grupo.nombre}</InstitutionalText>
+                  {grupo.esOtros ? null : (
+                    <>
+                      <View style={styles.linea}>
+                        <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
+                          Mano de obra
+                          {grupo.manoObra.horas != null && grupo.manoObra.horas > 0 ? ` · ${grupo.manoObra.horas} h` : ''}
+                          {grupo.manoObra.estimada ? ' · Estimada' : ''}
+                        </InstitutionalText>
+                        <PrecioDesglose
+                          precio={textoPrecioVisible({
+                            monto_clp: grupo.manoObra.monto_clp,
+                            estimada: grupo.manoObra.estimada,
+                          })}
+                          estimado={grupo.manoObra.estimada}
+                        />
+                      </View>
+                      {grupo.manoObra.motivo ? (
+                        <InstitutionalText role="caption" color="body" numberOfLines={2}>
+                          {grupo.manoObra.motivo}
+                        </InstitutionalText>
+                      ) : null}
+                    </>
+                  )}
+                  {grupo.soloMano ? null : grupo.pedidos.map((repuesto, index) => (
+                    <View key={repuesto.id || `${repuesto.nombre}-${index}`} style={styles.lineaBloque}>
+                      <View style={styles.linea}>
+                        <View style={styles.lineaLabel}>
+                          <InstitutionalText role="caption" color="body">
+                            {repuesto.nombre}{Number(repuesto.cantidad) > 1 ? ` × ${repuesto.cantidad}` : ''}
+                          </InstitutionalText>
+                          <ValidacionRepuestoLinea compact rep={repuesto} />
+                        </View>
+                        <PrecioDesglose
+                          precio={textoPrecioVisible({
+                            ...repuesto,
+                            precio_estimado: lineaPrecioEstimado(repuesto),
+                          })}
+                          estimado={lineaPrecioEstimado(repuesto)}
+                        />
+                      </View>
+                      <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
+                        <MargenRepuestoLinea rep={repuesto} />
+                      </SeccionOpcional>
+                    </View>
+                  ))}
+                </View>
+              ))) : lineas.length === 0 ? (
                 <InstitutionalText role="caption" color="body">
                   El detalle de piezas y mano de obra está en el documento.
                 </InstitutionalText>
@@ -367,11 +457,14 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                         <InstitutionalText role="caption" color="body" style={styles.lineaLabel}>
                           {linea.label}{linea.cantidad > 1 ? ` × ${linea.cantidad}` : ''}
                         </InstitutionalText>
-                        <InstitutionalText role="caption">
-                          {linea.sugerida && !linea.cobra
-                            ? 'No se cobra'
-                            : (linea.monto == null ? 'Incompleto' : formatearMontoCLP(linea.monto))}
-                        </InstitutionalText>
+                        <PrecioDesglose
+                          precio={textoPrecioVisible({
+                            monto_clp: linea.monto,
+                            precio_estimado: repuesto ? lineaPrecioEstimado(repuesto) : false,
+                          })}
+                          estimado={Boolean(repuesto && lineaPrecioEstimado(repuesto))}
+                          pendienteSinCobrar={Boolean(linea.sugerida && !linea.cobra)}
+                        />
                       </View>
                       {repuesto ? (
                         <>
@@ -381,7 +474,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                             editable={estado === 'borrador'}
                             onDecidir={(estadoSugerencia) => decidirSugerencia(repuesto, estadoSugerencia)}
                           />
-                          <ValidacionRepuestoLinea rep={repuesto} />
+                          <ValidacionRepuestoLinea compact rep={repuesto} />
                           <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
                             <MargenRepuestoLinea rep={repuesto} />
                           </SeccionOpcional>
@@ -391,6 +484,40 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
                   );
                 })
               )}
+              {gruposServicio && gruposServicio.some((grupo) => grupo.sugeridos.length > 0) ? (
+                <View style={styles.lineaBloque}>
+                  <InstitutionalText role="bodyBold">Sugerencias por revisar</InstitutionalText>
+                  {gruposServicio.flatMap((grupo) => grupo.sugeridos).map((repuesto, index) => (
+                    <View key={repuesto.id || `sug-${index}`} style={styles.lineaBloque}>
+                      <View style={styles.linea}>
+                        <View style={styles.lineaLabel}>
+                          <InstitutionalText role="caption" color="body">
+                            {repuesto.nombre}
+                          </InstitutionalText>
+                          <ValidacionRepuestoLinea compact rep={repuesto} />
+                        </View>
+                        <PrecioDesglose
+                          precio={textoPrecioVisible({
+                            ...repuesto,
+                            precio_estimado: lineaPrecioEstimado(repuesto),
+                          })}
+                          estimado={lineaPrecioEstimado(repuesto)}
+                          pendienteSinCobrar={esLineaSugerida(repuesto) && !cobraAlCliente(repuesto)}
+                        />
+                      </View>
+                      <SugerenciaLinea
+                        rep={repuesto}
+                        compact
+                        editable={estado === 'borrador'}
+                        onDecidir={(estadoSugerencia) => decidirSugerencia(repuesto, estadoSugerencia)}
+                      />
+                      <SeccionOpcional title="Costo y tienda" hint="Solo el taller">
+                        <MargenRepuestoLinea rep={repuesto} />
+                      </SeccionOpcional>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
               {(cotizacion.repuestos ?? []).length > 0 ? (
                 <SeccionOpcional title="Costo y ganancia" hint="Solo el taller">
                   <ResumenMargenRepuestos
@@ -435,16 +562,22 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
         )}
       </ScrollView>
       {cotizacion && estado ? (
-        <Acciones
-          estado={estado}
-          busy={busy}
-          puedeEliminar={puedeEliminarCotizacion(cotizacion)}
-          onAceptar={() => void aceptar()}
-          onRechazar={rechazar}
-          onAgendar={agendar}
-          onAbrir={abrirDocumento}
-          onEliminar={eliminar}
-        />
+        <View
+          testID="cotizacion-dialogo-acciones"
+          style={{ flexShrink: 0 }}
+          onLayout={(e) => setAltoFooter(Math.ceil(e.nativeEvent.layout.height))}
+        >
+          <Acciones
+            estado={estado}
+            busy={busy}
+            puedeEliminar={puedeEliminarCotizacion(cotizacion)}
+            onAceptar={() => void aceptar()}
+            onRechazar={rechazar}
+            onAgendar={agendar}
+            onAbrir={abrirDocumento}
+            onEliminar={eliminar}
+          />
+        </View>
       ) : null}
     </BottomSheet>
   );
@@ -648,12 +781,11 @@ function IconoCircular({
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    maxWidth: 560,
-  },
   scroll: {
+    flex: 1,
     flexGrow: 1,
     flexShrink: 1,
+    minHeight: 0,
   },
   scrollContent: {
     paddingBottom: SPACING.fixed.md,
@@ -664,7 +796,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cuerpo: {
-    gap: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
   cabecera: {
     flexDirection: 'row',
@@ -742,6 +874,18 @@ const styles = StyleSheet.create({
   lineaLabel: {
     flex: 1,
   },
+  precioCol: {
+    alignItems: 'flex-end',
+    gap: 2,
+    maxWidth: '55%',
+  },
+  precioFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
   total: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -792,6 +936,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   acciones: {
+    flexShrink: 0,
     paddingTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
   },

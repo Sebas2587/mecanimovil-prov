@@ -11,9 +11,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { X, Check, DollarSign, Plus, Trash2, Building2, Wrench, Package, FileText, Lock } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  cotizacionDialogoCapa,
+  cotizacionDialogoSuperficie,
+  estiloCotizacionDialogo,
+} from '@/app/design-system/layout/cotizacionDialogo';
 import { InstitutionalButton } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import cotizacionCanalService, { type CotizacionCanal, type RepuestoCotizacion } from '@/services/cotizacionCanalService';
@@ -60,6 +66,7 @@ export function ModalAjusteBorrador({
   const [repuestos, setRepuestos] = useState<RepuestoCotizacion[]>([]);
   const [notasInternas, setNotasInternas] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const { width } = useWindowDimensions();
 
   // Obtener la Casa de Repuestos / Vendedor real desde la cotización y repuestos
   const casaRepuestosReal = useMemo(() => {
@@ -208,16 +215,18 @@ export function ModalAjusteBorrador({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
+        style={[styles.overlay, cotizacionDialogoCapa]}
         pointerEvents="box-none"
       >
         <Pressable
+          testID="cotizacion-dialogo-fondo"
           style={styles.backdrop}
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         />
-        <View style={styles.sheetContainer} pointerEvents="auto">
+        <View testID="cotizacion-dialogo" collapsable={false} style={[styles.sheetContainer, cotizacionDialogoSuperficie, estiloCotizacionDialogo(width)]} pointerEvents="auto">
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, cotizacionDialogoSuperficie, { zIndex: 0 }]} />
           {/* Header estilo Airbnb */}
           <View style={styles.header}>
             <View>
@@ -393,7 +402,7 @@ export function ModalAjusteBorrador({
           </ScrollView>
 
           {/* Footer de Aprobación */}
-          <View style={styles.footer}>
+          <View style={styles.footer} testID="cotizacion-dialogo-acciones">
             <InstitutionalButton
               label={`Aprobar y Enviar (${totalVisible})`}
               onPress={handleGuardarYAprobar}
@@ -412,7 +421,8 @@ export function ModalAjusteBorrador({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -422,11 +432,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.base.white,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderTopRightRadius: BORDERS.radius.xl,
-    maxHeight: '88%',
+    width: '100%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     zIndex: 1,
+    minHeight: 0,
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
   header: {
+    flexShrink: 0,
+    zIndex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -454,6 +469,10 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.md,
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
+    zIndex: 1,
   },
   section: {
     marginBottom: SPACING.fixed.lg,
@@ -513,7 +532,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.sm,
     backgroundColor: COLORS.base.white,
     paddingHorizontal: 8,
-    height: 38,
+    minHeight: 44,
   },
   currencyPrefix: {
     fontFamily: FF.sansBold,
@@ -535,19 +554,19 @@ const styles = StyleSheet.create({
   },
   repuestoNombreInput: {
     fontFamily: FF.sansBold,
-    fontSize: 14,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     borderWidth: 1,
     borderColor: I.hairline,
     borderRadius: BORDERS.radius.md,
     backgroundColor: COLORS.base.white,
     paddingHorizontal: SPACING.fixed.sm,
-    height: 40,
+    minHeight: 44,
     marginTop: 2,
   },
   textInputAirbnbSmall: {
     flex: 1,
     fontFamily: FF.sansMedium,
-    fontSize: 13,
+    fontSize: Platform.OS === 'web' ? 16 : 13,
     color: I.ink,
   },
   monoFont: {
@@ -718,6 +737,8 @@ const styles = StyleSheet.create({
     color: COLORS.brand.magenta,
   },
   footer: {
+    flexShrink: 0,
+    zIndex: 1,
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.xs,
   },

@@ -19,6 +19,10 @@ export interface ManoObraLinea {
   id?: string;
   nombre: string;
   monto_clp: number;
+  horas?: number | null;
+  estimada?: boolean;
+  origen?: string;
+  motivo?: string;
 }
 
 export const MAX_MANO_OBRA_LINEAS = 20;
@@ -62,10 +66,17 @@ export function resolverManoObraLineas(c: Pick<CotizacionCanal, 'mano_obra_linea
       const nombre = String(row.nombre || '').trim();
       const monto = montoLineaMo(row);
       if (!nombre && monto <= 0 && !row.id) return;
+      const horas = Number(row.horas);
+      const origen = String(row.origen || '').trim();
+      const motivo = String(row.motivo || '').trim();
       out.push({
         id: String(row.id || `mo-${idx + 1}`),
         nombre: nombre || 'Mano de obra',
         monto_clp: monto,
+        horas: Number.isFinite(horas) && horas > 0 ? horas : undefined,
+        estimada: row.estimada === true || origen === 'estimada',
+        origen: origen || undefined,
+        motivo: motivo || undefined,
       });
     });
   }
@@ -238,6 +249,8 @@ export interface RepuestoCotizacion {
   motivo_seleccion?: string;
   /** Cuántas alternativas había disponibles. */
   alternativas_descartadas?: number;
+  /** Nombre canónico + vehículo con el que se buscó el precio. */
+  consulta?: string;
   /** Identidad y rol del cotizador PR48. Ausente en cotizaciones viejas. */
   identidad?: string;
   rol?: 'repuesto' | 'insumo' | 'mano de obra' | 'duda' | 'sistema' | string;
@@ -313,6 +326,8 @@ export interface CotizacionCanal {
   servicio_nombre: string;
   descripcion_problema: string;
   repuestos: RepuestoCotizacion[];
+  /** Contrato nuevo: grupos de servicio con mano de obra y repuestos. Ausente = vista plana. */
+  servicios?: unknown;
   mano_obra_lineas?: ManoObraLinea[];
   mano_obra_clp: number;
   entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string | null;
@@ -391,6 +406,26 @@ export interface CotizacionCanal {
       precio_mano_obra_clp?: number;
       precio_clp?: number;
       precio_catalogo_clp?: number;
+      horas?: number | null;
+      estimada?: boolean;
+      origen?: string;
+      motivo?: string;
+    }>;
+    servicios?: Array<{
+      id?: string;
+      nombre?: string;
+      solo_mano?: boolean;
+      vehiculo?: { marca?: string; modelo?: string; anio?: number | null; motor?: string };
+      mano_obra?: {
+        monto_clp?: number | null;
+        horas?: number | null;
+        tarifa_hora_clp?: number | null;
+        origen?: string;
+        estimada?: boolean;
+        motivo?: string;
+      };
+      repuestos_requeridos?: Array<{ identidad?: string; nombre?: string; motivo?: string }>;
+      sugeridos?: Array<{ identidad?: string; nombre?: string; motivo?: string }>;
     }>;
   };
   /** Dudas del cotizador al taller. Pendientes bloquean el envío. */
@@ -489,6 +524,8 @@ export type VistaPreviaPublica = {
   modalidad?: string;
   mano_obra_lineas?: Array<{ id?: string; nombre?: string; monto_clp?: number }>;
   mano_obra_clp?: number;
+  servicios?: unknown;
+  metadata?: { servicios?: unknown } | null;
   tipo_documento?: 'estimacion' | 'cotizacion' | string;
   total_min_clp?: number;
   total_max_clp?: number;
@@ -498,6 +535,8 @@ export type VistaPreviaPublica = {
     precio_unitario_clp?: number;
     precio_min_clp?: number;
     precio_max_clp?: number;
+    precio_estimado?: boolean;
+    certeza?: string;
     origen?: OrigenLinea | string;
     estado_sugerencia?: SugerenciaEstado | string;
   }>;
